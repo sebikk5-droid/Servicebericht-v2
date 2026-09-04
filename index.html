@@ -9,7 +9,7 @@
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Servicebericht</title>
+<title>Servicebericht v2.0</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
 header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:4}
@@ -166,6 +166,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
 .history-file-btn,button.history-file-btn{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700;background:#e5e5ea;color:#111;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;font-family:inherit}
+.history-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;position:relative}
+.history-actions .history-file-btn{flex:1;min-width:100px}
 #historyFileInput{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .daybox{
   background:#dceaf8;
@@ -182,7 +184,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 <header>
   <div class="header-top">
     <h1>Servicebericht</h1>
-    <div class="credit">Created by S. Pawlina v1.0</div>
+    <div class="credit">Created by S. Pawlina v2.0</div>
   </div>
   <div class="muted">Servicebericht auf dem iPad ausfüllen</div>
 </header>
@@ -210,26 +212,22 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 <section class="card"><h2>Bemerkungen</h2><textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea></section>
 <section class="card"><h2>Ersatzteile</h2><textarea id="parts" placeholder="- ..."></textarea></section>
 
-<section class="card"><h2>Reise- und Arbeitszeit</h2>
-
-<section id="historySection" class="card" style="margin:12px 0;">
-  <div class="sectiontitle">Historie</div>
-  <div class="row">
-    <div class="field" style="flex:1">
-      <label>Gespeicherte Berichte</label>
-      <select id="historySelect">
-        <option value="">— Bericht auswählen —</option>
-      </select>
-    </div>
-    <div class="field" style="display:flex;align-items:end;gap:8px;flex-wrap:wrap;position:relative">
-      <button type="button" id="historySave" class="history-file-btn">Speichern</button>
-      <label class="history-file-btn" for="historyFileInput">Öffnen</label>
-      <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
-      <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
-    </div>
+<section id="historySection" class="card">
+  <h2>Historie</h2>
+  <label>Gespeicherte Berichte</label>
+  <select id="historySelect">
+    <option value="">— Bericht auswählen —</option>
+  </select>
+  <div class="history-actions">
+    <button type="button" id="historySave" class="history-file-btn">Speichern</button>
+    <label class="history-file-btn" for="historyFileInput">Öffnen</label>
+    <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
+    <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
   </div>
   <div class="muted">Liste wählen lädt den Bericht in der App. Öffnen wählt eine Datei in „Dateien“ (Ordner antippen). Speichern: App + Teilen → In Dateien sichern.</div>
 </section>
+
+<section class="card"><h2>Reise- und Arbeitszeit</h2>
 <div id="times"></div>
 <div class="grid" style="margin-top:12px">
 <div><label>Reisezeit gesamt</label><input id="travelTotal" readonly></div>
@@ -282,7 +280,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 <div id="status"></div>
 </main>
 <div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
-<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="vendor/pdf-lib.min.js"></script>
 <script>
 document.querySelectorAll("#pdfFields input,#pdfFields textarea").forEach(el=>{
   const k="pdf_"+el.id;
@@ -1685,6 +1683,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     document.addEventListener("DOMContentLoaded",installCombined);
   else installCombined();
 })();
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(){});
+  });
+}
 </script>
 
 </body>
