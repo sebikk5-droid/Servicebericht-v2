@@ -1,12 +1,21 @@
 const CACHE_NAME = "servicebericht-v2-0";
 const APP_SHELL = [
-  "./",
-  "./index.html",
-  "./manifest.webmanifest",
+  "./servicebericht-v2.html",
+  "./manifest-v2.webmanifest",
   "./vendor/pdf-lib.min.js",
-  "../companies.json",
-  "../Leer.pdf"
+  "./companies.json",
+  "./Leer.pdf"
 ];
+
+function isV2Navigation(req) {
+  if (req.mode !== "navigate") return false;
+  const path = new URL(req.url).pathname;
+  return (
+    path.endsWith("/servicebericht-v2.html") ||
+    path.endsWith("/v2/") ||
+    path.endsWith("/v2/index.html")
+  );
+}
 
 self.addEventListener("install", event => {
   event.waitUntil(
@@ -26,22 +35,18 @@ self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
 
-  const url = new URL(req.url);
-  const isAppHtml =
-    req.mode === "navigate" ||
-    url.pathname.endsWith("/v2/") ||
-    url.pathname.endsWith("/v2/index.html") ||
-    url.pathname.endsWith("/index.html");
+  // v1 (index.html) must keep using the network. Do not intercept it.
+  if (req.mode === "navigate" && !isV2Navigation(req)) return;
 
-  if (isAppHtml) {
+  if (isV2Navigation(req)) {
     event.respondWith(
       fetch(req, {cache: "no-store"})
         .then(res => {
           const copy = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put("./index.html", copy));
+          caches.open(CACHE_NAME).then(c => c.put("./servicebericht-v2.html", copy));
           return res;
         })
-        .catch(() => caches.match("./index.html"))
+        .catch(() => caches.match("./servicebericht-v2.html"))
     );
     return;
   }

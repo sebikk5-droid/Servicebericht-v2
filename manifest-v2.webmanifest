@@ -1,7 +1,7 @@
 {
   "name": "Servicebericht v2.0",
-  "short_name": "Servicebericht",
-  "start_url": "./index.html",
+  "short_name": "Servicebericht v2",
+  "start_url": "./servicebericht-v2.html",
   "display": "standalone",
   "background_color": "#f2f2f7",
   "theme_color": "#ffffff",

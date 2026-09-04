@@ -1,10 +1,12 @@
-Servicebericht – adresy HTML
+Servicebericht – adresy
 
-v1.0 (bez zmian):
-  index.html
+GitHub Pages (jak v1.0):
+  v1.0  https://sebikk5-droid.github.io/Servicebericht-v2/
+  v2.0  https://sebikk5-droid.github.io/Servicebericht-v2/servicebericht-v2.html
 
-v2.0 (nowa wersja):
-  servicebericht-v2.html
-  albo bezpośrednio: v2/index.html
+Pliki w repo:
+  v1.0  index.html
+  v2.0  servicebericht-v2.html
+        (albo v2/index.html – przekierowanie)
 
 Created by S. Pawlina
