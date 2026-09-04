@@ -67,38 +67,40 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfFields label{display:block;font-weight:700;font-size:13px;margin:3px 0 4px}
 </style><style>
 #choices{margin:0}
-#choices h2{margin-bottom:14px}
-.choice-block{margin:0 0 16px}
+#choices h2{margin-bottom:10px}
+.choice-block{margin:0 0 11px}
 .choice-block:last-child{margin-bottom:0}
 .choice-block > .choice-label{
   display:block;
-  font-size:12px;
-  font-weight:650;
-  color:#555;
-  margin:0 0 8px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.02em;
+  color:#444;
+  margin:0 0 5px;
 }
 .choice-options{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  gap:6px;
 }
 .choice-opt{
   position:relative;
-  flex:1 1 auto;
-  min-width:min(100%,140px);
-  display:flex;
+  flex:0 1 auto;
+  min-width:0;
+  display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:0;
   margin:0;
-  padding:12px 14px;
-  min-height:48px;
-  border:1px solid #d1d1d6;
-  border-radius:11px;
-  background:#f7f7f8;
-  font-size:15px;
+  padding:6px 10px;
+  min-height:32px;
+  border:1px solid #c9c9ce;
+  border-radius:8px;
+  background:#f4f4f6;
+  font-size:13px;
+  line-height:1.2;
   font-weight:650;
-  color:#222;
+  color:#1c1c1e;
   text-align:center;
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
@@ -122,16 +124,17 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   flex:1 1 100%;
   justify-content:flex-start;
   text-align:left;
-  gap:10px;
+  gap:8px;
   font-weight:600;
+  padding:7px 9px;
 }
 .choice-opt-wide::before{
   content:"";
-  width:22px;
-  height:22px;
-  flex:0 0 22px;
-  border:2px solid #c5c5ca;
-  border-radius:6px;
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+  border:1.5px solid #b4b4bb;
+  border-radius:4px;
   background:#fff;
   box-sizing:border-box;
 }
@@ -145,10 +148,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .choice-opt-wide.is-on::before{
   border-color:#163a5c;
   background:#163a5c;
-  box-shadow:inset 0 0 0 3px #eef5fb;
-}
-@media(max-width:520px){
-  .choice-opt{min-width:100%}
+  box-shadow:inset 0 0 0 2px #eef5fb;
 }
 .choice-group{margin:8px 0}
 .choice-group .check{display:inline-flex;align-items:center;gap:8px;font-weight:600}
