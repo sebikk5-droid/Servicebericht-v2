@@ -1,12 +1,15 @@
-Servicebericht – adresy
+Servicebericht – adresy GitHub Pages
 
-GitHub Pages (jak v1.0):
-  v1.0  https://sebikk5-droid.github.io/Servicebericht-v2/
-  v2.0  https://sebikk5-droid.github.io/Servicebericht-v2/servicebericht-v2.html
+v1.0:
+  https://sebikk5-droid.github.io/Servicebericht-v2/
 
-Pliki w repo:
-  v1.0  index.html
-  v2.0  servicebericht-v2.html
-        (albo v2/index.html – przekierowanie)
+v2.0 (ten link):
+  https://sebikk5-droid.github.io/Servicebericht-v2/v2.html
+
+albo:
+  https://sebikk5-droid.github.io/Servicebericht-v2/servicebericht-v2.html
+
+Nie otwieraj plików na github.com – tam jest 404.
+Aplikacja działa tylko na github.io.
 
 Created by S. Pawlina
