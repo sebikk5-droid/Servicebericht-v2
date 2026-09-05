@@ -606,13 +606,28 @@ function rueckfahrtPauseMin(d){
   const box=dayBoxEl(d);
   return pauseMinutes(box?.querySelector(`[data-k="PauseRZ${d*2}"]`)?.value||"0");
 }
+function anfahrtPauseMin(d){
+  const box=dayBoxEl(d);
+  return pauseMinutes(box?.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value||"0");
+}
 function anfahrtClockSpan(d){
-  // Pause während Fahrt stays a separate field. It must not lengthen
-  // Anfahrt von/bis or pull Abfahrt earlier.
-  return travelMinutesForDay(d,"out");
+  // Netto-Fahrt + Pause während Fahrt, same as Rückfahrt.
+  return travelMinutesForDay(d,"out")+anfahrtPauseMin(d);
 }
 function rueckfahrtClockSpan(d){
   return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
+}
+function syncAnfahrtArrivalFromStart(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  const outRow=d*2-1;
+  const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
+  const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
+  const span=anfahrtClockSpan(d);
+  if(!a1||!a2||!span||!a1.value) return;
+  a2.value=addMinutesToTime(a1.value,span);
+  const az=box.querySelector(`[data-k="AZstart${outRow}"]`);
+  if(az&&a2.value&&az.dataset.manual!=="1") az.value=a2.value;
 }
 function syncWorkEndToReturnStart(d){
   const box=dayBoxEl(d);
@@ -839,14 +854,14 @@ function updateDayRouteNetto(d){
   const calc=(name)=>box.querySelector(`[data-calc="${name}"]`);
   const a1=field("RZstart",outRow), a2=field("RZende",outRow);
   const b1=field("RZstart",backRow), b2=field("RZende",backRow);
-  const pb=field("PauseRZ",backRow);
+  const pa=field("PauseRZ",outRow), pb=field("PauseRZ",backRow);
   const rt=calc(`rt${d}`)||document.querySelector(`[data-calc="rt${d}"]`), rr=calc(`rr${d}`)||document.querySelector(`[data-calc="rr${d}"]`);
   const outOverride=box.querySelector('[data-route-override="out"]');
   const backOverride=box.querySelector('[data-route-override="back"]');
   if(rt){
     const v=outOverride && outOverride.value!==""
       ? Math.max(0,parseInt(outOverride.value,10)||0)
-      : Math.max(0,minutesBetween(a1?.value||"",a2?.value||""));
+      : Math.max(0,minutesBetween(a1?.value||"",a2?.value||"")-pauseMinutes(pa?.value||"0"));
     rt.value=fmtMin(v);
   }
   if(rr){
@@ -1123,12 +1138,12 @@ function applyCustomerRouteDay1(){
     const backOverride=document.querySelector('[data-route-override="back"]');
     const outTime=outOverride && outOverride.value!=="" ? Math.max(0,parseInt(outOverride.value,10)||0) : r.minutes;
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
+    const outSpan=outTime+pauseMinutes(document.querySelector('[data-k="PauseRZ1"]')?.value||"0");
 
-    // Anfahrt: Listenzeit ohne Pause während Fahrt. Abfahrt bleibt stehen,
-    // wenn sie schon gesetzt ist – Pause darf von nicht nach vorne ziehen.
+    // Anfahrt: Netto + Pause. Abfahrt (von) bleibt, Ankunft (bis) verschiebt sich.
     if(a1 && a2){
-      if(a1.value) a2.value=addMinutesToTime(a1.value,outTime);
-      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outTime);
+      if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1172,12 +1187,12 @@ function applyCustomerRouteDay(d){
     const backOverride=box?.querySelector('[data-route-override="back"]');
     const outTime=outOverride && outOverride.value!=="" ? Math.max(0,parseInt(outOverride.value,10)||0) : r.minutes;
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
+    const outSpan=outTime+pauseMinutes(box?.querySelector(`[data-k="PauseRZ${2*d-1}"]`)?.value||"0");
 
-    // Anfahrt: Listenzeit ohne Pause während Fahrt. Abfahrt bleibt stehen,
-    // wenn sie schon gesetzt ist – Pause darf von nicht nach vorne ziehen.
+    // Anfahrt: Netto + Pause. Abfahrt (von) bleibt, Ankunft (bis) verschiebt sich.
     if(a1 && a2){
-      if(a1.value) a2.value=addMinutesToTime(a1.value,outTime);
-      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outTime);
+      if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1439,7 +1454,7 @@ function recalcTimes(){
     if(outOverride && String(outOverride.value).trim()!==""){
       rt=Math.max(0,parseInt(outOverride.value,10)||0);
     }else{
-      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value));
+      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
     }
 
     let rr;
@@ -1530,8 +1545,10 @@ function bindTimeInputs(){
       const field=(name,n)=>box?.querySelector(`[data-k="${name}${n}"]`);
       const outMin=anfahrtClockSpan(d);
       const backMin=travelMinutesForDay(d,"back");
+      const outDrive=travelMinutesForDay(d,"out");
 
       if(key===`PauseRZ${outRow}`){
+        syncAnfahrtArrivalFromStart(d);
         syncReturnPauseFromDay(box);
         recalcTimes();
         if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -1540,13 +1557,14 @@ function bindTimeInputs(){
 
       if(el.dataset.routeOverride==="out" || el.dataset.routeOverride==="back"){
         const isEmpty=String(el.value??"").trim()==="";
-        const val=isEmpty ? (el.dataset.routeOverride==="out"?outMin:backMin) : Math.max(0,parseInt(el.value,10)||0);
+        const val=isEmpty ? (el.dataset.routeOverride==="out"?outDrive:backMin) : Math.max(0,parseInt(el.value,10)||0);
 
         if(el.dataset.routeOverride==="out"){
           const a1=field("RZstart",outRow), a2=field("RZende",outRow);
+          const elapsed=val+anfahrtPauseMin(d);
           if(a1&&a2&&val>0){
-            if(a1.value) a2.value=addMinutesToTime(a1.value,val);
-            else if(a2.value) a1.value=addMinutesToTime(a2.value,-val);
+            if(a1.value) a2.value=addMinutesToTime(a1.value,elapsed);
+            else if(a2.value) a1.value=addMinutesToTime(a2.value,-elapsed);
           }
           if(isEmpty){
             el.dataset.manual="0";
@@ -2136,7 +2154,7 @@ for(let d=1;d<=dayBoxes.length;d++){
   const backOv=box.querySelector('[data-route-override="back"]');
   const rt=outOv && String(outOv.value).trim()!==""
     ? Math.max(0,parseInt(outOv.value,10)||0)
-    : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value));
+    : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
   const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
   const rr=backOv && String(backOv.value).trim()!==""
     ? Math.max(0,parseInt(backOv.value,10)||0)
