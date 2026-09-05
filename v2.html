@@ -1059,15 +1059,6 @@ function fieldRectOf(form,n){
     return {width:140, height:16, x:0, y:0};
   }
 }
-function fitFontSize(font, text, width, height, maxSize){
-  const t=String(text||"");
-  const cap=Math.min(maxSize||11, Math.max(5, (height||16)*0.72));
-  if(!font || !t) return cap;
-  const maxW=Math.max(6, (width||80)-8);
-  let size=cap;
-  while(size>3.6 && font.widthOfTextAtSize(t, size)>maxW) size-=0.15;
-  return Math.round(size*10)/10;
-}
 function consumeLine(font, words, size, maxW){
   if(!words.length) return "";
   const first=words[0];
@@ -1117,47 +1108,12 @@ function wrapIntoFields(form, names, text, font){
   names.forEach((n,i)=>{
     const line=packed.out[i]||"";
     if(!line) return;
-    try{
-      const field=form.getTextField(n);
-      ensureFieldDA(field);
-      field.setText(line);
-      field.setFontSize(Math.max(5, Math.round(size*10)/10));
-    }catch(e){}
+    try{ form.getTextField(n).setText(line); }catch(e){}
   });
 }
-function set(form,n,v){
-  try{
-    const field=form.getTextField(n);
-    const text=v==null?"":String(v);
-    ensureFieldDA(field);
-    field.setText(text);
-    if(!text || !pdfFitFont) return;
-    if(/^\d{1,2}:\d{2}$/.test(text) || /^\d{1,2}\.\d{1,2}\.\d{2,4}$/.test(text)) return;
-    const r=field.acroField.getWidgets()[0].getRectangle();
-    const maxW=Math.max(6,(r.width||80)-8);
-    let probe=0;
-    try{ probe=field.getFontSize()||0; }catch(e){ probe=0; }
-    if(!(probe>0)) probe=Math.min(10, Math.max(7,(r.height||16)*0.75));
-    if(pdfFitFont.widthOfTextAtSize(text, probe)>maxW){
-      field.setFontSize(fitFontSize(pdfFitFont, text, r.width, r.height, probe));
-    }
-  }catch(e){}
-}
-function ensureFieldDA(field){
-  try{
-    if(!field.acroField.getDefaultAppearance()){
-      field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g");
-    }
-  }catch(e){
-    try{ field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g"); }catch(e2){}
-  }
-}
+function set(form,n,v){try{form.getTextField(n).setText(v==null?"":String(v))}catch(e){}}
 function setSize(form,n,size){
-  try{
-    const field=form.getTextField(n);
-    ensureFieldDA(field);
-    field.setFontSize(size);
-  }catch(e){}
+  try{ form.getTextField(n).setFontSize(size); }catch(e){}
 }
 function setIf(form,n,v){
   const s=v==null?"":String(v).trim();
