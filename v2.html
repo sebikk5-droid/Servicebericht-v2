@@ -22,7 +22,7 @@ header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;b
 .header-top h1{flex:1;min-width:0}
 .credit{font-size:10px;line-height:1.3;color:#999;font-weight:500;text-align:right;white-space:nowrap;padding-top:4px;flex:0 0 auto}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d1d1d6;border-radius:11px;background:#fff;color:#111}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
@@ -224,12 +224,14 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   display:none;position:absolute;left:0;right:0;top:100%;z-index:60;
   background:#fff;border:1px solid #bbb;border-radius:8px;max-height:260px;overflow-y:auto;
   box-shadow:0 4px 12px rgba(0,0,0,.15);
+  touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
 .combo-row{display:flex;align-items:stretch;border-bottom:1px solid #eee}
 .combo-row:last-child{border-bottom:0}
 .combo-pick{
   flex:1;display:block;width:auto;text-align:left;padding:10px 12px;border:0;background:#fff;
-  font-size:14px;font-weight:600;cursor:pointer;border-radius:0;min-height:44px
+  font-size:14px;font-weight:600;cursor:pointer;border-radius:0;min-height:44px;
+  touch-action:pan-y;
 }
 .combo-pick:hover,.combo-pick.is-on{background:#eef5fb}
 .combo-row-del{
@@ -572,6 +574,34 @@ document.querySelectorAll('#choices input').forEach(el=>{
 </script>
 <script>
 const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
+function layoutComboResults(results, box){
+  if(!results||!box) return;
+  const r=box.getBoundingClientRect();
+  const gap=4;
+  const spaceBelow=window.innerHeight-r.bottom-gap;
+  const spaceAbove=r.top-gap;
+  const maxH=260;
+  results.style.position="fixed";
+  results.style.left=Math.max(8, r.left)+"px";
+  results.style.width=Math.max(80, r.width)+"px";
+  results.style.right="auto";
+  results.style.zIndex="80";
+  if(spaceBelow>=140 || spaceBelow>=spaceAbove){
+    results.style.top=(r.bottom+gap)+"px";
+    results.style.bottom="auto";
+    results.style.maxHeight=Math.min(maxH, Math.max(96, spaceBelow))+"px";
+  }else{
+    results.style.bottom=(window.innerHeight-r.top+gap)+"px";
+    results.style.top="auto";
+    results.style.maxHeight=Math.min(maxH, Math.max(96, spaceAbove))+"px";
+  }
+}
+function openComboResults(results, box){
+  if(!results) return;
+  results.hidden=false;
+  results.style.display="block";
+  layoutComboResults(results, box);
+}
 
 // V27.6.65 — PDF return state
 // Save the exact live report immediately before PDF generation.
@@ -2537,13 +2567,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         results.appendChild(empty);
       }else{
         items.forEach(({item,i})=>{
-          const pick=document.createElement("button");
-          pick.type="button";
+          const pick=document.createElement("div");
           pick.className="combo-pick";
+          pick.setAttribute("role","option");
           pick.textContent=historyLabel(item);
           if(selectedHistory===i) pick.classList.add("is-on");
-          pick.addEventListener("mousedown",e=>{
-            e.preventDefault();
+          pick.addEventListener("click",()=>{
             openHistoryIndex(i);
             closeResults();
           });
@@ -2551,7 +2580,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         });
       }
       results.hidden=false;
-      results.style.display="block";
+      openComboResults(results, combo);
     }
     function filtered(){
       const list=loadHistory();
@@ -2789,22 +2818,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           ? "Kein Treffer – der eingegebene Name wird ins PDF übernommen."
           : "Keine Kunden in der Liste.";
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       options.forEach(opt=>{
-        const pick=document.createElement("button");
-        pick.type="button";
+        const pick=document.createElement("div");
         pick.className="combo-pick";
+        pick.setAttribute("role","option");
         pick.textContent=opt.textContent.trim();
         if(select.value===opt.value) pick.classList.add("is-on");
-        pick.addEventListener("mousedown",function(e){
-          e.preventDefault();
+        pick.addEventListener("click",function(){
           choose(opt);
         });
         results.appendChild(pick);
       });
-      results.style.display="block";
+      openComboResults(results, box);
     }
 
     input.addEventListener("input",function(){
@@ -3198,7 +3226,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         empty.className="combo-empty";
         empty.textContent="Zuerst den Kunden wählen.";
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       if(!options.length){
@@ -3208,23 +3236,22 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           ? "Kein Treffer – neue E-Mail eintragen und hinzufügen."
           : "Noch keine E-Mail. Neu eintragen und hinzufügen.";
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       options.forEach(e=>{
-        const pick=document.createElement("button");
-        pick.type="button";
+        const pick=document.createElement("div");
         pick.className="combo-pick";
+        pick.setAttribute("role","option");
         pick.textContent=e;
         if(e.toLowerCase()===q) pick.classList.add("is-on");
-        pick.addEventListener("mousedown",ev=>ev.preventDefault());
         pick.addEventListener("click",()=>{
           setEmail(e);
           close();
         });
         results.appendChild(pick);
       });
-      results.style.display="block";
+      openComboResults(results, box);
     }
     input.addEventListener("focus", show);
     input.addEventListener("click", show);
@@ -3467,6 +3494,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   const KEY="servicebericht_customer_machines_v1";
   const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
   let catalog=[];
+  fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+    if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
+  }).catch(()=>{});
   function loadAll(){
     try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
     catch(e){ return {}; }
@@ -3568,20 +3598,32 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return (c.match||[]).some(a=> n===norm(a) || n.indexOf(norm(a))===0 || norm(a).indexOf(n)===0);
     })||null;
   }
+  function nameFitsCatalog(entry, name){
+    const n=norm(name);
+    if(!entry || !n) return false;
+    if(n===norm(entry.name)) return true;
+    return (entry.match||[]).some(x=>{
+      const a=norm(x);
+      return n===a || n.indexOf(a)===0 || a.indexOf(n)===0;
+    });
+  }
   function sameBrand(a,b){
     if(!norm(a) || !norm(b)) return false;
     if(norm(a)===norm(b)) return true;
     const ca=catalogEntry(a), cb=catalogEntry(b);
     if(ca && cb) return ca.name===cb.name;
-    if(ca) return norm(b)===norm(ca.name) || (ca.match||[]).some(x=>norm(b)===norm(x) || norm(b).indexOf(norm(x))===0);
-    if(cb) return norm(a)===norm(cb.name) || (cb.match||[]).some(x=>norm(a)===norm(x) || norm(a).indexOf(norm(x))===0);
-    return false;
+    if(ca) return nameFitsCatalog(ca, b);
+    if(cb) return nameFitsCatalog(cb, a);
+    const na=norm(a), nb=norm(b);
+    if(na.indexOf(nb)===0 || nb.indexOf(na)===0) return true;
+    const ta=na.split(" ")[0], tb=nb.split(" ")[0];
+    return !!ta && ta===tb;
   }
   function sameType(a,b){ return norm(a)===norm(b); }
   function manufacturerOptions(){
-    const fromCat=catalog.map(c=>c.name);
-    const fromSaved=allSavedMachines().map(m=>m.manufacturer);
-    return naturalSort(fromCat.concat(fromSaved));
+    const fromSaved=naturalSort(allSavedMachines().map(m=>m.manufacturer));
+    const fromCat=catalog.map(c=>c.name).filter(n=>!fromSaved.some(s=>sameBrand(s,n)));
+    return fromSaved.concat(naturalSort(fromCat));
   }
   function savedTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -3641,9 +3683,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(k!==id && comboApi[k] && comboApi[k].close) comboApi[k].close();
       });
       if(comboApi[id] && comboApi[id].show) comboApi[id].show(false, options);
-      const box=$(boxId);
-      if(box && typeof box.scrollIntoView==="function")
-        box.scrollIntoView({block:"nearest", inline:"nearest"});
     }, 50);
   }
   function onManufacturerChosen(){
@@ -3685,7 +3724,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         empty.className="combo-empty";
         empty.textContent="Zuerst den Typ wählen – danach erscheint die Nr.-Liste.";
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       if(input.id==="type" && !norm($("manufacturer")?.value||"")){
@@ -3694,7 +3733,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         empty.className="combo-empty";
         empty.textContent="Zuerst den Hersteller wählen.";
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       const q=useFilter ? norm(input.value) : "";
@@ -3706,16 +3745,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         empty.className="combo-empty";
         empty.textContent=emptyHint(q);
         results.appendChild(empty);
-        results.style.display="block";
+        openComboResults(results, box);
         return;
       }
       options.forEach(v=>{
-        const pick=document.createElement("button");
-        pick.type="button";
+        const pick=document.createElement("div");
         pick.className="combo-pick";
+        pick.setAttribute("role","option");
         pick.textContent=v;
         if(norm(input.value)===norm(v)) pick.classList.add("is-on");
-        pick.addEventListener("mousedown",e=>e.preventDefault());
         pick.addEventListener("click",()=>{
           input.value=v;
           syncComboClears();
@@ -3724,7 +3762,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         });
         results.appendChild(pick);
       });
-      results.style.display="block";
+      openComboResults(results, box);
     }
     input.addEventListener("focus", ()=>show(true));
     input.addEventListener("click", ()=>show(true));
@@ -3928,10 +3966,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
     });
     syncComboClears();
-    fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
-      if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
-    }).catch(()=>{});
-    pullMachines().then(()=>syncComboClears());
+    Promise.all([
+      fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+        if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
+      }).catch(()=>{}),
+      pullMachines()
+    ]).then(()=>syncComboClears());
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
   else bind();
@@ -4005,6 +4045,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(t && t.closest && t.closest(".combo-box")) return;
     closeOpenCombos();
   }, true);
+  const scroller=main();
+  if(scroller){
+    scroller.addEventListener("scroll",()=>{
+      closeOpenCombos();
+    }, {passive:true});
+  }
+  window.addEventListener("resize",()=>closeOpenCombos(), {passive:true});
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize",()=>{
       const a=document.activeElement;
