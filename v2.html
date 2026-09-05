@@ -802,7 +802,7 @@ function pdfFileName(){
   const n=new Date();
   const iso=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
   const initials=techInitials($("tech")?.value);
-  const firma=fileSafePart(firmaName()||"Kunde")||"Kunde";
+  const firma=fileSafePart(firmaName() || $("customersign")?.value || "Kunde")||"Kunde";
   return `Servicebericht_${iso}_${initials}_${firma}.pdf`;
 }
 window.pdfFileName=pdfFileName;
