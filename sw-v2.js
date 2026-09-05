@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-41";
+const CACHE_NAME = "servicebericht-v2-42";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -18,6 +18,14 @@ function isV2Navigation(req) {
     path.endsWith("/servicebericht-v2.html") ||
     path.endsWith("/v2/") ||
     path.endsWith("/v2/index.html")
+  );
+}
+
+function isSharedData(url) {
+  const path = new URL(url).pathname;
+  return (
+    path.endsWith("/customer-emails.json") ||
+    path.endsWith("/customer-machines.json")
   );
 }
 
@@ -67,6 +75,11 @@ self.addEventListener("fetch", event => {
         })
         .catch(() => caches.match("./v2.html"))
     );
+    return;
+  }
+
+  if (isSharedData(req.url)) {
+    event.respondWith(fetch(req, {cache: "no-store"}).catch(() => caches.match(req)));
     return;
   }
 
