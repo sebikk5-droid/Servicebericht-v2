@@ -168,7 +168,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .day-collapsed .day-content,
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
-.history-file-btn,button.history-file-btn{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700;background:#e5e5ea;color:#111;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;font-family:inherit}
+.history-file-btn,button.history-file-btn{flex:0 0 auto;border:0;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;background:#e5e5ea;color:#111;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;font-family:inherit;min-height:32px}
 #historyFileInput{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .daybox{
   background:#dceaf8;
@@ -179,10 +179,38 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox .sectiontitle{border-top-color:#b7cde3}
 .daybox .day-actions button{background:#fff}
 .daybox input,.daybox select{background:#fff}
-#historySection .row{grid-template-columns:1fr;align-items:end}
-@media (min-width:700px){
-  #historySection .row{grid-template-columns:1.4fr 1fr}
+#historySection{padding:10px 12px}
+#historySection h2{margin:0 0 8px;font-size:15px}
+#historySection .history-bar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
 }
+#historySection #historySelect{
+  flex:1 1 180px;
+  min-width:0;
+  min-height:32px;
+  padding:6px 8px;
+  font-size:13px;
+}
+#historySection .muted{margin-top:6px;font-size:11px}
+.day-title{display:flex;align-items:center;gap:8px;min-width:0}
+.daybox .daydate{
+  width:auto;
+  max-width:148px;
+  min-height:32px;
+  padding:4px 8px;
+  font-size:13px;
+}
+.overnight-end{margin:10px 0 0;padding-top:8px;border-top:1px solid #b7cde3}
+.overnight-end .check{font-size:13px;font-weight:650}
+.sig-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
+@media (min-width:700px){.sig-grid{grid-template-columns:1fr 1fr}}
+.sig-box label{margin-bottom:5px}
+.sig-pad-wrap{border:1px solid #c9c9ce;border-radius:10px;background:#fafafa;overflow:hidden}
+.sig-pad{width:100%;height:96px;display:block;touch-action:none;cursor:crosshair}
+.sig-clear{margin-top:6px;padding:6px 10px;font-size:13px;font-weight:650;border:0;border-radius:8px;background:#e5e5ea;min-height:32px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -193,7 +221,21 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   </div>
   <div class="muted">Servicebericht v2.0 auf dem iPad ausfüllen</div>
 </header>
-<main><section class="card"><h2>Kunde</h2>
+<main>
+<section id="historySection" class="card">
+  <h2>Historie</h2>
+  <div class="history-bar">
+    <select id="historySelect">
+      <option value="">— Bericht —</option>
+    </select>
+    <button type="button" id="historySave" class="history-file-btn">Speichern</button>
+    <label class="history-file-btn" for="historyFileInput">Öffnen</label>
+    <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
+    <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
+  </div>
+  <div class="muted">Liste lädt den Bericht. Öffnen / Speichern über Dateien.</div>
+</section>
+<section class="card"><h2>Kunde</h2>
 <label>Firma</label><div id="customerSearchBox" style="margin:8px 0 10px;position:relative;">
 <label for="customerSearch">Name eingeben oder Kunde suchen</label>
 <input id="customerSearch" type="search" placeholder="Firma schreiben oder aus der Liste wählen" autocomplete="off" style="width:100%;">
@@ -216,25 +258,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 
 <section class="card"><h2>Bemerkungen</h2><textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea></section>
 <section class="card"><h2>Ersatzteile</h2><textarea id="parts" placeholder="- ..."></textarea></section>
-
-<section id="historySection" class="card">
-  <h2>Historie</h2>
-  <div class="row">
-    <div class="field" style="flex:1">
-      <label>Gespeicherte Berichte</label>
-      <select id="historySelect">
-        <option value="">— Bericht auswählen —</option>
-      </select>
-    </div>
-    <div class="field" style="display:flex;align-items:end;gap:8px;flex-wrap:wrap;position:relative">
-      <button type="button" id="historySave" class="history-file-btn">Speichern</button>
-      <label class="history-file-btn" for="historyFileInput">Öffnen</label>
-      <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
-      <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
-    </div>
-  </div>
-  <div class="muted">Liste wählen lädt den Bericht in der App. Öffnen wählt eine Datei in „Dateien“ (Ordner antippen). Speichern: App + Teilen → In Dateien sichern.</div>
-</section>
 
 <section class="card"><h2>Reise- und Arbeitszeit</h2>
 <div id="times"></div>
@@ -285,6 +308,18 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 <section class="card"><h2>Unterschrift</h2>
 <div class="grid"><div><label>Auftrags-Nr.</label><input id="order"></div><div><label>Techniker</label><input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
 <div><label>Datum</label><input id="signdate" type="date"></div><div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div></div>
+<div class="sig-grid">
+  <div class="sig-box">
+    <label>Unterschrift Techniker (iPad)</label>
+    <div class="sig-pad-wrap"><canvas id="sigTech" class="sig-pad" width="600" height="192"></canvas></div>
+    <button type="button" class="sig-clear" data-sig-clear="sigTech">Löschen</button>
+  </div>
+  <div class="sig-box">
+    <label>Unterschrift Kunde (iPad)</label>
+    <div class="sig-pad-wrap"><canvas id="sigKunde" class="sig-pad" width="600" height="192"></canvas></div>
+    <button type="button" class="sig-clear" data-sig-clear="sigKunde">Löschen</button>
+  </div>
+</div>
 </section>
 <div id="status"></div>
 </main>
@@ -369,17 +404,16 @@ function dayTemplate(d){
   return `
   <div class="daybox" data-daybox="${d}">
     <div class="day-header">
-      <h3>Tag ${d}</h3>
+      <div class="day-title">
+        <h3>Tag ${d}</h3>
+        <input type="date" data-day="${d}" class="daydate" aria-label="Datum Tag ${d}">
+      </div>
       <div class="day-actions">
         <button type="button" class="day-collapse" data-day-action="collapse" data-day="${d}" aria-expanded="true">▲ Einklappen</button>
         <button type="button" class="day-remove" data-day-action="remove" data-day="${d}">✕ Tag löschen</button>
       </div>
     </div>
     <div class="day-content" data-day-content="${d}">
-    <div class="field"><label>Datum</label><input type="date" data-day="${d}" class="daydate"></div>
-    <div class="choice-group" style="margin:8px 0 10px">
-      <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
-    </div>
 
     <div class="sectiontitle">Anfahrt</div>
     <div class="row">
@@ -420,6 +454,9 @@ function dayTemplate(d){
       <div class="field"><label>Gesamtzeit netto</label><input type="text" data-calc="total${d}" readonly></div>
     </div>
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
+    <div class="choice-group overnight-end">
+      <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
+    </div>
     </div>
   <div class="day-end-actions">
   <button type="button" class="btn-day-collapse" data-collapse-day="${d}">Einklappen</button>
@@ -1036,6 +1073,113 @@ function bindTimeInputs(){
 bindTimeInputs();
 recalcTimes();
 
+function canvasHasInk(canvas){
+  if(!canvas||!canvas.width) return false;
+  try{
+    const data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
+    for(let i=3;i<data.length;i+=4) if(data[i]>12) return true;
+  }catch(e){}
+  return false;
+}
+function fitSignatureCanvas(canvas){
+  const wrap=canvas.parentElement;
+  const cssW=Math.max(200, wrap.clientWidth||300);
+  const cssH=96;
+  const dpr=Math.max(1, Math.min(3, window.devicePixelRatio||1));
+  canvas.style.width=cssW+"px";
+  canvas.style.height=cssH+"px";
+  canvas.width=Math.round(cssW*dpr);
+  canvas.height=Math.round(cssH*dpr);
+  const ctx=canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+  ctx.strokeStyle="#163a5c";
+  ctx.lineWidth=2.4;
+}
+function initSignaturePads(){
+  document.querySelectorAll("canvas.sig-pad").forEach(canvas=>{
+    if(canvas.dataset.sigBound==="1") return;
+    canvas.dataset.sigBound="1";
+    fitSignatureCanvas(canvas);
+    const ctx=canvas.getContext("2d");
+    let drawing=false, last=null;
+    const pos=e=>{
+      const r=canvas.getBoundingClientRect();
+      return {x:e.clientX-r.left, y:e.clientY-r.top};
+    };
+    canvas.addEventListener("pointerdown",e=>{
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      drawing=true;
+      last=pos(e);
+    });
+    canvas.addEventListener("pointermove",e=>{
+      if(!drawing) return;
+      e.preventDefault();
+      const p=pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x,last.y);
+      ctx.lineTo(p.x,p.y);
+      ctx.stroke();
+      last=p;
+    });
+    const stop=()=>{ drawing=false; last=null; };
+    canvas.addEventListener("pointerup",stop);
+    canvas.addEventListener("pointercancel",stop);
+  });
+  document.querySelectorAll("[data-sig-clear]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const canvas=$(btn.getAttribute("data-sig-clear"));
+      if(!canvas) return;
+      fitSignatureCanvas(canvas);
+    });
+  });
+}
+window.exportSignatureData=function(){
+  const out={};
+  ["sigTech","sigKunde"].forEach(id=>{
+    const c=$(id);
+    if(c && canvasHasInk(c)) out["__"+id]=c.toDataURL("image/png");
+  });
+  return out;
+};
+window.importSignatureData=function(data){
+  ["sigTech","sigKunde"].forEach(id=>{
+    const c=$(id);
+    const url=data && data["__"+id];
+    if(!c) return;
+    fitSignatureCanvas(c);
+    if(!url) return;
+    const img=new Image();
+    img.onload=()=>{
+      const ctx=c.getContext("2d");
+      const r=c.getBoundingClientRect();
+      ctx.drawImage(img,0,0,r.width,r.height);
+    };
+    img.src=url;
+  });
+};
+async function embedSignatures(pdf){
+  const page=pdf.getPages()[0];
+  const rects={
+    sigTech:{x:343,y:43,width:221,height:45},
+    sigKunde:{x:202,y:33,width:121,height:39}
+  };
+  for(const id of ["sigTech","sigKunde"]){
+    const canvas=$(id);
+    if(!canvas || !canvasHasInk(canvas)) continue;
+    const png=await new Promise(resolve=>canvas.toBlob(b=>resolve(b), "image/png"));
+    if(!png) continue;
+    const img=await pdf.embedPng(await png.arrayBuffer());
+    const box=rects[id];
+    const scale=Math.min(box.width/img.width, box.height/img.height);
+    const w=img.width*scale, h=img.height*scale;
+    page.drawImage(img,{x:box.x, y:box.y, width:w, height:h});
+  }
+}
+initSignaturePads();
+
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
 try{
@@ -1150,7 +1294,9 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
-form.updateFieldAppearances();form.flatten();let out=await pdf.save();
+form.updateFieldAppearances();form.flatten();
+await embedSignatures(pdf);
+let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 $("status").textContent="Fertig – das PDF ist vorbereitet.";
 }catch(e){$("status").textContent="Fehler: "+e.message}
@@ -1199,6 +1345,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else data[key]=el.value;
     });
     data.__visibleDays=(typeof visibleDays==="number") ? visibleDays : 1;
+    if(typeof window.exportSignatureData==="function") Object.assign(data, window.exportSignatureData());
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       const d=box.getAttribute("data-daybox");
       data[`day${d}_collapsed`]=box.classList.contains("day-collapsed");
@@ -1245,7 +1392,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="__visibleDays" || /_collapsed$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
@@ -1274,6 +1421,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const label=el.closest(".choice-opt");
       if(label) label.classList.toggle("is-on", !!el.checked);
     });
+    if(typeof window.importSignatureData==="function") window.importSignatureData(data);
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -1288,7 +1436,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!sel) return;
     const prev=keepValue!=null ? String(keepValue) : sel.value;
     const list=loadHistory();
-    sel.innerHTML='<option value="">— Bericht auswählen —</option>';
+    sel.innerHTML='<option value="">— Bericht —</option>';
     list.forEach((item,i)=>{
       const opt=document.createElement("option");
       opt.value=String(i);
