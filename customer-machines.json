@@ -1,1 +1,12 @@
-{}
+{
+  "fred sieder": [
+    {
+      "manufacturer": "DMG MORI",
+      "type": "Dmu",
+      "machineNo": "",
+      "control": "",
+      "nc": "",
+      "plc": ""
+    }
+  ]
+}
