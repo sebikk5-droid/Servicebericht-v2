@@ -2857,7 +2857,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     catch(e){ return ""; }
   }
   function headers(){
-    const h={"Accept":"application/vnd.github+json"};
+    const h={"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"};
     const t=token();
     if(t) h.Authorization="Bearer "+t;
     return h;
@@ -2897,41 +2897,58 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return fetchPages(path);
     }
   }
+  function sameJson(a,b){
+    try{ return JSON.stringify(a)===JSON.stringify(b); }
+    catch(e){ return false; }
+  }
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  let writeChain=Promise.resolve();
+  function enqueueWrite(fn){
+    const run=writeChain.then(fn, fn);
+    writeChain=run.then(()=>{},()=>{});
+    return run;
+  }
   async function putFile(kind, data, sha, message){
     const t=token();
     if(!t) return {ok:false, reason:"no-token"};
     const path=FILES[kind]||kind;
     const r=repo();
+    const body={
+      message: message||("Aktualisiere "+path),
+      content: encodeContent(JSON.stringify(data, null, 2)+"\n"),
+      branch: r.branch
+    };
+    if(sha) body.sha=sha;
     const res=await fetch(apiFileUrl(path, false), {
       method:"PUT",
       headers:Object.assign({"Content-Type":"application/json"}, headers()),
-      body:JSON.stringify({
-        message: message||("Aktualisiere "+path),
-        content: encodeContent(JSON.stringify(data, null, 2)+"\n"),
-        branch: r.branch,
-        sha: sha||undefined
-      })
+      body:JSON.stringify(body)
     });
     if(!res.ok){
       let reason="";
       try{ reason=(await res.text()).slice(0,240); }catch(e){}
       return {ok:false, status:res.status, reason};
     }
-    return {ok:true};
+    let shaOut="";
+    try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||""; }catch(e){}
+    return {ok:true, sha:shaOut};
   }
   async function pushMerged(kind, localData, message, mergeFn){
-    const remote=await pullFile(kind);
-    const merged=mergeFn(remote.data, localData);
-    if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
-    let result=await putFile(kind, merged, remote.sha, message);
-    if(!result.ok && (result.status===409 || result.status===422)){
-      const again=await pullFile(kind);
-      const merged2=mergeFn(again.data, localData);
-      if(merged2==null) return {merged:again.data, result};
-      result=await putFile(kind, merged2, again.sha, message);
-      return {merged:merged2, result};
-    }
-    return {merged, result};
+    return enqueueWrite(async ()=>{
+      let last={ok:false, reason:"retry"};
+      for(let i=0;i<6;i++){
+        const remote=await pullFile(kind);
+        const merged=mergeFn(remote.data, localData);
+        if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
+        if(sameJson(merged, remote.data)) return {merged, result:{ok:true, skipped:true}};
+        const result=await putFile(kind, merged, remote.sha, message);
+        if(result.ok) return {merged, result};
+        last=result;
+        if(result.status!==409 && result.status!==422) return {merged, result};
+        await sleep(180*(i+1));
+      }
+      return {merged:localData, result:last};
+    });
   }
   captureToken();
   window.sbLists={
@@ -3057,7 +3074,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const s=$("status");
     if(s){
       if(pushed && pushed.ok) s.textContent="E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
+      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
+      else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
     return true;
   }
@@ -3631,7 +3649,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     saveAll(merged);
     return result;
   }
+  let persistLock=Promise.resolve();
   async function persistCurrent(){
+    const prev=persistLock;
+    let unlock=()=>{};
+    persistLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    try{
     const k=customerKey();
     if(!k){
       const s=$("status");
@@ -3657,8 +3681,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const s=$("status");
     if(s){
       if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+      else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+      else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
+    }finally{ unlock(); }
   }
   window.pullCustomerMachines=pullMachines;
   window.refreshCustomerMachines=async function(){
@@ -3732,10 +3758,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         else s.textContent="Maschine gelöscht.";
       }
     });
+    let persistTimer=0;
     ["control","nc","plc"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
         if(!customerKey() || isEmpty(fromForm())) return;
-        if(findSaved()) persistCurrent();
+        if(!findSaved()) return;
+        clearTimeout(persistTimer);
+        persistTimer=setTimeout(()=>persistCurrent(), 400);
       });
     });
     $("customerSearch")?.addEventListener("blur",()=>{
