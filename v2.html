@@ -440,7 +440,7 @@ document.querySelectorAll('#choices input').forEach(el=>{
 });
 </script>
 <script>
-const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null; const pdfTextPaint=[];
+const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
 
 // V27.6.65 — PDF return state
 // Save the exact live report immediately before PDF generation.
@@ -1063,27 +1063,47 @@ function wrapIntoFields(form, names, text, font){
   names.forEach((n,i)=>{
     const line=packed.out[i]||"";
     if(!line) return;
-    set(form,n,line);
+    try{
+      const field=form.getTextField(n);
+      ensureFieldDA(field);
+      field.setText(line);
+      field.setFontSize(Math.max(5, Math.round(size*10)/10));
+    }catch(e){}
   });
 }
 function set(form,n,v){
   try{
     const field=form.getTextField(n);
     const text=v==null?"":String(v);
-    field.setText("");
+    ensureFieldDA(field);
+    field.setText(text);
     if(!text || !pdfFitFont) return;
+    if(/^\d{1,2}:\d{2}$/.test(text) || /^\d{1,2}\.\d{1,2}\.\d{2,4}$/.test(text)) return;
     const r=field.acroField.getWidgets()[0].getRectangle();
-    const size=fitFontSize(pdfFitFont, text, r.width, r.height);
-    pdfTextPaint.push({
-      text,
-      x:r.x+2,
-      y:r.y+Math.max(1.5,(r.height-size)*0.28),
-      size
-    });
+    const maxW=Math.max(6,(r.width||80)-8);
+    let probe=0;
+    try{ probe=field.getFontSize()||0; }catch(e){ probe=0; }
+    if(!(probe>0)) probe=Math.min(10, Math.max(7,(r.height||16)*0.75));
+    if(pdfFitFont.widthOfTextAtSize(text, probe)>maxW){
+      field.setFontSize(fitFontSize(pdfFitFont, text, r.width, r.height, probe));
+    }
   }catch(e){}
 }
+function ensureFieldDA(field){
+  try{
+    if(!field.acroField.getDefaultAppearance()){
+      field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g");
+    }
+  }catch(e){
+    try{ field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g"); }catch(e2){}
+  }
+}
 function setSize(form,n,size){
-  try{ form.getTextField(n).setFontSize(size); }catch(e){}
+  try{
+    const field=form.getTextField(n);
+    ensureFieldDA(field);
+    field.setFontSize(size);
+  }catch(e){}
 }
 function setIf(form,n,v){
   const s=v==null?"":String(v).trim();
@@ -1778,7 +1798,6 @@ $("status").textContent="PDF wird erstellt…";
 try{
 let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-pdfTextPaint.length=0;
 clearPdfForm(form);
 let c=selectedCompany();
 
@@ -1888,22 +1907,12 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
-form.updateFieldAppearances(pdfFitFont);
+form.updateFieldAppearances();
 const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
 form.flatten();
-for(const t of pdfTextPaint){
-  try{
-    page.drawText(t.text,{
-      x:t.x,
-      y:t.y,
-      size:t.size,
-      font:pdfFitFont
-    });
-  }catch(e){}
-}
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
