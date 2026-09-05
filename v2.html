@@ -1284,7 +1284,7 @@ function initSignaturePads(){
   const wrap=canvas&&canvas.parentElement;
   if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
-  let drawing=false, pts=[], liveForce=0.32, activeId=null, inkBounds=null;
+  let drawing=false, pts=[], liveForce=0.18, activeId=null, inkBounds=null;
   const backup=document.createElement("canvas");
   const useRawUpdate=window.PointerEvent && "onpointerrawupdate" in window;
   const posFrom=ev=>{
@@ -1306,17 +1306,21 @@ function initSignaturePads(){
   }
   function forceFrom(ev){
     const t=ev.touches&&ev.touches[0];
-    if(t && typeof t.force==="number" && t.force>0) return Math.min(1,t.force);
-    if(ev.pointerType==="pen" && Number.isFinite(ev.pressure) && ev.pressure>0 && ev.pressure!==0.5)
+    if(t && typeof t.force==="number" && t.force>0) return Math.min(1, t.force);
+    if(ev.pointerType==="pen"){
+      if(Number.isFinite(ev.pressure) && ev.pressure>0) return Math.min(1, ev.pressure);
+      if(liveForce>0.02) return liveForce;
+      return 0.12;
+    }
+    if(Number.isFinite(ev.pressure) && ev.pressure>0 && ev.pressure!==0.5)
       return Math.min(1, ev.pressure);
-    if(liveForce>0.02) return liveForce;
-    if(ev.pointerType==="pen" && Number.isFinite(ev.pressure) && ev.pressure>0)
-      return Math.min(1, ev.pressure);
-    return 0.34;
+    if(liveForce>0.02 && ev.pointerType!=="mouse") return liveForce;
+    return 0.2;
   }
   function widthFromForce(f){
-    const x=Math.max(0.02, Math.min(1, f));
-    return 0.75 + Math.pow(x, 0.7)*11;
+    const x=Math.max(0, Math.min(1, f));
+    const t=Math.max(0, Math.min(1, (x-0.02)/0.48));
+    return 0.28 + Math.pow(t, 1.08)*18;
   }
   function stamp(pt){
     expandInk(pt);
@@ -1349,24 +1353,18 @@ function initSignaturePads(){
     ctx.lineJoin="round";
     if(p.length===1){
       ctx.beginPath();
-      ctx.arc(p[0].x, p[0].y, Math.max(0.45, p[0].w/2), 0, Math.PI*2);
+      ctx.arc(p[0].x, p[0].y, Math.max(0.22, p[0].w/2), 0, Math.PI*2);
       ctx.fill();
       return;
     }
-    let sum=0;
-    for(const pt of p) sum+=pt.w;
-    ctx.lineWidth=Math.max(1.1, sum/p.length);
-    ctx.beginPath();
-    ctx.moveTo(p[0].x, p[0].y);
-    if(p.length===2){
-      ctx.lineTo(p[1].x, p[1].y);
-    }else{
-      for(let i=1;i<p.length-1;i++){
-        ctx.quadraticCurveTo(p[i].x, p[i].y, (p[i].x+p[i+1].x)/2, (p[i].y+p[i+1].y)/2);
-      }
-      ctx.lineTo(p[p.length-1].x, p[p.length-1].y);
+    for(let i=1;i<p.length;i++){
+      const a=p[i-1], b=p[i];
+      ctx.beginPath();
+      ctx.lineWidth=Math.max(0.28, (a.w+b.w)/2);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
-    ctx.stroke();
   }
   function captureBackup(){
     backup.width=canvas.width;
@@ -1386,8 +1384,8 @@ function initSignaturePads(){
     if(!drawing) return;
     if(pts.length){
       const last=pts[pts.length-1];
-      if(Math.hypot(pt.x-last.x, pt.y-last.y)<0.2){
-        last.w=last.w*0.55+pt.w*0.45;
+      if(Math.hypot(pt.x-last.x, pt.y-last.y)<0.18){
+        last.w=last.w*0.2+pt.w*0.8;
         return;
       }
     }
@@ -1396,8 +1394,10 @@ function initSignaturePads(){
     drawStroke(pts);
   }
   function pointFromPointer(ev){
+    const f=forceFrom(ev);
+    if(ev.pointerType==="pen" || (ev.touches&&ev.touches[0]&&ev.touches[0].force>0)) liveForce=f;
     const p=posFrom(ev);
-    p.w=widthFromForce(forceFrom(ev));
+    p.w=widthFromForce(f);
     return p;
   }
   function startStroke(pt){
