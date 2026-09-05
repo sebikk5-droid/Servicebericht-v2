@@ -310,7 +310,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}
-.machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 input.km-check,input.to-check{
@@ -362,7 +362,7 @@ input.km-check,input.to-check{
 </div></section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer.</div>
+<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer. „Zur Maschinenliste des Kunden hinzufügen“ speichert die Maschine bei diesem Kunden.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -395,7 +395,7 @@ input.km-check,input.to-check{
 <div class="full"><label>Betriebsstunden</label><input id="hours"></div>
 </div>
 <div class="machine-bar">
-  <button type="button" id="machineSave">Speichern</button>
+  <button type="button" id="machineSave">Zur Maschinenliste des Kunden hinzufügen</button>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
 </section>
@@ -3053,7 +3053,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     all[k]=list;
     saveAll(all);
     const s=$("status");
-    if(s) s.textContent="Maschine beim Kunden gespeichert.";
+    if(s) s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
   }
   window.refreshCustomerMachines=function(){
     syncComboClears();
