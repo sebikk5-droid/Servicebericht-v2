@@ -823,14 +823,14 @@ function updateDayRouteNetto(d){
   const calc=(name)=>box.querySelector(`[data-calc="${name}"]`);
   const a1=field("RZstart",outRow), a2=field("RZende",outRow);
   const b1=field("RZstart",backRow), b2=field("RZende",backRow);
-  const pa=field("PauseRZ",outRow), pb=field("PauseRZ",backRow);
+  const pb=field("PauseRZ",backRow);
   const rt=calc(`rt${d}`)||document.querySelector(`[data-calc="rt${d}"]`), rr=calc(`rr${d}`)||document.querySelector(`[data-calc="rr${d}"]`);
   const outOverride=box.querySelector('[data-route-override="out"]');
   const backOverride=box.querySelector('[data-route-override="back"]');
   if(rt){
     const v=outOverride && outOverride.value!==""
       ? Math.max(0,parseInt(outOverride.value,10)||0)
-      : Math.max(0,minutesBetween(a1?.value||"",a2?.value||"")-pauseMinutes(pa?.value||"0"));
+      : Math.max(0,minutesBetween(a1?.value||"",a2?.value||""));
     rt.value=fmtMin(v);
   }
   if(rr){
@@ -879,9 +879,9 @@ document.getElementById("times").addEventListener("change",function(e){
 
   const row=parseInt(m[2],10);
   const d=Math.ceil(row/2);
-  const box=dayBoxEl(d);
+  const dayBox=dayBoxEl(d);
   const outRow=d*2-1, backRow=d*2;
-  const field=(name,n)=>box?.querySelector(`[data-k="${name}${n}"]`);
+  const field=(name,n)=>dayBox?.querySelector(`[data-k="${name}${n}"]`);
   const outMin=travelMinutesForDay(d,"out");
   const backMin=travelMinutesForDay(d,"back");
   if(!outMin && !backMin) return;
@@ -1386,7 +1386,7 @@ function recalcTimes(){
     if(outOverride && String(outOverride.value).trim()!==""){
       rt=Math.max(0,parseInt(outOverride.value,10)||0);
     }else{
-      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
+      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value));
     }
 
     let rr;
@@ -1398,12 +1398,12 @@ function recalcTimes(){
 
     const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseMinutes(q(`PauseAZ${a}`).value));
 
-    travel+=rt+rr; work+=wt;
+    travel+=rt+pauseOut+rr; work+=wt;
     km+=(parseFloat(String(q(`Kilometer${a}`).value).replace(",","."))||0);
     km+=(parseFloat(String(q(`Kilometer${b}`).value).replace(",","."))||0);
 
     const sc=(name,val)=>{const el=box?.querySelector(`[data-calc="${name}"]`)||document.querySelector(`[data-calc="${name}"]`);if(el)el.value=fmtMin(val);};
-    sc(`rt${d}`,rt); sc(`wt${d}`,wt); sc(`wt2${d}`,wt); sc(`rr${d}`,rr); sc(`total${d}`,rt+wt+rr);
+    sc(`rt${d}`,rt); sc(`wt${d}`,wt); sc(`wt2${d}`,wt); sc(`rr${d}`,rr); sc(`total${d}`,rt+pauseOut+wt+rr);
   }
   if($("travelTotal"))$("travelTotal").value=fmtMin(travel);
   if($("workTotal"))$("workTotal").value=fmtMin(work);
@@ -2081,7 +2081,7 @@ for(let d=1;d<=dayBoxes.length;d++){
   const backOv=box.querySelector('[data-route-override="back"]');
   const rt=outOv && String(outOv.value).trim()!==""
     ? Math.max(0,parseInt(outOv.value,10)||0)
-    : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
+    : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value));
   const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
   const rr=backOv && String(backOv.value).trim()!==""
     ? Math.max(0,parseInt(backOv.value,10)||0)
@@ -2091,7 +2091,7 @@ for(let d=1;d<=dayBoxes.length;d++){
   if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),8);
   km+=(parseFloat((kmA||"").replace(",","."))||0);
   km+=(parseFloat((kmB||"").replace(",","."))||0);
-  travel+=rt+rr;work+=wt;
+  travel+=rt+pauseOut+rr;work+=wt;
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
 if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),9);
