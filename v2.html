@@ -313,6 +313,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
+.machine-combo.is-disabled input{background:#f2f2f7;color:#666}
 input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
@@ -362,7 +363,7 @@ input.km-check,input.to-check{
 </div></section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer. „Zur Maschinenliste des Kunden hinzufügen“ speichert die Maschine bei diesem Kunden.</div>
+<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -383,7 +384,7 @@ input.km-check,input.to-check{
 <div class="machine-combo combo-box" id="machineNoBox">
   <label for="machineNo">Nr.</label>
   <div class="combo-field">
-    <input id="machineNo" autocomplete="off" placeholder="Seriennummer wählen oder neu">
+    <input id="machineNo" autocomplete="off" placeholder="Zuerst den Typ wählen" readonly>
     <button type="button" class="combo-clear" id="machineNoClear" aria-label="Nr. löschen">×</button>
   </div>
   <div id="machineNoResults" class="combo-results"></div>
@@ -2901,6 +2902,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return out;
   }
+  function naturalSort(list){
+    return unique(list).sort((a,b)=>String(a).localeCompare(String(b),"de",{numeric:true,sensitivity:"base"}));
+  }
   function catalogEntry(name){
     const n=norm(name);
     if(!n) return null;
@@ -2922,24 +2926,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function manufacturerOptions(){
     const fromCat=catalog.map(c=>c.name);
     const fromCust=listForCustomer().map(m=>m.manufacturer);
-    return unique(fromCat.concat(fromCust));
+    return naturalSort(fromCat.concat(fromCust));
   }
   function typeOptions(){
     const mfr=$("manufacturer")?.value||"";
-    if(!norm(mfr)) return unique(listForCustomer().map(m=>m.type));
+    if(!norm(mfr)) return [];
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
     const fromCust=listForCustomer().filter(m=>sameBrand(m.manufacturer,mfr)).map(m=>m.type);
-    return unique(fromCat.concat(fromCust));
+    const typed=$("type")?.value||"";
+    return naturalSort(fromCat.concat(fromCust).concat(typed?[typed]:[]));
   }
   function nrOptions(){
     const mfr=$("manufacturer")?.value||"";
     const typ=$("type")?.value||"";
-    return unique(listForCustomer().filter(m=>{
-      if(norm(mfr) && !sameBrand(m.manufacturer,mfr)) return false;
-      if(norm(typ) && !sameType(m.type,typ)) return false;
-      return !!m.machineNo;
-    }).map(m=>m.machineNo));
+    if(!norm(mfr) || !norm(typ)) return [];
+    return naturalSort(listForCustomer().filter(m=>
+      sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
+    ).map(m=>m.machineNo));
   }
   function findSaved(){
     const rec=fromForm();
@@ -2959,6 +2963,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return matches.length===1 ? matches[0] : null;
   }
   function applyIfUniqueNr(){
+    if(!norm($("type")?.value||"")){
+      syncNrEnabled();
+      return;
+    }
     const nos=nrOptions();
     if(nos.length===1 && !$("machineNo").value){
       $("machineNo").value=nos[0];
@@ -2967,11 +2975,22 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(saved) applyMachine(saved, true);
     syncComboClears();
   }
+  function syncNrEnabled(){
+    const hasType=!!norm($("type")?.value||"");
+    const el=$("machineNo");
+    const box=$("machineNoBox");
+    if(el){
+      el.readOnly=!hasType;
+      el.placeholder=hasType?"Seriennummer wählen oder neu":"Zuerst den Typ wählen";
+    }
+    if(box) box.classList.toggle("is-disabled", !hasType);
+  }
   function syncComboClears(){
     [["manufacturerBox","manufacturer"],["typeBox","type"],["machineNoBox","machineNo"]].forEach(([boxId, inputId])=>{
       const box=$(boxId), el=$(inputId);
       if(box && el) box.classList.toggle("has-value", String(el.value||"").trim()!=="");
     });
+    syncNrEnabled();
   }
   function setupCombo(input, results, box, clearBtn, getOptions, onChoose, emptyHint){
     if(!input || !results || input.dataset.comboBound==="1") return;
@@ -2980,8 +2999,26 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.style.display="none";
       results.innerHTML="";
     }
-    function show(){
-      const q=norm(input.value);
+    function show(useFilter){
+      if(input.id==="machineNo" && !norm($("type")?.value||"")){
+        results.innerHTML="";
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent="Zuerst den Typ wählen – danach erscheint die Nr.-Liste.";
+        results.appendChild(empty);
+        results.style.display="block";
+        return;
+      }
+      if(input.id==="type" && !norm($("manufacturer")?.value||"")){
+        results.innerHTML="";
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent="Zuerst den Hersteller wählen.";
+        results.appendChild(empty);
+        results.style.display="block";
+        return;
+      }
+      const q=useFilter ? norm(input.value) : "";
       const options=getOptions().filter(v=> !q || norm(v).includes(q));
       results.innerHTML="";
       if(!options.length){
@@ -3009,11 +3046,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
       results.style.display="block";
     }
-    input.addEventListener("focus", show);
-    input.addEventListener("click", show);
+    input.addEventListener("focus", ()=>show(false));
+    input.addEventListener("click", ()=>show(false));
     input.addEventListener("input",()=>{
       syncComboClears();
-      show();
+      show(true);
     });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
@@ -3022,7 +3059,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       syncComboClears();
       onChoose("");
       input.focus();
-      show();
+      show(true);
     });
     document.addEventListener("click",e=>{
       if(box && !box.contains(e.target)) close();
@@ -3052,6 +3089,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     else { list.push(rec); idx=list.length-1; }
     all[k]=list;
     saveAll(all);
+    syncComboClears();
     const s=$("status");
     if(s) s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
   }
@@ -3083,7 +3121,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       },
       q=>{
         if(!norm($("manufacturer")?.value||"")) return "Zuerst den Hersteller wählen.";
-        return q ? "Kein Treffer – Typ wird übernommen." : "Modell dieser Marke wählen.";
+        return q ? "Kein Treffer – Typ wird übernommen und nach dem Hinzufügen sortiert." : "Modell dieser Marke wählen.";
       }
     );
     setupCombo(
