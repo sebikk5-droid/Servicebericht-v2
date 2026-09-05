@@ -617,17 +617,15 @@ function anfahrtClockSpan(d){
 function rueckfahrtClockSpan(d){
   return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
 }
-function syncAnfahrtArrivalFromStart(d){
+function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
   if(!box) return;
   const outRow=d*2-1;
   const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
   const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
   const span=anfahrtClockSpan(d);
-  if(!a1||!a2||!span||!a1.value) return;
-  a2.value=addMinutesToTime(a1.value,span);
-  const az=box.querySelector(`[data-k="AZstart${outRow}"]`);
-  if(az&&a2.value&&az.dataset.manual!=="1") az.value=a2.value;
+  if(!a1||!a2||!span||!a2.value) return;
+  a1.value=addMinutesToTime(a2.value,-span);
 }
 function syncWorkEndToReturnStart(d){
   const box=dayBoxEl(d);
@@ -1140,10 +1138,10 @@ function applyCustomerRouteDay1(){
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
     const outSpan=outTime+pauseMinutes(document.querySelector('[data-k="PauseRZ1"]')?.value||"0");
 
-    // Anfahrt: Netto + Pause. Abfahrt (von) bleibt, Ankunft (bis) verschiebt sich.
+    // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
-      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
+      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
+      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1189,10 +1187,10 @@ function applyCustomerRouteDay(d){
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
     const outSpan=outTime+pauseMinutes(box?.querySelector(`[data-k="PauseRZ${2*d-1}"]`)?.value||"0");
 
-    // Anfahrt: Netto + Pause. Abfahrt (von) bleibt, Ankunft (bis) verschiebt sich.
+    // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
-      else if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
+      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
+      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1548,7 +1546,7 @@ function bindTimeInputs(){
       const outDrive=travelMinutesForDay(d,"out");
 
       if(key===`PauseRZ${outRow}`){
-        syncAnfahrtArrivalFromStart(d);
+        syncAnfahrtStartFromArrival(d);
         syncReturnPauseFromDay(box);
         recalcTimes();
         if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -1563,8 +1561,8 @@ function bindTimeInputs(){
           const a1=field("RZstart",outRow), a2=field("RZende",outRow);
           const elapsed=val+anfahrtPauseMin(d);
           if(a1&&a2&&val>0){
-            if(a1.value) a2.value=addMinutesToTime(a1.value,elapsed);
-            else if(a2.value) a1.value=addMinutesToTime(a2.value,-elapsed);
+            if(a2.value) a1.value=addMinutesToTime(a2.value,-elapsed);
+            else if(a1.value) a2.value=addMinutesToTime(a1.value,elapsed);
           }
           if(isEmpty){
             el.dataset.manual="0";
