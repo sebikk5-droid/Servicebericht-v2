@@ -3583,14 +3583,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const fromSaved=allSavedMachines().map(m=>m.manufacturer);
     return naturalSort(fromCat.concat(fromSaved));
   }
+  function savedTypeOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    if(!norm(mfr)) return [];
+    return naturalSort(allSavedMachines().filter(m=>
+      sameBrand(m.manufacturer,mfr) && !!m.type
+    ).map(m=>m.type));
+  }
   function typeOptions(){
     const mfr=$("manufacturer")?.value||"";
     if(!norm(mfr)) return [];
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
-    const fromSaved=allSavedMachines().filter(m=>sameBrand(m.manufacturer,mfr)).map(m=>m.type);
     const typed=$("type")?.value||"";
-    return naturalSort(fromCat.concat(fromSaved).concat(typed?[typed]:[]));
+    return naturalSort(fromCat.concat(savedTypeOptions()).concat(typed?[typed]:[]));
   }
   function nrOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -3620,26 +3626,33 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return incomplete.length===1 ? incomplete[0] : null;
   }
   const comboApi={};
-  function offerNrList(){
+  function clearBelow(keep){
+    FIELD_IDS.forEach(id=>{
+      if(keep.indexOf(id)>=0) return;
+      if($(id)) $(id).value="";
+    });
     syncNrEnabled();
     syncComboClears();
-    if(!nrOptions().length) return;
+  }
+  function offerCombo(id, boxId, options){
+    if(!options || !options.length) return;
     setTimeout(()=>{
-      if(comboApi.manufacturer && comboApi.manufacturer.close) comboApi.manufacturer.close();
-      if(comboApi.type && comboApi.type.close) comboApi.type.close();
-      if(comboApi.machineNo && comboApi.machineNo.show) comboApi.machineNo.show(false);
-      const box=$("machineNoBox");
+      Object.keys(comboApi).forEach(k=>{
+        if(k!==id && comboApi[k] && comboApi[k].close) comboApi[k].close();
+      });
+      if(comboApi[id] && comboApi[id].show) comboApi[id].show(false, options);
+      const box=$(boxId);
       if(box && typeof box.scrollIntoView==="function")
         box.scrollIntoView({block:"nearest", inline:"nearest"});
     }, 50);
   }
-  function onBrandOrTypeChosen(){
-    const nr=$("machineNo");
-    if(nr) nr.value="";
-    FIELD_IDS.filter(id=>id!=="manufacturer" && id!=="type" && id!=="machineNo").forEach(id=>{
-      if($(id)) $(id).value="";
-    });
-    offerNrList();
+  function onManufacturerChosen(){
+    clearBelow(["manufacturer"]);
+    offerCombo("type", "typeBox", savedTypeOptions());
+  }
+  function onTypeChosen(){
+    clearBelow(["manufacturer","type"]);
+    offerCombo("machineNo", "machineNoBox", nrOptions());
   }
   function syncNrEnabled(){
     const hasType=!!norm($("type")?.value||"");
@@ -3665,7 +3678,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.style.display="none";
       results.innerHTML="";
     }
-    function show(useFilter){
+    function show(useFilter, overrideOptions){
       if(input.id==="machineNo" && !norm($("type")?.value||"")){
         results.innerHTML="";
         const empty=document.createElement("div");
@@ -3685,7 +3698,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
       const q=useFilter ? norm(input.value) : "";
-      const options=getOptions().filter(v=> !q || norm(v).includes(q));
+      const source=Array.isArray(overrideOptions) ? overrideOptions : getOptions();
+      const options=source.filter(v=> !q || norm(v).includes(q));
       results.innerHTML="";
       if(!options.length){
         const empty=document.createElement("div");
@@ -3845,7 +3859,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $("manufacturer"), $("manufacturerResults"), $("manufacturerBox"), $("manufacturerClear"),
       manufacturerOptions,
       function(){
-        onBrandOrTypeChosen();
+        onManufacturerChosen();
       },
       q=> q ? "Kein Treffer – Name wird übernommen." : "Marke wählen oder neu eintippen."
     );
@@ -3853,7 +3867,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $("type"), $("typeResults"), $("typeBox"), $("typeClear"),
       typeOptions,
       function(){
-        onBrandOrTypeChosen();
+        onTypeChosen();
       },
       q=>{
         if(!norm($("manufacturer")?.value||"")) return "Zuerst den Hersteller wählen.";
