@@ -2832,7 +2832,129 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 <script>
 (function(){
-  try{ localStorage.removeItem("servicebericht_github_token"); }catch(e){}
+  const TOKEN_KEY="servicebericht_github_token";
+  const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
+  function repo(){
+    try{
+      const h=String(location.hostname||"");
+      if(/github\.io$/i.test(h)){
+        const owner=h.split(".")[0];
+        const parts=location.pathname.split("/").filter(Boolean);
+        return {owner, repo:parts[0]||(owner+".github.io"), branch:"main"};
+      }
+    }catch(e){}
+    return {owner:"sebikk5-droid", repo:"Servicebericht-v2", branch:"main"};
+  }
+  function captureToken(){
+    try{
+      const u=new URL(location.href);
+      let t=String(u.searchParams.get("sb_token")||"").trim();
+      if(!t && u.hash){
+        const q=String(u.hash).replace(/^#/, "");
+        q.split("&").forEach(part=>{
+          const p=part.split("=");
+          if(p[0]==="sb_token") t=decodeURIComponent((p[1]||"").trim());
+        });
+      }
+      if(!t) return;
+      localStorage.setItem(TOKEN_KEY, t);
+      u.searchParams.delete("sb_token");
+      let hash=String(u.hash||"");
+      hash=hash.replace(/[#&]?sb_token=[^&]*/g,"").replace(/^&/, "");
+      if(hash==="#") hash="";
+      history.replaceState({}, "", u.pathname+u.search+hash);
+    }catch(e){}
+  }
+  function token(){
+    try{ return String(localStorage.getItem(TOKEN_KEY)||"").trim(); }
+    catch(e){ return ""; }
+  }
+  function headers(){
+    const h={"Accept":"application/vnd.github+json"};
+    const t=token();
+    if(t) h.Authorization="Bearer "+t;
+    return h;
+  }
+  function apiFileUrl(path, withRef){
+    const r=repo();
+    const base="https://api.github.com/repos/"+encodeURIComponent(r.owner)+"/"+encodeURIComponent(r.repo)+"/contents/"+path;
+    return withRef ? base+"?ref="+encodeURIComponent(r.branch) : base;
+  }
+  function decodeContent(b64){
+    try{ return decodeURIComponent(escape(atob(String(b64||"").replace(/\n/g,"")))); }
+    catch(e){ return ""; }
+  }
+  function encodeContent(text){
+    return btoa(unescape(encodeURIComponent(text)));
+  }
+  async function fetchPages(path){
+    try{
+      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
+      if(!res.ok) return {data:null, sha:""};
+      return {data:await res.json(), sha:""};
+    }catch(e){
+      return {data:null, sha:""};
+    }
+  }
+  async function pullFile(kind){
+    const path=FILES[kind]||kind;
+    try{
+      const res=await fetch(apiFileUrl(path, true), {headers:headers(), cache:"no-store"});
+      if(res.status===404) return {data:null, sha:""};
+      if(!res.ok) return fetchPages(path);
+      const j=await res.json();
+      let data=null;
+      try{ data=JSON.parse(decodeContent(j.content)); }catch(e){ data=null; }
+      return {data, sha:j.sha||""};
+    }catch(e){
+      return fetchPages(path);
+    }
+  }
+  async function putFile(kind, data, sha, message){
+    const t=token();
+    if(!t) return {ok:false, reason:"no-token"};
+    const path=FILES[kind]||kind;
+    const r=repo();
+    const res=await fetch(apiFileUrl(path, false), {
+      method:"PUT",
+      headers:Object.assign({"Content-Type":"application/json"}, headers()),
+      body:JSON.stringify({
+        message: message||("Aktualisiere "+path),
+        content: encodeContent(JSON.stringify(data, null, 2)+"\n"),
+        branch: r.branch,
+        sha: sha||undefined
+      })
+    });
+    if(!res.ok){
+      let reason="";
+      try{ reason=(await res.text()).slice(0,240); }catch(e){}
+      return {ok:false, status:res.status, reason};
+    }
+    return {ok:true};
+  }
+  async function pushMerged(kind, localData, message, mergeFn){
+    const remote=await pullFile(kind);
+    const merged=mergeFn(remote.data, localData);
+    if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
+    let result=await putFile(kind, merged, remote.sha, message);
+    if(!result.ok && (result.status===409 || result.status===422)){
+      const again=await pullFile(kind);
+      const merged2=mergeFn(again.data, localData);
+      if(merged2==null) return {merged:again.data, result};
+      result=await putFile(kind, merged2, again.sha, message);
+      return {merged:merged2, result};
+    }
+    return {merged, result};
+  }
+  captureToken();
+  window.sbLists={
+    token, hasToken:()=>!!token(), pullFile, pushMerged, repo,
+    asMap(o){ return o && typeof o==="object" && !Array.isArray(o) ? o : {}; }
+  };
+})();
+</script>
+<script>
+(function(){
   const KEY="servicebericht_customer_emails_v1";
   function loadMap(){
     try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
@@ -2876,12 +2998,49 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pullEmails(){
     try{
-      const merged=mergeEmailMaps(loadMap(), await fetchSharedMap("customer-emails.json"));
+      let remote={};
+      if(window.sbLists){
+        const got=await window.sbLists.pullFile("emails");
+        remote=window.sbLists.asMap(got.data);
+      }else{
+        remote=await fetchSharedMap("customer-emails.json");
+      }
+      const merged=mergeEmailMaps(loadMap(), remote);
       saveMap(merged);
       return merged;
     }catch(e){
       return loadMap();
     }
+  }
+  function mergeCompanyEmails(list, firmaKey, email){
+    const arr=Array.isArray(list)?list.map(c=>Object.assign({}, c)):list;
+    if(!Array.isArray(arr)) return list;
+    const k=String(firmaKey||"").toLowerCase();
+    const e=String(email||"").trim();
+    arr.forEach(c=>{
+      const name=String((c&& (c.firma||c.name))||"").trim().toLowerCase();
+      if(name!==k) return;
+      const have=String(c.email||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
+      if(!have.some(x=>x.toLowerCase()===e.toLowerCase())){
+        have.push(e);
+        c.email=have.join("; ");
+      }
+    });
+    return arr;
+  }
+  async function pushEmails(message, email){
+    if(!window.sbLists) return {ok:false, reason:"no-cloud"};
+    const {merged, result}=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
+      return mergeEmailMaps(window.sbLists.asMap(remote), local||{});
+    });
+    saveMap(merged);
+    if(email && result && result.ok){
+      await window.sbLists.pushMerged("companies", {firma:customerKey(), email}, "E-Mail in Firmenliste", function(remote, local){
+        if(!Array.isArray(remote)) return remote;
+        return mergeCompanyEmails(remote, local.firma, local.email);
+      });
+    }
+    return result;
   }
   function emailsForCustomer(){
     const k=customerKey();
@@ -2907,8 +3066,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
     map[k]=list;
     saveMap(map);
+    const pushed=await pushEmails("E-Mail für "+k, e);
     const s=$("status");
-    if(s) s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
+    if(s){
+      if(pushed && pushed.ok) s.textContent="E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
+      else s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
+    }
     return true;
   }
   window.pickCustomerEmail=function(){
@@ -3412,12 +3575,32 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pullMachines(){
     try{
-      const merged=mergeMachineMaps(loadAll(), await fetchSharedMap("customer-machines.json"));
+      let remote={};
+      if(window.sbLists){
+        const got=await window.sbLists.pullFile("machines");
+        remote=window.sbLists.asMap(got.data);
+      }else{
+        remote=await fetchSharedMap("customer-machines.json");
+      }
+      const merged=mergeMachineMaps(loadAll(), remote);
       saveAll(merged);
       return merged;
     }catch(e){
       return loadAll();
     }
+  }
+  async function pushMachines(message, removeMatch){
+    if(!window.sbLists) return {ok:false, reason:"no-cloud"};
+    const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote, local){
+      const merged=mergeMachineMaps(window.sbLists.asMap(remote), local||{});
+      if(removeMatch && removeMatch.k && Array.isArray(merged[removeMatch.k])){
+        merged[removeMatch.k]=merged[removeMatch.k].filter(m=>!sameMachine(m, removeMatch.rec));
+        if(!merged[removeMatch.k].length) delete merged[removeMatch.k];
+      }
+      return merged;
+    });
+    saveAll(merged);
+    return result;
   }
   async function persistCurrent(){
     const k=customerKey();
@@ -3441,8 +3624,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     all[k]=list;
     saveAll(all);
     syncComboClears();
+    const pushed=await pushMachines("Maschine für "+k);
     const s=$("status");
-    if(s) s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+    if(s){
+      if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
+      else s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+    }
   }
   window.pullCustomerMachines=pullMachines;
   window.refreshCustomerMachines=async function(){
@@ -3509,8 +3696,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
       syncComboClears();
+      const pushed=await pushMachines("Maschine gelöscht: "+k, {k, rec});
       const s=$("status");
-      if(s) s.textContent="Maschine gelöscht.";
+      if(s){
+        if(pushed && pushed.ok) s.textContent="Maschine von der gemeinsamen Liste gelöscht.";
+        else s.textContent="Maschine gelöscht.";
+      }
     });
     ["control","nc","plc"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
