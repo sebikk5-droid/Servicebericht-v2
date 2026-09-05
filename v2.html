@@ -501,16 +501,26 @@ const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null;
 // Restore it only after a real page reload/recreation AND only if the
 // form is empty. This never overwrites a live Safari-restored report.
 
-const today=new Date().toISOString().slice(0,10); $("date").value=today;$("signdate").value=today;
+function isoDateLocal(d){
+  const x=d instanceof Date ? d : new Date(d);
+  if(Number.isNaN(x.getTime())) return "";
+  const y=x.getFullYear();
+  const m=String(x.getMonth()+1).padStart(2,"0");
+  const day=String(x.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+day;
+}
+const today=isoDateLocal(new Date()); $("date").value=today;$("signdate").value=today;
 
 function address(a){let p=(a||"").split(",").map(x=>x.trim()).filter(Boolean);if(p.length<2)return[a||"",""];let last=p.pop();return[p.join(", "),last]}
 let visibleDays=1;
 function isoAddDays(iso,n){
   if(!iso) return "";
-  const d=new Date(iso+"T00:00:00");
+  const p=String(iso).split("-").map(Number);
+  if(p.length<3 || p.some(v=>Number.isNaN(v))) return "";
+  const d=new Date(p[0], p[1]-1, p[2]);
   if(Number.isNaN(d.getTime())) return "";
   d.setDate(d.getDate()+Number(n||0));
-  return d.toISOString().slice(0,10);
+  return isoDateLocal(d);
 }
 function dayBoxEl(d){return document.querySelector(`[data-daybox="${d}"]`);}
 function travelMinutesForDay(d,dir){
@@ -853,11 +863,15 @@ document.addEventListener("click",function(e){
 
     box.remove();
 
-    // Renumber remaining day boxes and their labels/actions so the sequence
-    // remains Tag 1, Tag 2, Tag 3...
+    // Renumber remaining day boxes and remap PDF field indexes from the
+    // previous day number (not the new position) so Tag 3 → Tag 2 keeps
+    // RZstart5 / RZende6 → RZstart3 / RZende4.
     const boxes=[...document.querySelectorAll("[data-daybox]")];
     boxes.forEach((b,i)=>{
       const n=i+1;
+      const oldDay=parseInt(b.getAttribute("data-daybox"),10)||n;
+      const oldOut=2*oldDay-1, oldBack=2*oldDay;
+      const newOut=2*n-1, newBack=2*n;
       b.setAttribute("data-daybox",String(n));
       const h=b.querySelector(".day-header h3");
       if(h)h.textContent=`Tag ${n}`;
@@ -865,22 +879,26 @@ document.addEventListener("click",function(e){
       b.querySelectorAll("[data-day-content]").forEach(x=>x.setAttribute("data-day-content",String(n)));
       const info=b.querySelector('[id^="routeInfo"]');
       if(info)info.id=`routeInfo${n}`;
-
-      // Keep existing field/calc indexes consistent with the day position.
-      const oldDay=String(i+1);
-      const oldOut=2*(i+1)-1, oldBack=2*(i+1);
-      const newOut=2*n-1, newBack=2*n;
-      b.querySelectorAll("[data-k]").forEach(x=>{
-        x.dataset.k=x.dataset.k.replace(/(\d+)$/,(_,num)=>{
-          const v=parseInt(num,10);
-          if(v===oldOut)return String(newOut);
-          if(v===oldBack)return String(newBack);
-          return num;
+      const dateEl=b.querySelector(".daydate");
+      if(dateEl){
+        dateEl.setAttribute("data-day",String(n));
+        dateEl.setAttribute("aria-label",`Datum Tag ${n}`);
+      }
+      b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
+      b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
+      if(oldDay!==n){
+        b.querySelectorAll("[data-k]").forEach(x=>{
+          x.dataset.k=x.dataset.k.replace(/(\d+)$/,(_,num)=>{
+            const v=parseInt(num,10);
+            if(v===oldOut) return String(newOut);
+            if(v===oldBack) return String(newBack);
+            return num;
+          });
         });
-      });
-      b.querySelectorAll("[data-calc]").forEach(x=>{
-        x.dataset.calc=x.dataset.calc.replace(/\d+$/,String(n));
-      });
+        b.querySelectorAll("[data-calc]").forEach(x=>{
+          x.dataset.calc=x.dataset.calc.replace(/\d+$/,String(n));
+        });
+      }
       b.querySelectorAll("[data-route-override]").forEach(x=>{
         x.dataset.overrideEvents="0";
       });
@@ -2016,13 +2034,26 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
 <script>
 (function(){
-  const HISTORY_KEY="servicebericht_history_v26";
+  const HISTORY_KEY="servicebericht_history_v2";
+  const HISTORY_LEGACY_KEY="servicebericht_history_v26";
   const LIVE_KEY="servicebericht_live_draft_v2";
   const RESET_FLAG="servicebericht_reset_v2";
   const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
 
   function loadHistory(){
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"); }
+    try {
+      const raw=localStorage.getItem(HISTORY_KEY);
+      if(raw!=null){
+        const list=JSON.parse(raw||"[]");
+        return Array.isArray(list) ? list : [];
+      }
+      const legacy=localStorage.getItem(HISTORY_LEGACY_KEY);
+      if(!legacy) return [];
+      const list=JSON.parse(legacy||"[]");
+      const migrated=Array.isArray(list) ? list : [];
+      try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(migrated.slice(0,100))); }catch(e){}
+      return migrated;
+    }
     catch(e){ return []; }
   }
   function saveHistory(list){
@@ -2691,13 +2722,51 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
 <script>
 (function(){
-  window.saveCurrentPdf=function(){
+  const defaultGenerateLabel="PDF erstellen & speichern";
+  function isIosPdfDevice(){
+    const ua=navigator.userAgent||"";
+    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  }
+  function setStatus(text){
+    const s=$("status");
+    if(s) s.textContent=text;
+  }
+  window.deliverLastPdf=async function(){
     if(!lastPdfBlob){
-      const s=$("status");
-      if(s) s.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
-      return;
+      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      return false;
     }
     const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    try{
+      const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
+      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        setStatus("PDF zum Speichern geöffnet.");
+        return true;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return false;
+      if(isIosPdfDevice() && e && (e.name==="NotAllowedError" || e.name==="InvalidStateError"))
+        return false;
+    }
+    try{
+      if(window.showSaveFilePicker && !isIosPdfDevice()){
+        const handle=await window.showSaveFilePicker({
+          suggestedName:filename,
+          types:[{
+            description:"PDF-Datei",
+            accept:{"application/pdf":[".pdf"]}
+          }]
+        });
+        const writable=await handle.createWritable();
+        await writable.write(lastPdfBlob);
+        await writable.close();
+        setStatus("PDF wurde gespeichert.");
+        return true;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return false;
+    }
     const url=URL.createObjectURL(lastPdfBlob);
     const a=document.createElement("a");
     a.href=url;
@@ -2707,25 +2776,46 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),5000);
-    const s=$("status");
-    if(s) s.textContent="PDF zum Speichern geöffnet.";
+    setStatus("PDF zum Speichern geöffnet.");
+    return true;
   };
+  window.saveCurrentPdf=function(){ return window.deliverLastPdf(); };
   function installCombined(){
     const btn=document.getElementById("generate");
     if(!btn || btn.dataset.combinedInstalled==="1") return;
     btn.dataset.combinedInstalled="1";
-    btn.addEventListener("click",function(){
+    btn.addEventListener("click",function(e){
+      if(btn.dataset.shareReady==="1" && lastPdfBlob){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        window.deliverLastPdf().then(ok=>{
+          if(ok){
+            btn.dataset.shareReady="";
+            btn.textContent=defaultGenerateLabel;
+          }
+        });
+        return;
+      }
       let tries=0;
       const previousBlob=lastPdfBlob;
-      const finish=()=>{
+      const finish=async ()=>{
         if(lastPdfBlob===previousBlob){
           if(++tries<150) setTimeout(finish,100);
           return;
         }
-        if(lastPdfBlob) window.saveCurrentPdf();
+        if(!lastPdfBlob) return;
+        const ok=await window.deliverLastPdf();
+        if(!ok && isIosPdfDevice()){
+          btn.dataset.shareReady="1";
+          btn.textContent="PDF speichern";
+          setStatus("PDF fertig. Noch einmal „PDF speichern“ tippen.");
+        }else if(ok){
+          btn.dataset.shareReady="";
+          btn.textContent=defaultGenerateLabel;
+        }
       };
       setTimeout(finish,100);
-    });
+    }, true);
   }
   if(document.readyState==="loading")
     document.addEventListener("DOMContentLoaded",installCombined);
