@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-43";
+const CACHE_NAME = "servicebericht-v2-44";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -25,7 +25,8 @@ function isSharedData(url) {
   const path = new URL(url).pathname;
   return (
     path.endsWith("/customer-emails.json") ||
-    path.endsWith("/customer-machines.json")
+    path.endsWith("/customer-machines.json") ||
+    path.endsWith("/companies.json")
   );
 }
 
