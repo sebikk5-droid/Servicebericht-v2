@@ -255,9 +255,32 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 #sigModal{touch-action:none;overscroll-behavior:none;-webkit-user-select:none}
 .sig-modal-bottom{
-  display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
 }
-.sig-modal-clear{background:#fff;border:1px solid #ccc!important;flex:1}
+.sig-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sig-color-dot{
+  width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #bbb;padding:0;min-height:32px;flex:0 0 auto;
+}
+.sig-color-dot.is-on{box-shadow:0 0 0 3px #163a5c}
+.sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
+.sig-thick-btn.is-on{background:#163a5c;color:#fff}
+.sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
+#pdfPreviewModal{
+  display:none;position:fixed;inset:0;z-index:96;background:#d8d8de;flex-direction:column;min-height:0;
+}
+#pdfPreviewModal.open{display:flex}
+.pdf-preview-top{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:#fff;border-bottom:1px solid #ccc;
+}
+.pdf-preview-top button{border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;flex:0 0 auto}
+.pdf-preview-title{font-size:17px;font-weight:750}
+#pdfPreviewFrame{flex:1;width:100%;border:0;background:#525252;min-height:0}
+.pdf-preview-fallback{padding:12px;font-size:14px;color:#444}
+.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.machine-bar select{flex:1 1 180px;min-width:0}
+.machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-bar .machine-del{background:#e5e5ea;color:#111}
 </style>
 </head>
 <body>
@@ -295,6 +318,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 </div></section>
 
 <section class="card"><h2>Maschine</h2>
+<div class="machine-bar">
+  <select id="machineSelect" autocomplete="off"><option value="">— Neue Maschine —</option></select>
+  <button type="button" id="machineSave">Speichern</button>
+  <button type="button" id="machineDelete" class="machine-del">Löschen</button>
+</div>
+<div class="muted" style="margin:-4px 0 8px">Einmal eingegebene Maschinen bleiben beim Kunden und lassen sich hier ändern.</div>
 <div class="grid">
 <div><label>Hersteller</label><input id="manufacturer"></div><div><label>Typ</label><input id="type"></div>
 <div><label>Nr.</label><input id="machineNo"></div><div><label>Steuerungstyp</label><input id="control"></div>
@@ -379,7 +408,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen</button></div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -388,8 +417,25 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   </div>
   <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas" tabindex="0"></canvas></div>
   <div class="sig-modal-bottom">
+    <div class="sig-tools">
+      <button type="button" class="sig-color-dot is-on" data-sig-color="#111111" style="background:#111" aria-label="Schwarz"></button>
+      <button type="button" class="sig-color-dot" data-sig-color="#1a4a9e" style="background:#1a4a9e" aria-label="Blau"></button>
+      <button type="button" class="sig-color-dot" data-sig-color="#b42318" style="background:#b42318" aria-label="Rot"></button>
+      <button type="button" class="sig-thick-btn" data-sig-thick="0.7">Dünn</button>
+      <button type="button" class="sig-thick-btn is-on" data-sig-thick="1">Mittel</button>
+      <button type="button" class="sig-thick-btn" data-sig-thick="1.55">Dick</button>
+    </div>
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
+</div>
+<div id="pdfPreviewModal" aria-hidden="true">
+  <div class="pdf-preview-top">
+    <button type="button" id="pdfPreviewCancel" class="sig-modal-cancel">Zurück</button>
+    <div class="pdf-preview-title">PDF prüfen</div>
+    <button type="button" id="pdfPreviewSave" class="sig-modal-done">Speichern</button>
+  </div>
+  <iframe id="pdfPreviewFrame" title="PDF-Vorschau"></iframe>
+  <div class="pdf-preview-fallback" id="pdfPreviewHint">Prüfen, dann Speichern. Bei leerer Vorschau: Speichern öffnet das PDF.</div>
 </div>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>
@@ -929,6 +975,7 @@ fetch("companies.json").then(r=>{
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
+    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
   };
   // If Safari recreated the document and the form is genuinely empty,
   // restore the report captured immediately before PDF generation.
@@ -1285,6 +1332,7 @@ function initSignaturePads(){
   if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
   let drawing=false, pts=[], liveForce=0.18, activeId=null, inkBounds=null;
+  let inkColor="#111111", widthMul=1;
   const backup=document.createElement("canvas");
   const useRawUpdate=window.PointerEvent && "onpointerrawupdate" in window;
   const posFrom=ev=>{
@@ -1320,13 +1368,13 @@ function initSignaturePads(){
   function widthFromForce(f){
     const x=Math.max(0, Math.min(1, f));
     const t=Math.max(0, Math.min(1, (x-0.02)/0.48));
-    return 0.28 + Math.pow(t, 1.08)*18;
+    return (0.28 + Math.pow(t, 1.08)*18) * widthMul;
   }
   function stamp(pt){
     expandInk(pt);
     const ctx=canvas.getContext("2d");
     ctx.beginPath();
-    ctx.fillStyle="#111";
+    ctx.fillStyle=inkColor;
     ctx.arc(pt.x, pt.y, Math.max(0.4, pt.w/2), 0, Math.PI*2);
     ctx.fill();
   }
@@ -1347,8 +1395,8 @@ function initSignaturePads(){
     if(p.length>=3) p=chaikin(chaikin(p));
     p.forEach(expandInk);
     const ctx=canvas.getContext("2d");
-    ctx.strokeStyle="#111";
-    ctx.fillStyle="#111";
+    ctx.strokeStyle=inkColor;
+    ctx.fillStyle=inkColor;
     ctx.lineCap="round";
     ctx.lineJoin="round";
     if(p.length===1){
@@ -1493,6 +1541,28 @@ function initSignaturePads(){
   });
   $("sigModalCancel").addEventListener("click",closeModal);
   $("sigModalClear").addEventListener("click",()=>{ inkBounds=null; sizeModalCanvas(); });
+  try{
+    const savedC=localStorage.getItem("sig_ink_color");
+    const savedW=parseFloat(localStorage.getItem("sig_ink_thick")||"");
+    if(savedC) inkColor=savedC;
+    if(savedW>0.3 && savedW<3) widthMul=savedW;
+  }catch(e){}
+  document.querySelectorAll("[data-sig-color]").forEach(btn=>{
+    btn.classList.toggle("is-on", btn.getAttribute("data-sig-color").toLowerCase()===inkColor.toLowerCase());
+    btn.addEventListener("click",()=>{
+      inkColor=btn.getAttribute("data-sig-color");
+      document.querySelectorAll("[data-sig-color]").forEach(b=>b.classList.toggle("is-on", b===btn));
+      try{ localStorage.setItem("sig_ink_color", inkColor); }catch(e){}
+    });
+  });
+  document.querySelectorAll("[data-sig-thick]").forEach(btn=>{
+    btn.classList.toggle("is-on", Math.abs(parseFloat(btn.getAttribute("data-sig-thick"))-widthMul)<0.05);
+    btn.addEventListener("click",()=>{
+      widthMul=parseFloat(btn.getAttribute("data-sig-thick"))||1;
+      document.querySelectorAll("[data-sig-thick]").forEach(b=>b.classList.toggle("is-on", b===btn));
+      try{ localStorage.setItem("sig_ink_thick", String(widthMul)); }catch(e){}
+    });
+  });
   $("sigModalDone").addEventListener("click",()=>{
     const id=activeId;
     if(!id){ closeModal(); return; }
@@ -1699,7 +1769,8 @@ form.flatten();
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
-$("status").textContent="Fertig – das PDF ist vorbereitet.";
+$("status").textContent="PDF zur Prüfung bereit.";
+if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob);
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
 
@@ -2207,67 +2278,233 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
 <script>
 (function(){
-  function installCombined(){
-    const btn=document.getElementById("generate");
-    if(!btn || btn.dataset.combinedInstalled==="1") return;
-    btn.dataset.combinedInstalled="1";
-
-    btn.addEventListener("click",function(){
-      let tries=0;
-      const previousBlob=lastPdfBlob;
-    const finish=async()=>{
-      if(lastPdfBlob===previousBlob){
-        setTimeout(finish,100);
+  let previewUrl=null;
+  function closePdfPreview(){
+    const modal=$("pdfPreviewModal");
+    const frame=$("pdfPreviewFrame");
+    if(modal){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); }
+    if(frame) frame.src="about:blank";
+    if(previewUrl){ URL.revokeObjectURL(previewUrl); previewUrl=null; }
+  }
+  window.showPdfPreview=function(blob){
+    if(!blob) return;
+    const modal=$("pdfPreviewModal");
+    const frame=$("pdfPreviewFrame");
+    if(!modal||!frame) return;
+    if(previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl=URL.createObjectURL(blob);
+    frame.src=previewUrl;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+    const s=$("status");
+    if(s) s.textContent="PDF prüfen, dann Speichern.";
+  };
+  window.saveCurrentPdf=async function(){
+    if(!lastPdfBlob){
+      const s=$("status");
+      if(s) s.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+      return;
+    }
+    const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    try{
+      const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
+      const ua=navigator.userAgent||"";
+      const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+      if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        const s=$("status");
+        if(s) s.textContent="PDF zum Speichern geöffnet.";
         return;
       }
-        if(typeof lastPdfBlob!=="undefined" && lastPdfBlob){
-          const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
-          try{
-            const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
-            const ua=navigator.userAgent||"";
-            const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-            if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-              await navigator.share({files:[file]});
-              const s=document.getElementById("status");
-              if(s) s.textContent="PDF zum Speichern geöffnet.";
-              return;
-            }
-          }catch(e){
-            if(e && e.name==="AbortError") return;
-          }
-          try{
-            if(window.showSaveFilePicker){
-              const handle=await window.showSaveFilePicker({
-                suggestedName:filename,
-                types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
-              });
-              const w=await handle.createWritable();
-              await w.write(lastPdfBlob);
-              await w.close();
-              const s=document.getElementById("status");
-              if(s) s.textContent="PDF wurde gespeichert.";
-              return;
-            }
-          }catch(e){
-            if(e && e.name==="AbortError") return;
-          }
-          const url=URL.createObjectURL(lastPdfBlob);
-          const a=document.createElement("a");
-          a.href=url; a.download=filename; a.style.display="none";
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(()=>URL.revokeObjectURL(url),5000);
-          const s=document.getElementById("status");
-          if(s) s.textContent="PDF zum Speichern geöffnet.";
-          return;
-        }
-        if(++tries<150) setTimeout(finish,100);
-      };
-      setTimeout(finish,100);
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    try{
+      if(window.showSaveFilePicker){
+        const handle=await window.showSaveFilePicker({
+          suggestedName:filename,
+          types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
+        });
+        const w=await handle.createWritable();
+        await w.write(lastPdfBlob);
+        await w.close();
+        const s=$("status");
+        if(s) s.textContent="PDF wurde gespeichert.";
+        return;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    const url=URL.createObjectURL(lastPdfBlob);
+    const a=document.createElement("a");
+    a.href=url; a.download=filename; a.style.display="none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    const s=$("status");
+    if(s) s.textContent="PDF zum Speichern geöffnet.";
+  };
+  function bindPreview(){
+    $("pdfPreviewCancel")?.addEventListener("click",closePdfPreview);
+    $("pdfPreviewSave")?.addEventListener("click",async()=>{
+      await window.saveCurrentPdf();
+      closePdfPreview();
     });
   }
-  if(document.readyState==="loading")
-    document.addEventListener("DOMContentLoaded",installCombined);
-  else installCombined();
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPreview);
+  else bindPreview();
+})();
+</script>
+
+<script>
+(function(){
+  const KEY="servicebericht_customer_machines_v1";
+  const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
+  function loadAll(){
+    try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
+    catch(e){ return {}; }
+  }
+  function saveAll(map){
+    try{ localStorage.setItem(KEY, JSON.stringify(map)); }catch(e){}
+  }
+  function customerKey(){
+    return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
+  }
+  function listForCustomer(){
+    const k=customerKey();
+    if(!k) return [];
+    const all=loadAll();
+    return Array.isArray(all[k])?all[k]:[];
+  }
+  function fromForm(){
+    const m={};
+    FIELD_IDS.forEach(id=>{ m[id]=String($(id)?.value||"").trim(); });
+    return m;
+  }
+  function applyMachine(m){
+    if(!m) return;
+    FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=m[id]||""; });
+  }
+  function labelOf(m){
+    return [m.manufacturer,m.type,m.machineNo].filter(Boolean).join(" · ") || "Maschine";
+  }
+  function isEmpty(m){
+    return !m.manufacturer && !m.type && !m.machineNo && !m.control && !m.nc && !m.plc;
+  }
+  function refreshSelect(keepId){
+    const sel=$("machineSelect");
+    if(!sel) return;
+    const list=listForCustomer();
+    const cur=keepId!=null?String(keepId):sel.value;
+    sel.innerHTML='<option value="">— Neue Maschine —</option>'+
+      list.map((m,i)=>`<option value="${i}">${labelOf(m)}</option>`).join("");
+    if(cur!=="" && list[Number(cur)]) sel.value=cur;
+  }
+  function persistCurrent(asNew){
+    const k=customerKey();
+    if(!k){
+      const s=$("status");
+      if(s) s.textContent="Zuerst den Kunden / die Firma wählen.";
+      return;
+    }
+    const rec=fromForm();
+    if(isEmpty(rec)){
+      const s=$("status");
+      if(s) s.textContent="Maschine hat noch keine Daten.";
+      return;
+    }
+    const all=loadAll();
+    const list=Array.isArray(all[k])?all[k]:[];
+    const sel=$("machineSelect");
+    let idx=sel && sel.value!=="" ? Number(sel.value) : -1;
+    if(!(idx>=0 && list[idx])){
+      idx=list.findIndex(m=>
+        (rec.machineNo && m.machineNo===rec.machineNo) ||
+        (!rec.machineNo && rec.type && m.type===rec.type && m.manufacturer===rec.manufacturer)
+      );
+    }
+    if(idx>=0 && list[idx]) list[idx]=rec;
+    else { list.push(rec); idx=list.length-1; }
+    all[k]=list;
+    saveAll(all);
+    refreshSelect(String(idx));
+    const s=$("status");
+    if(s) s.textContent="Maschine beim Kunden gespeichert.";
+  }
+  window.refreshCustomerMachines=function(){ refreshSelect(""); };
+  function bind(){
+    const sel=$("machineSelect");
+    if(!sel || sel.dataset.bound==="1") return;
+    sel.dataset.bound="1";
+    refreshSelect("");
+    sel.addEventListener("change",()=>{
+      if(sel.value===""){
+        FIELD_IDS.forEach(id=>{ if($(id) && id!=="fault" && id!=="hours") $(id).value=""; });
+        return;
+      }
+      const list=listForCustomer();
+      applyMachine(list[Number(sel.value)]);
+    });
+    $("machineSave")?.addEventListener("click",()=>persistCurrent(false));
+    $("machineDelete")?.addEventListener("click",()=>{
+      const k=customerKey();
+      const idx=sel.value===""?-1:Number(sel.value);
+      if(idx<0){
+        FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+        return;
+      }
+      const all=loadAll();
+      const list=Array.isArray(all[k])?all[k]:[];
+      list.splice(idx,1);
+      all[k]=list;
+      saveAll(all);
+      FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+      refreshSelect("");
+      const s=$("status");
+      if(s) s.textContent="Maschine gelöscht.";
+    });
+    FIELD_IDS.forEach(id=>{
+      $(id)?.addEventListener("change",()=>{
+        if(!customerKey()) return;
+        if(isEmpty(fromForm())) return;
+        persistCurrent(false);
+      });
+    });
+    $("customerSearch")?.addEventListener("blur",()=>refreshSelect(sel.value));
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
+  else bind();
+})();
+</script>
+
+<script>
+(function(){
+  let penField=null;
+  document.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="pen") return;
+    const field=e.target && e.target.closest && e.target.closest("input,textarea,select");
+    penField=field||null;
+  }, true);
+  document.addEventListener("focusin",e=>{
+    const el=e.target;
+    if(!el || !el.tagName) return;
+    if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
+    if(el.closest && el.closest("#sigModal,#pdfPreviewModal")) return;
+    if(!penField || penField===el) return;
+    penField=null;
+    const prevMode=el.getAttribute("inputmode");
+    const prevRead=el.readOnly;
+    el.setAttribute("inputmode","none");
+    el.readOnly=true;
+    requestAnimationFrame(()=>{
+      el.readOnly=prevRead;
+      if(prevMode!=null) el.setAttribute("inputmode", prevMode);
+      else el.removeAttribute("inputmode");
+      if(el.type==="number") el.setAttribute("inputmode", el.getAttribute("inputmode")||"decimal");
+      else if(el.type!=="date" && el.type!=="time" && el.type!=="checkbox" && el.tagName!=="SELECT")
+        el.setAttribute("inputmode","text");
+      try{ el.focus({preventScroll:true}); }catch(_e){ el.focus(); }
+    });
+  }, true);
 })();
 </script>
 
