@@ -26,6 +26,12 @@ main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d1d1d6;border-radius:11px;background:#fff;color:#111}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
+#remarks,#parts{
+  max-height:min(240px,38vh);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
@@ -421,11 +427,11 @@ input.km-check,input.to-check{
 </section>
 
 <section class="card"><h2>Bemerkungen</h2>
-<textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea>
+<textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 <div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
-<textarea id="parts" placeholder="- ..."></textarea>
+<textarea id="parts" placeholder="- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 <div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
 </section>
 
@@ -1222,6 +1228,12 @@ function fieldRectOf(form,n){
     return {width:140, height:16, x:0, y:0};
   }
 }
+function fieldInnerWidth(r){
+  const w=Number(r&&r.width)||140;
+  // Chrome clips AcroForm text harder than Preview/Safari. Keep a margin
+  // inside the widget so wrapped lines stay fully visible after flatten.
+  return Math.max(8, Math.min(w-14, w*0.965));
+}
 function consumeLine(font, words, size, maxW){
   if(!words.length) return "";
   const first=words[0];
@@ -1235,29 +1247,61 @@ function consumeLine(font, words, size, maxW){
   }
   return line;
 }
+function packFieldLines(font, paragraphs, widths, size){
+  const lines=[];
+  for(let p=0;p<paragraphs.length;p++){
+    const words=paragraphs[p].split(/\s+/).filter(Boolean);
+    while(words.length){
+      if(lines.length>=widths.length)
+        return {lines, leftover:words};
+      const line=consumeLine(font, words, size, widths[lines.length]);
+      if(line===null) return {lines, leftover:words, tooWide:true};
+      lines.push(line);
+    }
+  }
+  return {lines, leftover:[]};
+}
 function wrapIntoFields(form, names, text, font){
-  const MIN=8;
+  const MIN=7;
   const raw=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  if(!raw.length || !font){
+  if(!raw.length) return;
+  if(!font){
     names.forEach((n,i)=>setIf(form,n, raw[i]||""));
     return;
   }
   const meta=names.map(n=>{
     const r=fieldRectOf(form,n);
-    return {n, w:Math.max(8, r.width-12), h:r.height};
+    return {n, w:fieldInnerWidth(r), h:r.height};
   });
-  let size=Math.min(9, ...meta.map(m=>m.h*0.72));
-  size=Math.max(MIN, size);
-  const out=[];
-  raw.forEach(para=>{
-    const words=para.split(/\s+/).filter(Boolean);
-    while(words.length && out.length<names.length){
-      const line=consumeLine(font, words, size, meta[out.length].w);
-      if(line===null){
-        out.push(words.shift());
-      }else out.push(line);
+  const widths=meta.map(m=>m.w);
+  let hi=Math.min(9, ...meta.map(m=>m.h*0.62));
+  hi=Math.max(MIN, Math.round(hi*4)/4);
+  let size=hi;
+  let packed=packFieldLines(font, raw, widths, size);
+  while((packed.leftover.length || packed.tooWide) && size>MIN){
+    size=Math.round((size-0.25)*4)/4;
+    packed=packFieldLines(font, raw, widths, size);
+  }
+  const out=packed.lines.slice();
+  let leftover=(packed.leftover||[]).slice();
+  while(leftover.length && out.length<names.length){
+    const line=consumeLine(font, leftover, size, widths[out.length]);
+    if(line===null) out.push(leftover.shift());
+    else out.push(line);
+  }
+  if(leftover.length){
+    const last=out.length?out.length-1:0;
+    if(!out.length) out.push("");
+    const maxW=widths[Math.min(last, widths.length-1)];
+    let line=out[last]||"";
+    while(leftover.length){
+      const trial=line?line+" "+leftover[0]:leftover[0];
+      if(font.widthOfTextAtSize(trial, MIN)>maxW) break;
+      line=trial;
+      leftover.shift();
     }
-  });
+    out[last]=line;
+  }
   names.forEach((n,i)=>{
     const line=out[i]||"";
     if(line) setFit(form,n,line,size);
@@ -1302,8 +1346,8 @@ function setFit(form,n,v,size){
     ensureFieldDA(field);
     if(pdfFitFont){
       const r=field.acroField.getWidgets()[0].getRectangle();
-      const maxW=Math.max(6,(r.width||80)-10);
-      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 8 : 4.2;
+      const maxW=fieldInnerWidth(r);
+      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 6.5 : 4.2;
       while(sz>minSz && pdfFitFont.widthOfTextAtSize(s, sz)>maxW) sz-=0.15;
     }
     field.setFontSize(Math.round(sz*10)/10);
@@ -2127,7 +2171,8 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
-form.updateFieldAppearances();
+if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
+else form.updateFieldAppearances();
 const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
@@ -3369,11 +3414,63 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
 <script>
 (function(){
-  let penField=null;
+  const main=()=>document.querySelector("main");
+  function closeOpenCombos(){
+    document.querySelectorAll(".combo-results").forEach(el=>{
+      el.style.display="none";
+      el.innerHTML="";
+      if("hidden" in el) el.hidden=true;
+    });
+  }
+  function keepNotesInView(el){
+    const scroller=main();
+    if(!scroller || !el) return;
+    const vv=window.visualViewport;
+    const viewTop=vv ? vv.offsetTop : 0;
+    const viewBottom=vv ? vv.offsetTop+vv.height : window.innerHeight;
+    const sr=scroller.getBoundingClientRect();
+    const er=el.getBoundingClientRect();
+    const topLimit=Math.max(sr.top+8, viewTop+8);
+    const bottomLimit=Math.min(sr.bottom-8, viewBottom-8);
+    if(er.bottom>bottomLimit)
+      scroller.scrollTop+=er.bottom-bottomLimit;
+    else if(er.top<topLimit)
+      scroller.scrollTop-=topLimit-er.top;
+  }
+  function onNotesFocus(el){
+    closeOpenCombos();
+    const scroller=main();
+    const keep=scroller ? scroller.scrollTop : 0;
+    requestAnimationFrame(()=>{
+      if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
+      keepNotesInView(el);
+    });
+    setTimeout(()=>keepNotesInView(el), 280);
+  }
+  ["remarks","parts"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener("focus",()=>onNotesFocus(el));
+    el.addEventListener("input",()=>keepNotesInView(el));
+  });
+  document.addEventListener("focusin",e=>{
+    const t=e.target;
+    if(t && t.closest && t.closest(".combo-box")) return;
+    closeOpenCombos();
+  }, true);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",()=>{
+      const a=document.activeElement;
+      if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
+    });
+  }
+
+  let penField=null, penAt=0;
   document.addEventListener("pointerdown",e=>{
     if(e.pointerType!=="pen") return;
     const field=e.target && e.target.closest && e.target.closest("input,textarea,select");
     penField=field||null;
+    penAt=Date.now();
   }, true);
   document.addEventListener("focusin",e=>{
     const el=e.target;
@@ -3381,6 +3478,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
     if(el.closest && el.closest("#sigModal")) return;
     if(!penField || penField===el) return;
+    const jumpedToSearch=Date.now()-penAt<1200 && (
+      el.id==="customerSearch" || el.id==="historySearch" ||
+      (el.closest && el.closest("#customerSearchBox"))
+    );
+    if(jumpedToSearch && penField.isConnected){
+      const back=penField;
+      penField=null;
+      try{ back.focus({preventScroll:true}); }catch(_e){ back.focus(); }
+      keepNotesInView(back);
+      return;
+    }
     penField=null;
     const prevMode=el.getAttribute("inputmode");
     const prevRead=el.readOnly;
