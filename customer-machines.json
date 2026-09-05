@@ -7,6 +7,24 @@
       "control": "",
       "nc": "",
       "plc": ""
+    },
+    {
+      "manufacturer": "DMG",
+      "type": "DMU 50",
+      "machineNo": "11415746474",
+      "control": "iTNC 530",
+      "nc": "60642004SP20",
+      "plc": "470000_HEDR_05B"
+    }
+  ],
+  "fkt": [
+    {
+      "manufacturer": "DMG",
+      "type": "DMU 50",
+      "machineNo": "11415746474",
+      "control": "iTNC 530",
+      "nc": "60642004SP20",
+      "plc": "470000_HEDR_05B"
     }
   ]
 }
