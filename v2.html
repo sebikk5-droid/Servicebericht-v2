@@ -2350,15 +2350,9 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     if(hint) hint.textContent="PDF wird geladen…";
     try{
       if(!window.pdfjsLib) throw new Error("pdf.js fehlt");
-      pdfjsLib.GlobalWorkerOptions.workerSrc="./vendor/pdf.worker.min.js";
       const data=new Uint8Array(await blob.arrayBuffer());
       if(previewDoc && previewDoc.destroy) try{ previewDoc.destroy(); }catch(e){}
-      const load=(opts)=>pdfjsLib.getDocument(Object.assign({data:data.slice(0)}, opts)).promise;
-      try{
-        previewDoc=await load({});
-      }catch(workerErr){
-        previewDoc=await load({disableWorker:true});
-      }
+      previewDoc=await pdfjsLib.getDocument({data, disableWorker:true}).promise;
       const page=await previewDoc.getPage(1);
       await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
       await new Promise(r=>setTimeout(r,40));
