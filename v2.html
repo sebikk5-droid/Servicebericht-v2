@@ -1016,15 +1016,10 @@ function fitFontSize(font, text, width, height, maxSize){
 }
 function consumeLine(font, words, size, maxW){
   if(!words.length) return "";
-  let word=words[0];
-  if(font.widthOfTextAtSize(word, size)>maxW){
-    let cut=word.length;
-    while(cut>1 && font.widthOfTextAtSize(word.slice(0,cut), size)>maxW) cut--;
-    words[0]=word.slice(cut);
-    return word.slice(0,cut);
-  }
+  const first=words[0];
+  if(font.widthOfTextAtSize(first, size)>maxW) return null;
   words.shift();
-  let line=word;
+  let line=first;
   while(words.length){
     const trial=line+" "+words[0];
     if(font.widthOfTextAtSize(trial, size)<=maxW){ line=trial; words.shift(); }
@@ -1049,7 +1044,12 @@ function wrapIntoFields(form, names, text, font){
     raw.forEach(para=>{
       const words=para.split(/\s+/).filter(Boolean);
       while(words.length && out.length<names.length){
-        out.push(consumeLine(font, words, sz, meta[out.length].w));
+        const line=consumeLine(font, words, sz, meta[out.length].w);
+        if(line===null){
+          overflow=true;
+          if(sz<=5) out.push(words.shift());
+          else break;
+        }else out.push(line);
       }
       if(words.length) overflow=true;
     });
@@ -1064,7 +1064,6 @@ function wrapIntoFields(form, names, text, font){
     const line=packed.out[i]||"";
     if(!line) return;
     set(form,n,line);
-    try{ form.getTextField(n).setFontSize(size); }catch(e){}
   });
 }
 function set(form,n,v){
@@ -1079,8 +1078,7 @@ function set(form,n,v){
       text,
       x:r.x+2,
       y:r.y+Math.max(1.5,(r.height-size)*0.28),
-      size,
-      maxW:Math.max(8, r.width-4)
+      size
     });
   }catch(e){}
 }
@@ -1753,32 +1751,24 @@ function signatureFieldBoxes(form){
 async function embedSignatures(pdf, boxes){
   const page=pdf.getPages()[0];
   const rects=boxes||signatureFieldBoxes(null);
-  const push=PDFLib.pushGraphicsState, pop=PDFLib.popGraphicsState;
-  const rectOp=PDFLib.rectangle, clipOp=PDFLib.clip, endOp=PDFLib.endPath;
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
     const png=await fetch(url).then(r=>r.arrayBuffer());
     const img=await pdf.embedPng(png);
     const box=rects[id];
-    const padX=2;
-    const lineGap=Math.max(6, Math.round(box.height*0.12));
-    const topPad=1;
+    const padX=3;
+    const lineGap=Math.max(5, Math.round(box.height*0.1));
     const maxW=Math.max(4, box.width-padX*2);
-    const maxH=Math.max(4, box.height-lineGap-topPad);
-    const cover=Math.max(maxW/img.width, maxH/img.height);
-    const w=img.width*cover, h=img.height*cover;
-    const clipX=box.x+padX, clipY=box.y+lineGap, clipW=maxW, clipH=maxH;
-    try{
-      page.pushOperators(push(), rectOp(clipX, clipY, clipW, clipH), clipOp(), endOp());
-    }catch(e){}
+    const maxH=Math.max(4, box.height-lineGap-2);
+    const scale=Math.min(maxW/img.width, maxH/img.height);
+    const w=img.width*scale, h=img.height*scale;
     page.drawImage(img,{
-      x:clipX+(clipW-w)/2,
-      y:clipY,
+      x:box.x+padX+(maxW-w)/2,
+      y:box.y+lineGap,
       width:w,
       height:h
     });
-    try{ page.pushOperators(pop()); }catch(e){}
   }
 }
 initSignaturePads();
@@ -1910,9 +1900,7 @@ for(const t of pdfTextPaint){
       x:t.x,
       y:t.y,
       size:t.size,
-      font:pdfFitFont,
-      maxWidth:t.maxW,
-      wordBreaks:[" ","-","/"]
+      font:pdfFitFont
     });
   }catch(e){}
 }
