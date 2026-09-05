@@ -156,17 +156,22 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .choice-group .check{display:inline-flex;align-items:center;gap:8px;font-weight:600}
 .choice-group input[type=checkbox]{width:22px;height:22px;min-height:22px}
 
-.day-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.day-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 .day-header h3{margin:0}
-.day-actions{display:flex;gap:6px;flex-wrap:wrap}
-.day-actions button{border:1px solid #bbb;background:#f5f5f5;border-radius:8px;padding:6px 9px;font-size:13px;cursor:pointer}
-.day-actions .day-remove{border-color:#c9a0a0}
+.day-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-left:auto}
+.day-actions button{border:0;border-radius:11px;padding:10px 14px;font-size:15px;font-weight:750;cursor:pointer;min-height:42px;flex:0 0 auto}
+.day-actions .day-collapse{background:#163a5c;color:#fff}
+.day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
 .day-content{display:block}
 .daybox.day-collapsed .day-content{display:none}
-.daybox.day-collapsed .day-collapse::after{content:""}
+.daybox[data-daybox="1"] .day-remove{display:none}
 </style><style>
-.day-end-actions{display:flex;justify-content:flex-end;margin-top:10px}
-.btn-day-collapse{padding:7px 12px;border-radius:7px;cursor:pointer}
+.day-end-actions{display:flex;margin-top:12px}
+.btn-day-collapse{
+  width:100%;padding:12px 14px;border:0;border-radius:11px;cursor:pointer;
+  background:#163a5c;color:#fff;font-size:16px;font-weight:750;min-height:46px
+}
+.daybox.day-collapsed .day-end-actions{display:none}
 .day-collapsed .day-content,
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
@@ -180,6 +185,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox .day-header h3{color:#163a5c}
 .daybox .sectiontitle{border-top-color:#b7cde3}
 .daybox .day-actions button{background:#fff}
+.daybox .day-actions .day-collapse{background:#163a5c;color:#fff}
+.daybox .day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
 .daybox input,.daybox select{background:#fff}
 #historySection{padding:10px 12px}
 #historySection h2{margin:0 0 8px;font-size:15px}
@@ -189,13 +196,24 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   gap:6px;
   align-items:center;
 }
-#historySection #historySelect{
-  flex:1 1 180px;
-  min-width:0;
-  min-height:32px;
-  padding:6px 8px;
-  font-size:13px;
+#historySection .history-search-box{flex:1 1 220px;min-width:0;position:relative}
+#historySection #historySearch{
+  width:100%;
+  min-height:40px;
+  padding:8px 12px;
+  font-size:16px;
 }
+#historySearchResults{
+  display:none;position:absolute;left:0;right:0;top:100%;z-index:60;
+  background:#fff;border:1px solid #bbb;border-radius:8px;max-height:260px;overflow-y:auto;
+  box-shadow:0 4px 12px rgba(0,0,0,.15);
+}
+#historySearchResults button{
+  display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:#fff;
+  font-size:14px;font-weight:600;cursor:pointer;flex:none;border-radius:0
+}
+#historySearchResults button:hover,#historySearchResults button.is-on{background:#eef5fb}
+#historySearchResults .history-empty{padding:10px;color:#777;font-size:13px}
 #historySection .muted{margin-top:6px;font-size:11px}
 .day-title{display:flex;align-items:center;gap:6px;min-width:0}
 .daybox input.daydate[type="date"]{
@@ -289,15 +307,16 @@ input.km-check,input.to-check{
 <section id="historySection" class="card">
   <h2>Historie</h2>
   <div class="history-bar">
-    <select id="historySelect">
-      <option value="">— Bericht —</option>
-    </select>
+    <div class="history-search-box">
+      <input id="historySearch" type="search" placeholder="Suchen oder Bericht wählen" autocomplete="off">
+      <div id="historySearchResults" hidden></div>
+    </div>
     <button type="button" id="historySave" class="history-file-btn">Speichern</button>
     <label class="history-file-btn" for="historyFileInput">Öffnen</label>
     <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
     <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
   </div>
-  <div class="muted">Liste lädt den Bericht. Öffnen / Speichern über Dateien.</div>
+  <div class="muted">Tippen öffnet die Liste. Name eintippen sucht in der Historie.</div>
 </section>
 <section class="card"><h2>Kunde</h2>
 <label>Firma</label><div id="customerSearchBox" style="margin:8px 0 10px;position:relative;">
@@ -402,7 +421,7 @@ input.km-check,input.to-check{
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -520,6 +539,40 @@ function clearCheckHighlight(el){
   el.classList.remove("km-check");
   el.classList.remove("to-check");
 }
+function setDayCollapsed(box, collapsed){
+  if(!box) return;
+  const on=!!collapsed;
+  box.classList.toggle("day-collapsed", on);
+  const top=box.querySelector('[data-day-action="collapse"]');
+  const bottom=box.querySelector("[data-collapse-day]");
+  if(top){
+    top.textContent=on ? "Aufklappen" : "Einklappen";
+    top.setAttribute("aria-expanded", on?"false":"true");
+  }
+  if(bottom) bottom.textContent=on ? "Aufklappen" : "Einklappen";
+}
+function syncDayChrome(){
+  document.querySelectorAll("[data-daybox]").forEach((b,i)=>{
+    const n=i+1;
+    const actions=b.querySelector(".day-actions");
+    let rm=actions?.querySelector(".day-remove");
+    if(n===1) rm?.remove();
+    else if(actions && !rm){
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="day-remove";
+      btn.setAttribute("data-day-action","remove");
+      btn.setAttribute("data-day",String(n));
+      btn.textContent="Löschen";
+      actions.appendChild(btn);
+    }else if(rm){
+      rm.setAttribute("data-day",String(n));
+    }
+    actions?.querySelector(".day-collapse")?.setAttribute("data-day",String(n));
+    b.querySelector("[data-collapse-day]")?.setAttribute("data-collapse-day",String(n));
+    setDayCollapsed(b, b.classList.contains("day-collapsed"));
+  });
+}
 
 function dayTemplate(d){
   return `
@@ -530,8 +583,8 @@ function dayTemplate(d){
         <input type="date" data-day="${d}" class="daydate" aria-label="Datum Tag ${d}">
       </div>
       <div class="day-actions">
-        <button type="button" class="day-collapse" data-day-action="collapse" data-day="${d}" aria-expanded="true">▲ Einklappen</button>
-        <button type="button" class="day-remove" data-day-action="remove" data-day="${d}">✕ Tag löschen</button>
+        <button type="button" class="day-collapse" data-day-action="collapse" data-day="${d}" aria-expanded="true">Einklappen</button>
+        ${d===1?"":`<button type="button" class="day-remove" data-day-action="remove" data-day="${d}">Löschen</button>`}
       </div>
     </div>
     <div class="day-content" data-day-content="${d}">
@@ -607,6 +660,10 @@ initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
 markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
+$("resetForm")?.addEventListener("click",()=>{
+  if(typeof window.clearLiveDraft==="function") window.clearLiveDraft();
+  location.reload();
+});
 $("times").addEventListener("change",e=>{
   if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
     syncTag1ToEinsatzdatum();
@@ -731,8 +788,7 @@ document.getElementById("times").addEventListener("click",function(e){
   const d=btn.getAttribute("data-collapse-day");
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
-  box.classList.toggle("day-collapsed");
-  btn.textContent=box.classList.contains("day-collapsed")?"Ausklappen":"Einklappen";
+  setDayCollapsed(box, !box.classList.contains("day-collapsed"));
 });
 
 // Day controls: collapse or remove a day that was added by mistake.
@@ -747,9 +803,7 @@ document.addEventListener("click",function(e){
   if(!box) return;
 
   if(action==="collapse"){
-    const collapsed=box.classList.toggle("day-collapsed");
-    btn.textContent=collapsed ? "▼ Aufklappen" : "▲ Einklappen";
-    btn.setAttribute("aria-expanded",collapsed?"false":"true");
+    setDayCollapsed(box, !box.classList.contains("day-collapsed"));
     return;
   }
 
@@ -796,6 +850,7 @@ document.addEventListener("click",function(e){
     });
 
     visibleDays=boxes.length;
+    syncDayChrome();
     bindTimeInputs();
     recalcTimes();
     if($("addDay"))$("addDay").style.display=visibleDays>=6?"none":"block";
@@ -990,12 +1045,11 @@ fetch("companies.json").then(r=>{
     recalcTimes();
     if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
   };
-  // If Safari recreated the document and the form is genuinely empty,
-  // restore the report captured immediately before PDF generation.
-
+  if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
 }).catch(err=>{
   console.error("companies.json:",err);
   $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
+  if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
 });
 
 function fieldRectOf(form,n){
@@ -1796,6 +1850,7 @@ initSignaturePads();
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
 try{
+if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
 let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 clearPdfForm(form);
@@ -1925,7 +1980,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const HISTORY_KEY="servicebericht_history_v26";
-  const SKIP_IDS={historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
+  const LIVE_KEY="servicebericht_live_draft_v2";
+  const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
 
   function loadHistory(){
     try { return JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"); }
@@ -2024,14 +2080,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       const d=box.getAttribute("data-daybox");
-      const collapsed=!!data[`day${d}_collapsed`];
-      const btn=box.querySelector('[data-day-action="collapse"]');
-      box.classList.toggle("day-collapsed",collapsed);
-      if(btn){
-        btn.textContent=collapsed ? "▼ Aufklappen" : "▲ Einklappen";
-        btn.setAttribute("aria-expanded",collapsed?"false":"true");
+      if(typeof setDayCollapsed==="function")
+        setDayCollapsed(box, !!data[`day${d}_collapsed`]);
+      else{
+        const collapsed=!!data[`day${d}_collapsed`];
+        const btn=box.querySelector('[data-day-action="collapse"]');
+        box.classList.toggle("day-collapsed",collapsed);
+        if(btn){
+          btn.textContent=collapsed ? "Aufklappen" : "Einklappen";
+          btn.setAttribute("aria-expanded",collapsed?"false":"true");
+        }
       }
     });
+    if(typeof syncDayChrome==="function") syncDayChrome();
 
     bindTimeInputs();
     document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
@@ -2051,19 +2112,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(item.report && typeof item.report==="object") return item.report;
     return item;
   }
+  function historyLabel(item){
+    const name=item?.name||"Bericht";
+    let when="";
+    try{ when=item?.savedAt ? new Date(item.savedAt).toLocaleString("de-DE") : ""; }catch(e){}
+    return when ? name+" – "+when : name;
+  }
+  let selectedHistory=null;
+  function setSelectedHistory(index, item){
+    selectedHistory=index==null||index==="" ? null : Number(index);
+    const input=document.getElementById("historySearch");
+    if(input && item) input.value=historyLabel(item);
+    if(input) input.dataset.index=selectedHistory==null?"":String(selectedHistory);
+  }
   function refresh(keepValue){
-    const sel=document.getElementById("historySelect");
-    if(!sel) return;
-    const prev=keepValue!=null ? String(keepValue) : sel.value;
     const list=loadHistory();
-    sel.innerHTML='<option value="">— Bericht —</option>';
-    list.forEach((item,i)=>{
-      const opt=document.createElement("option");
-      opt.value=String(i);
-      opt.textContent=(item.name||"Bericht")+" – "+new Date(item.savedAt).toLocaleString("de-DE");
-      sel.appendChild(opt);
-    });
-    if(prev!=="" && list[Number(prev)]) sel.value=prev;
+    const prev=keepValue!=null && keepValue!=="" ? Number(keepValue) : selectedHistory;
+    if(prev!=null && list[prev]) setSelectedHistory(prev, list[prev]);
+    else if(selectedHistory!=null && list[selectedHistory]) setSelectedHistory(selectedHistory, list[selectedHistory]);
   }
   function defaultName(){
     const typed=(document.getElementById("customerSearch")?.value||"").trim();
@@ -2072,21 +2138,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const name=(company?.selectedOptions?.[0]?.textContent||"").trim();
     return name && !name.startsWith("—") ? name : "Servicebericht";
   }
-  function openSelected(){
-    const sel=document.getElementById("historySelect");
-    if(!sel || sel.value===""){
-      alert("Bitte zuerst einen Bericht in der Liste auswählen.");
-      return;
-    }
+  function openHistoryIndex(index){
     const list=loadHistory();
-    const item=list[Number(sel.value)];
+    const item=list[Number(index)];
     const data=historyItemData(item);
     if(!data){
       alert("Dieser Bericht konnte nicht geladen werden.");
       return;
     }
     applyForm(data);
-    refresh(sel.value);
+    setSelectedHistory(index, item);
+    if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
     $("status").textContent="Bericht wurde geöffnet.";
   }
   function importPayloadText(text){
@@ -2182,7 +2244,68 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const save=document.getElementById("historySave");
     const fileInput=document.getElementById("historyFileInput");
     const del=document.getElementById("historyDelete");
-    const sel=document.getElementById("historySelect");
+    const input=document.getElementById("historySearch");
+    const results=document.getElementById("historySearchResults");
+
+    function closeResults(){
+      if(!results) return;
+      results.hidden=true;
+      results.innerHTML="";
+      results.style.display="none";
+    }
+    function showResults(items){
+      if(!results) return;
+      results.innerHTML="";
+      if(!items.length){
+        const empty=document.createElement("div");
+        empty.className="history-empty";
+        empty.textContent="Kein Bericht in der Historie.";
+        results.appendChild(empty);
+      }else{
+        items.forEach(({item,i})=>{
+          const btn=document.createElement("button");
+          btn.type="button";
+          btn.textContent=historyLabel(item);
+          if(selectedHistory===i) btn.classList.add("is-on");
+          btn.addEventListener("mousedown",e=>{
+            e.preventDefault();
+            openHistoryIndex(i);
+            closeResults();
+          });
+          results.appendChild(btn);
+        });
+      }
+      results.hidden=false;
+      results.style.display="block";
+    }
+    function filtered(){
+      const list=loadHistory();
+      const q=(input?.value||"").trim().toLocaleLowerCase("de-DE");
+      return list.map((item,i)=>({item,i})).filter(({item})=>{
+        if(!q) return true;
+        return historyLabel(item).toLocaleLowerCase("de-DE").includes(q);
+      });
+    }
+    input?.addEventListener("focus",()=>showResults(filtered()));
+    input?.addEventListener("click",()=>showResults(filtered()));
+    input?.addEventListener("input",()=>{
+      selectedHistory=null;
+      if(input) input.dataset.index="";
+      showResults(filtered());
+    });
+    input?.addEventListener("keydown",e=>{
+      if(e.key!=="Enter") return;
+      const hits=filtered();
+      if(hits.length===1){
+        e.preventDefault();
+        openHistoryIndex(hits[0].i);
+        closeResults();
+      }
+    });
+    document.addEventListener("click",e=>{
+      if(e.target.closest(".history-search-box")) return;
+      closeResults();
+    });
 
     save?.addEventListener("click",async()=>{
       const item={
@@ -2194,7 +2317,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const list=loadHistory();
         list.unshift(item);
         saveHistory(list);
-        refresh(0);
+        setSelectedHistory(0, item);
       }catch(e){
         alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
         return;
@@ -2215,11 +2338,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     });
 
-    sel?.addEventListener("change",()=>{
-      if(sel.value==="") return;
-      openSelected();
-    });
-
     fileInput?.addEventListener("change",async()=>{
       try{
         const f=fileInput.files && fileInput.files[0];
@@ -2233,19 +2351,76 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
 
     del?.addEventListener("click",()=>{
-      if(!sel || sel.value===""){
+      const idx=selectedHistory;
+      if(idx==null || Number.isNaN(idx)){
         alert("Bitte zuerst einen Bericht auswählen.");
         return;
       }
       const list=loadHistory();
-      const idx=Number(sel.value);
       if(!list[idx]) return;
       if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
       list.splice(idx,1);
       saveHistory(list);
-      refresh("");
+      selectedHistory=null;
+      if(input){ input.value=""; input.dataset.index=""; }
+      closeResults();
       $("status").textContent="Bericht gelöscht.";
     });
+
+    let saveTimer=null;
+    let liveDraftApplied=false;
+    function saveLiveDraft(){
+      try{
+        const payload=JSON.stringify({savedAt:Date.now(), data:collectForm()});
+        localStorage.setItem(LIVE_KEY, payload);
+        sessionStorage.setItem(LIVE_KEY, payload);
+      }catch(e){}
+    }
+    function readLiveDraft(){
+      try{
+        const raw=sessionStorage.getItem(LIVE_KEY)||localStorage.getItem(LIVE_KEY);
+        if(!raw) return null;
+        const o=JSON.parse(raw);
+        return o && o.data && typeof o.data==="object" ? o.data : null;
+      }catch(e){ return null; }
+    }
+    function restoreLiveDraft(force){
+      const data=readLiveDraft();
+      if(!data) return false;
+      if(liveDraftApplied && force){
+        const el=document.getElementById("company");
+        if(el && data.company!=null) el.value=data.company;
+        const search=document.getElementById("customerSearch");
+        if(search && data.customerSearch) search.value=data.customerSearch;
+        return true;
+      }
+      if(liveDraftApplied) return false;
+      liveDraftApplied=true;
+      applyForm(data);
+      if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+      return true;
+    }
+    window.saveLiveDraft=saveLiveDraft;
+    window.restoreLiveDraft=restoreLiveDraft;
+    window.clearLiveDraft=function(){
+      liveDraftApplied=true;
+      try{
+        localStorage.removeItem(LIVE_KEY);
+        sessionStorage.removeItem(LIVE_KEY);
+      }catch(e){}
+    };
+    document.addEventListener("input",()=>{
+      clearTimeout(saveTimer);
+      saveTimer=setTimeout(saveLiveDraft, 250);
+    }, true);
+    document.addEventListener("change",()=>saveLiveDraft(), true);
+    window.addEventListener("pagehide", saveLiveDraft);
+    document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveLiveDraft(); });
+    window.addEventListener("pageshow",ev=>{
+      if(ev.persisted) return;
+      restoreLiveDraft(false);
+    });
+    restoreLiveDraft(false);
   }
 
   if(document.readyState==="loading")
