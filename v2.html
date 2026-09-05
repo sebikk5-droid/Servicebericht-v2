@@ -314,6 +314,25 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f2f2f7;color:#666}
+#emailModal{
+  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#emailModal.is-open{display:flex}
+#emailModal .email-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
+}
+#emailModal h3{margin:0 0 6px;font-size:18px}
+#emailModalList{max-height:180px;overflow-y:auto;margin:8px 0;border:1px solid #ddd;border-radius:10px}
+#emailModalList button{display:block;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid #eee;border-radius:0;padding:12px;font-size:15px}
+#emailModalList button.is-on{background:#eef5fb;font-weight:700}
+#emailModal .email-add{display:flex;gap:8px;margin:8px 0}
+#emailModal .email-add input{flex:1}
+#emailModal .email-add button{flex:0 0 auto;background:#163a5c;color:#fff;min-width:44px}
+#emailModal .email-actions{display:flex;gap:8px;margin-top:12px}
+#emailModal .email-actions button{flex:1}
 input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
@@ -401,8 +420,14 @@ input.km-check,input.to-check{
 </div>
 </section>
 
-<section class="card"><h2>Bemerkungen</h2><textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea></section>
-<section class="card"><h2>Ersatzteile</h2><textarea id="parts" placeholder="- ..."></textarea></section>
+<section class="card"><h2>Bemerkungen</h2>
+<textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea>
+<div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
+</section>
+<section class="card"><h2>Ersatzteile</h2>
+<textarea id="parts" placeholder="- ..."></textarea>
+<div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
+</section>
 
 <section class="card"><h2>Reise- und Arbeitszeit</h2>
 <div id="times"></div>
@@ -478,6 +503,21 @@ input.km-check,input.to-check{
 <div id="status"></div>
 </main>
 <div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div id="emailModal" aria-hidden="true">
+  <div class="email-sheet">
+    <h3>E-Mail an den Kunden</h3>
+    <div class="muted" id="emailModalFirma"></div>
+    <div id="emailModalList"></div>
+    <div class="email-add">
+      <input id="emailModalNew" type="email" inputmode="email" placeholder="Neue E-Mail hinzufügen" autocomplete="off">
+      <button type="button" id="emailModalAdd">Hinzufügen</button>
+    </div>
+    <div class="email-actions">
+      <button type="button" class="clear" id="emailModalSkip">Ohne E-Mail</button>
+      <button type="button" class="go" id="emailModalOk">Weiter</button>
+    </div>
+  </div>
+</div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -604,6 +644,21 @@ function markReturnPauseToCheck(box){
   if(!el) return;
   if(String(el.value||"").trim()==="") el.value="45";
   el.classList.add("to-check");
+  syncReturnPauseFromDay(box);
+}
+const RETURN_PAUSE_DEFAULT=45;
+function syncReturnPauseFromDay(box){
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  if(!d) return;
+  const back=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+  if(!back || back.dataset.pauseManual==="1") return;
+  const out=pauseMinutes(box.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value);
+  const work=pauseMinutes(box.querySelector(`[data-k="PauseAZ${d*2-1}"]`)?.value);
+  const next=Math.max(0, RETURN_PAUSE_DEFAULT - out - work);
+  back.dataset.syncing="1";
+  back.value=String(next);
+  back.dataset.syncing="";
 }
 function clearCheckHighlight(el){
   if(!el || !el.classList) return;
@@ -788,10 +843,34 @@ function updateDayRouteNetto(d){
 
 document.getElementById("times").addEventListener("input",function(e){
   clearCheckHighlight(e.target);
+  const el=e.target;
+  const box=el.closest("[data-daybox]");
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  const key=el.dataset.k||"";
+  if(key===`PauseRZ${d*2}` && el.dataset.syncing!=="1"){
+    el.dataset.pauseManual="1";
+  }
+  if(key===`PauseRZ${d*2-1}` || key===`PauseAZ${d*2-1}`){
+    syncReturnPauseFromDay(box);
+  }
+  if(typeof recalcTimes==="function") recalcTimes();
 });
 document.getElementById("times").addEventListener("change",function(e){
   const el=e.target;
   clearCheckHighlight(el);
+  const box=el.closest("[data-daybox]");
+  if(box){
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    const pauseKey=el.dataset.k||"";
+    if(pauseKey===`PauseRZ${d*2}` && el.dataset.syncing!=="1"){
+      el.dataset.pauseManual="1";
+    }
+    if(pauseKey===`PauseRZ${d*2-1}` || pauseKey===`PauseAZ${d*2-1}`){
+      syncReturnPauseFromDay(box);
+      if(typeof recalcTimes==="function") recalcTimes();
+    }
+  }
   if(!el.matches("select.quarter-time")) return;
 
   const key=el.dataset.k||"";
@@ -1157,6 +1236,7 @@ function consumeLine(font, words, size, maxW){
   return line;
 }
 function wrapIntoFields(form, names, text, font){
+  const MIN=8;
   const raw=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   if(!raw.length || !font){
     names.forEach((n,i)=>setIf(form,n, raw[i]||""));
@@ -1167,30 +1247,19 @@ function wrapIntoFields(form, names, text, font){
     return {n, w:Math.max(8, r.width-12), h:r.height};
   });
   let size=Math.min(9, ...meta.map(m=>m.h*0.72));
-  const pack=sz=>{
-    const out=[];
-    let overflow=false;
-    raw.forEach(para=>{
-      const words=para.split(/\s+/).filter(Boolean);
-      while(words.length && out.length<names.length){
-        const line=consumeLine(font, words, sz, meta[out.length].w);
-        if(line===null){
-          overflow=true;
-          if(sz<=4.5) out.push(words.shift());
-          else break;
-        }else out.push(line);
-      }
-      if(words.length) overflow=true;
-    });
-    return {out, overflow};
-  };
-  let packed=pack(size);
-  while(packed.overflow && size>4.5){
-    size-=0.2;
-    packed=pack(size);
-  }
+  size=Math.max(MIN, size);
+  const out=[];
+  raw.forEach(para=>{
+    const words=para.split(/\s+/).filter(Boolean);
+    while(words.length && out.length<names.length){
+      const line=consumeLine(font, words, size, meta[out.length].w);
+      if(line===null){
+        out.push(words.shift());
+      }else out.push(line);
+    }
+  });
   names.forEach((n,i)=>{
-    const line=packed.out[i]||"";
+    const line=out[i]||"";
     if(line) setFit(form,n,line,size);
   });
 }
@@ -1234,7 +1303,8 @@ function setFit(form,n,v,size){
     if(pdfFitFont){
       const r=field.acroField.getWidgets()[0].getRectangle();
       const maxW=Math.max(6,(r.width||80)-10);
-      while(sz>4.2 && pdfFitFont.widthOfTextAtSize(s, sz)>maxW) sz-=0.15;
+      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 8 : 4.2;
+      while(sz>minSz && pdfFitFont.widthOfTextAtSize(s, sz)>maxW) sz-=0.15;
     }
     field.setFontSize(Math.round(sz*10)/10);
     field.setText(s);
@@ -1352,6 +1422,20 @@ function syncIoToMaschine(){
   ok.checked=!!io.checked;
   try{localStorage.setItem("choice_maschine_ok", ok.checked?"1":"0");}catch(e){}
   syncChoiceVisual(ok);
+  if(io.checked){
+    const nein=document.querySelector('#choices input[name="einsatz"][value="nein"]');
+    const ja=document.querySelector('#choices input[name="einsatz"][value="ja"]');
+    if(nein){
+      nein.checked=true;
+      try{localStorage.setItem("choice_"+(nein.id||nein.name+"_nein"),"1");}catch(e){}
+      syncChoiceVisual(nein);
+    }
+    if(ja){
+      ja.checked=false;
+      try{localStorage.setItem("choice_"+(ja.id||ja.name+"_ja"),"0");}catch(e){}
+      syncChoiceVisual(ja);
+    }
+  }
 }
 document.querySelectorAll('#choices input[type="checkbox"]').forEach(cb=>{
   syncChoiceVisual(cb);
@@ -2651,6 +2735,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       e.preventDefault();
       input.value="";
       select.value="";
+      const street=document.getElementById("street");
+      const city=document.getElementById("city");
+      if(street) street.value="";
+      if(city) city.value="";
       sync();
       input.focus();
       show();
@@ -2667,7 +2755,105 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     setupCustomerAutocomplete();
 })();
 </script>
-
+<script>
+(function(){
+  const KEY="servicebericht_customer_emails_v1";
+  function loadMap(){
+    try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
+    catch(e){ return {}; }
+  }
+  function saveMap(map){
+    try{ localStorage.setItem(KEY, JSON.stringify(map)); }catch(e){}
+  }
+  function customerKey(){
+    return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
+  }
+  function splitEmails(s){
+    return String(s||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
+  }
+  function emailsForCustomer(){
+    const k=customerKey();
+    const fromJson=splitEmails((typeof selectedCompany==="function" && selectedCompany()) ? (selectedCompany().email||"") : "");
+    const map=loadMap();
+    const extra=k && Array.isArray(map[k]) ? map[k] : [];
+    const seen=Object.create(null), out=[];
+    fromJson.concat(extra).forEach(e=>{
+      const n=e.toLowerCase();
+      if(seen[n]) return;
+      seen[n]=1;
+      out.push(e);
+    });
+    return out;
+  }
+  function addEmail(email){
+    const k=customerKey();
+    const e=String(email||"").trim();
+    if(!k || !e || e.indexOf("@")<1) return false;
+    const map=loadMap();
+    const list=Array.isArray(map[k])?map[k]:[];
+    if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
+    map[k]=list;
+    saveMap(map);
+    return true;
+  }
+  window.pickCustomerEmail=function(){
+    const modal=$("emailModal");
+    if(!modal) return Promise.resolve("");
+    const listEl=$("emailModalList");
+    const firmaEl=$("emailModalFirma");
+    const input=$("emailModalNew");
+    let chosen="";
+    const name=typeof firmaName==="function"?firmaName():"";
+    if(firmaEl) firmaEl.textContent=name || "Kein Kunde gewählt – E-Mail wird nach Firma-Auswahl gespeichert.";
+    function render(){
+      const emails=emailsForCustomer();
+      listEl.innerHTML="";
+      if(!emails.length){
+        listEl.innerHTML='<div class="combo-empty">Noch keine E-Mail für diesen Kunden.</div>';
+      }else{
+        emails.forEach(e=>{
+          const b=document.createElement("button");
+          b.type="button";
+          b.textContent=e;
+          if(chosen && e.toLowerCase()===chosen.toLowerCase()) b.classList.add("is-on");
+          b.addEventListener("click",()=>{ chosen=e; render(); });
+          listEl.appendChild(b);
+        });
+        if(!chosen && emails[0]){
+          chosen=emails[0];
+          const first=listEl.querySelector("button");
+          if(first) first.classList.add("is-on");
+        }
+      }
+    }
+    render();
+    if(input) input.value="";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+    return new Promise(resolve=>{
+      const done=val=>{
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden","true");
+        window.selectedCustomerEmail=val||"";
+        resolve(val||"");
+      };
+      $("emailModalSkip").onclick=()=>done("");
+      $("emailModalOk").onclick=()=>done(chosen);
+      $("emailModalAdd").onclick=()=>{
+        const e=String(input?.value||"").trim();
+        if(!addEmail(e)){
+          const s=$("status");
+          if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
+          return;
+        }
+        chosen=e;
+        if(input) input.value="";
+        render();
+      };
+    });
+  };
+})();
+</script>
 <script>
 (function(){
   function setupSaveAsPdf(){
@@ -2830,6 +3016,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           return;
         }
         if(!lastPdfBlob) return;
+        if(typeof window.pickCustomerEmail==="function")
+          await window.pickCustomerEmail();
         const ok=await window.deliverLastPdf();
         if(!ok && isIosPdfDevice()){
           btn.dataset.shareReady="1";
@@ -3046,8 +3234,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
       results.style.display="block";
     }
-    input.addEventListener("focus", ()=>show(false));
-    input.addEventListener("click", ()=>show(false));
+    input.addEventListener("focus", ()=>show(true));
+    input.addEventListener("click", ()=>show(true));
     input.addEventListener("input",()=>{
       syncComboClears();
       show(true);
