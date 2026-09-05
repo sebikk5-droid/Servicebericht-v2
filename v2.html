@@ -214,12 +214,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 @media (min-width:700px){.sig-grid{grid-template-columns:1fr 1fr}}
 .sig-box label{margin-bottom:5px}
 .sig-preview{
-  height:88px;border:1px dashed #b4b4bb;border-radius:10px;background:#fff;
+  height:140px;border:1px dashed #b4b4bb;border-radius:10px;background:#fff;
   display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
 }
 .sig-preview img{
   width:100%;height:100%;object-fit:contain;object-position:center;
-  padding:6px;box-sizing:border-box;display:none;
+  padding:2px;box-sizing:border-box;display:none;
 }
 .sig-preview.has-ink img{display:block}
 .sig-preview.has-ink .sig-hint{display:none}
@@ -255,9 +255,32 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 #sigModal{touch-action:none;overscroll-behavior:none;-webkit-user-select:none}
 .sig-modal-bottom{
-  display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
 }
-.sig-modal-clear{background:#fff;border:1px solid #ccc!important;flex:1}
+.sig-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.sig-color-dot{
+  width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #bbb;padding:0;min-height:32px;flex:0 0 auto;
+}
+.sig-color-dot.is-on{box-shadow:0 0 0 3px #163a5c}
+.sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
+.sig-thick-btn.is-on{background:#163a5c;color:#fff}
+.sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
+#pdfPreviewModal{
+  display:none;position:fixed;inset:0;z-index:96;background:#d8d8de;flex-direction:column;min-height:0;
+}
+#pdfPreviewModal.open{display:flex}
+.pdf-preview-top{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:#fff;border-bottom:1px solid #ccc;
+}
+.pdf-preview-top button{border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;flex:0 0 auto}
+.pdf-preview-title{font-size:17px;font-weight:750}
+#pdfPreviewFrame{flex:1;width:100%;border:0;background:#525252;min-height:0}
+.pdf-preview-fallback{padding:12px;font-size:14px;color:#444}
+.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.machine-bar select{flex:1 1 180px;min-width:0}
+.machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-bar .machine-del{background:#e5e5ea;color:#111}
 </style>
 </head>
 <body>
@@ -295,6 +318,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 </div></section>
 
 <section class="card"><h2>Maschine</h2>
+<div class="machine-bar">
+  <select id="machineSelect" autocomplete="off"><option value="">— Neue Maschine —</option></select>
+  <button type="button" id="machineSave">Speichern</button>
+  <button type="button" id="machineDelete" class="machine-del">Löschen</button>
+</div>
+<div class="muted" style="margin:-4px 0 8px">Einmal eingegebene Maschinen bleiben beim Kunden und lassen sich hier ändern.</div>
 <div class="grid">
 <div><label>Hersteller</label><input id="manufacturer"></div><div><label>Typ</label><input id="type"></div>
 <div><label>Nr.</label><input id="machineNo"></div><div><label>Steuerungstyp</label><input id="control"></div>
@@ -379,7 +408,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen</button></div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -388,8 +417,25 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   </div>
   <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas" tabindex="0"></canvas></div>
   <div class="sig-modal-bottom">
+    <div class="sig-tools">
+      <button type="button" class="sig-color-dot is-on" data-sig-color="#111111" style="background:#111" aria-label="Schwarz"></button>
+      <button type="button" class="sig-color-dot" data-sig-color="#1a4a9e" style="background:#1a4a9e" aria-label="Blau"></button>
+      <button type="button" class="sig-color-dot" data-sig-color="#b42318" style="background:#b42318" aria-label="Rot"></button>
+      <button type="button" class="sig-thick-btn" data-sig-thick="0.7">Dünn</button>
+      <button type="button" class="sig-thick-btn is-on" data-sig-thick="1">Mittel</button>
+      <button type="button" class="sig-thick-btn" data-sig-thick="1.55">Dick</button>
+    </div>
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
+</div>
+<div id="pdfPreviewModal" aria-hidden="true">
+  <div class="pdf-preview-top">
+    <button type="button" id="pdfPreviewCancel" class="sig-modal-cancel">Zurück</button>
+    <div class="pdf-preview-title">PDF prüfen</div>
+    <button type="button" id="pdfPreviewSave" class="sig-modal-done">Speichern</button>
+  </div>
+  <iframe id="pdfPreviewFrame" title="PDF-Vorschau"></iframe>
+  <div class="pdf-preview-fallback" id="pdfPreviewHint">Prüfen, dann Speichern. Bei leerer Vorschau: Speichern öffnet das PDF.</div>
 </div>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>
@@ -929,6 +975,7 @@ fetch("companies.json").then(r=>{
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
+    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
   };
   // If Safari recreated the document and the form is genuinely empty,
   // restore the report captured immediately before PDF generation.
@@ -1181,11 +1228,12 @@ function bindTimeInputs(){
 bindTimeInputs();
 recalcTimes();
 
-function canvasHasInk(canvas){
+function canvasHasInk(canvas, bounds){
+  if(bounds && bounds.x1>bounds.x0 && bounds.y1>bounds.y0) return true;
   if(!canvas||!canvas.width) return false;
   try{
     const data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
-    for(let i=0;i<data.length;i+=4){
+    for(let i=0;i<data.length;i+=16){
       if(data[i]<248 || data[i+1]<248 || data[i+2]<248) return true;
     }
   }catch(e){}
@@ -1201,32 +1249,57 @@ function updateSigPreview(id){
   box.classList.toggle("has-ink", !!url);
   if(img) img.src=url||"";
 }
-function cropSignatureCanvas(canvas){
-  const ctx=canvas.getContext("2d");
-  const w=canvas.width, h=canvas.height;
+function trimWhitePng(srcCanvas){
+  const w=srcCanvas.width, h=srcCanvas.height;
+  const ctx=srcCanvas.getContext("2d",{willReadFrequently:true});
   const data=ctx.getImageData(0,0,w,h).data;
-  let minX=w, minY=h, maxX=0, maxY=0;
+  let minX=w, minY=h, maxX=0, maxY=0, found=false;
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
-      if(data[i]<248||data[i+1]<248||data[i+2]<248){
+      if(data[i]<250||data[i+1]<250||data[i+2]<250){
+        found=true;
         if(x<minX)minX=x; if(y<minY)minY=y;
         if(x>maxX)maxX=x; if(y>maxY)maxY=y;
       }
     }
   }
-  if(maxX<minX) return null;
-  const pad=Math.round(Math.max(8, Math.min(w,h)*0.04));
+  if(!found) return null;
+  const pad=Math.round(Math.max(8, Math.min(w,h)*0.02));
   minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad);
-  maxX=Math.min(w-1,maxX+pad); maxY=Math.min(h-1,maxY+pad);
-  const cw=maxX-minX+1, ch=maxY-minY+1;
+  maxX=Math.min(w,maxX+1+pad); maxY=Math.min(h,maxY+1+pad);
+  const cw=Math.max(1,maxX-minX), ch=Math.max(1,maxY-minY);
+  if(cw>=w-2 && ch>=h-2) return srcCanvas.toDataURL("image/png");
   const out=document.createElement("canvas");
   out.width=cw; out.height=ch;
   const octx=out.getContext("2d");
   octx.fillStyle="#fff";
   octx.fillRect(0,0,cw,ch);
-  octx.drawImage(canvas,minX,minY,cw,ch,0,0,cw,ch);
+  octx.drawImage(srcCanvas,minX,minY,cw,ch,0,0,cw,ch);
   return out.toDataURL("image/png");
+}
+function pngFromCanvas(canvas){
+  return new Promise(resolve=>{
+    const fallback=()=>resolve(canvas.toDataURL("image/png"));
+    if(!canvas.toBlob){ fallback(); return; }
+    canvas.toBlob(blob=>{
+      if(!blob){ fallback(); return; }
+      const url=URL.createObjectURL(blob);
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement("canvas");
+        c.width=img.width; c.height=img.height;
+        const ctx=c.getContext("2d",{willReadFrequently:true});
+        ctx.fillStyle="#fff";
+        ctx.fillRect(0,0,c.width,c.height);
+        ctx.drawImage(img,0,0);
+        URL.revokeObjectURL(url);
+        resolve(trimWhitePng(c) || c.toDataURL("image/png"));
+      };
+      img.onerror=()=>{ URL.revokeObjectURL(url); fallback(); };
+      img.src=url;
+    }, "image/png");
+  });
 }
 function sizeModalCanvas(){
   const canvas=$("sigModalCanvas");
@@ -1239,7 +1312,8 @@ function sizeModalCanvas(){
   canvas.style.height=h+"px";
   canvas.width=Math.round(w*dpr);
   canvas.height=Math.round(h*dpr);
-  const ctx=canvas.getContext("2d",{alpha:false, desynchronized:true});
+  canvas.dataset.dpr=String(dpr);
+  const ctx=canvas.getContext("2d",{alpha:true});
   ctx.setTransform(1,0,0,1,0,0);
   ctx.fillStyle="#fff";
   ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -1248,6 +1322,7 @@ function sizeModalCanvas(){
   ctx.lineJoin="round";
   ctx.fillStyle="#111";
   ctx.strokeStyle="#111";
+  ctx.miterLimit=1;
   return ctx;
 }
 function initSignaturePads(){
@@ -1256,90 +1331,141 @@ function initSignaturePads(){
   const wrap=canvas&&canvas.parentElement;
   if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
-  let drawing=false, pts=[], liveForce=0.32, activeId=null;
+  let drawing=false, pts=[], liveForce=0.18, activeId=null, inkBounds=null;
+  let inkColor="#111111", widthMul=1;
+  const backup=document.createElement("canvas");
+  const useRawUpdate=window.PointerEvent && "onpointerrawupdate" in window;
   const posFrom=ev=>{
     const r=canvas.getBoundingClientRect();
     return {x:ev.clientX-r.left, y:ev.clientY-r.top};
   };
+  function dprNow(){ return Number(canvas.dataset.dpr||2); }
+  function expandInk(pt){
+    const dpr=dprNow();
+    const r=Math.max(2, (pt.w||2)/2 + 4);
+    const x0=(pt.x-r)*dpr, y0=(pt.y-r)*dpr, x1=(pt.x+r)*dpr, y1=(pt.y+r)*dpr;
+    if(!inkBounds) inkBounds={x0,y0,x1,y1};
+    else{
+      inkBounds.x0=Math.min(inkBounds.x0,x0);
+      inkBounds.y0=Math.min(inkBounds.y0,y0);
+      inkBounds.x1=Math.max(inkBounds.x1,x1);
+      inkBounds.y1=Math.max(inkBounds.y1,y1);
+    }
+  }
   function forceFrom(ev){
     const t=ev.touches&&ev.touches[0];
-    if(t && typeof t.force==="number" && t.force>0) return Math.min(1,t.force);
-    if(ev.pointerType==="pen" && Number.isFinite(ev.pressure) && ev.pressure>0 && ev.pressure!==0.5)
+    if(t && typeof t.force==="number" && t.force>0) return Math.min(1, t.force);
+    if(ev.pointerType==="pen"){
+      if(Number.isFinite(ev.pressure) && ev.pressure>0) return Math.min(1, ev.pressure);
+      if(liveForce>0.02) return liveForce;
+      return 0.12;
+    }
+    if(Number.isFinite(ev.pressure) && ev.pressure>0 && ev.pressure!==0.5)
       return Math.min(1, ev.pressure);
-    if(liveForce>0.02) return liveForce;
-    if(ev.pointerType==="pen" && Number.isFinite(ev.pressure) && ev.pressure>0)
-      return Math.min(1, ev.pressure);
-    return 0.28;
+    if(liveForce>0.02 && ev.pointerType!=="mouse") return liveForce;
+    return 0.2;
   }
   function widthFromForce(f){
-    const x=Math.max(0.02, Math.min(1, f));
-    return 0.55 + Math.pow(x, 0.75)*12;
+    const x=Math.max(0, Math.min(1, f));
+    const t=Math.max(0, Math.min(1, (x-0.02)/0.48));
+    return (0.28 + Math.pow(t, 1.08)*18) * widthMul;
   }
   function stamp(pt){
+    expandInk(pt);
     const ctx=canvas.getContext("2d");
     ctx.beginPath();
-    ctx.fillStyle="#111";
-    ctx.arc(pt.x, pt.y, Math.max(0.25, pt.w/2), 0, Math.PI*2);
+    ctx.fillStyle=inkColor;
+    ctx.arc(pt.x, pt.y, Math.max(0.4, pt.w/2), 0, Math.PI*2);
     ctx.fill();
   }
-  function stampLine(a,b){
-    const dist=Math.hypot(b.x-a.x, b.y-a.y);
-    const steps=Math.max(1, Math.ceil(dist*2.2));
-    for(let i=1;i<=steps;i++){
-      const t=i/steps;
-      stamp({x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t, w:a.w+(b.w-a.w)*t});
+  function chaikin(src){
+    if(src.length<3) return src;
+    const out=[src[0]];
+    for(let i=0;i<src.length-1;i++){
+      const a=src[i], b=src[i+1];
+      out.push({x:a.x*0.75+b.x*0.25, y:a.y*0.75+b.y*0.25, w:a.w*0.75+b.w*0.25});
+      out.push({x:a.x*0.25+b.x*0.75, y:a.y*0.25+b.y*0.75, w:a.w*0.25+b.w*0.75});
+    }
+    out.push(src[src.length-1]);
+    return out;
+  }
+  function drawStroke(points){
+    if(!points.length) return;
+    let p=points;
+    if(p.length>=3) p=chaikin(chaikin(p));
+    p.forEach(expandInk);
+    const ctx=canvas.getContext("2d");
+    ctx.strokeStyle=inkColor;
+    ctx.fillStyle=inkColor;
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    if(p.length===1){
+      ctx.beginPath();
+      ctx.arc(p[0].x, p[0].y, Math.max(0.22, p[0].w/2), 0, Math.PI*2);
+      ctx.fill();
+      return;
+    }
+    for(let i=1;i<p.length;i++){
+      const a=p[i-1], b=p[i];
+      ctx.beginPath();
+      ctx.lineWidth=Math.max(0.28, (a.w+b.w)/2);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
   }
-  function drawBezier(m1, ctrl, m2){
-    const dist=Math.hypot(m2.x-m1.x, m2.y-m1.y)+Math.hypot(ctrl.x-m1.x, ctrl.y-m1.y)*0.45;
-    const steps=Math.max(12, Math.ceil(dist*3));
-    let prev=m1;
-    for(let i=1;i<=steps;i++){
-      const t=i/steps, u=1-t;
-      const pt={
-        x:u*u*m1.x + 2*u*t*ctrl.x + t*t*m2.x,
-        y:u*u*m1.y + 2*u*t*ctrl.y + t*t*m2.y,
-        w:u*u*m1.w + 2*u*t*ctrl.w + t*t*m2.w
-      };
-      stampLine(prev, pt);
-      prev=pt;
-    }
+  function captureBackup(){
+    backup.width=canvas.width;
+    backup.height=canvas.height;
+    const bctx=backup.getContext("2d");
+    bctx.setTransform(1,0,0,1,0,0);
+    bctx.drawImage(canvas,0,0);
+  }
+  function restoreBackup(){
+    const ctx=canvas.getContext("2d");
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.drawImage(backup,0,0);
+    ctx.restore();
   }
   function addPoint(pt){
     if(!drawing) return;
     if(pts.length){
       const last=pts[pts.length-1];
-      if(Math.hypot(pt.x-last.x, pt.y-last.y)<0.35){
-        last.w=last.w*0.6+pt.w*0.4;
+      if(Math.hypot(pt.x-last.x, pt.y-last.y)<0.18){
+        last.w=last.w*0.2+pt.w*0.8;
         return;
       }
     }
     pts.push(pt);
-    if(pts.length===1){ stamp(pt); return; }
-    if(pts.length===2) return;
-    const a=pts[pts.length-3], b=pts[pts.length-2], c=pts[pts.length-1];
-    const m1={x:(a.x+b.x)/2, y:(a.y+b.y)/2, w:(a.w+b.w)/2};
-    const m2={x:(b.x+c.x)/2, y:(b.y+c.y)/2, w:(b.w+c.w)/2};
-    drawBezier(m1, b, m2);
+    restoreBackup();
+    drawStroke(pts);
   }
   function pointFromPointer(ev){
+    const f=forceFrom(ev);
+    if(ev.pointerType==="pen" || (ev.touches&&ev.touches[0]&&ev.touches[0].force>0)) liveForce=f;
     const p=posFrom(ev);
-    p.w=widthFromForce(forceFrom(ev));
+    p.w=widthFromForce(f);
     return p;
   }
   function startStroke(pt){
     drawing=true;
     pts=[pt];
+    captureBackup();
     stamp(pt);
   }
   function endStroke(){
-    if(pts.length===2) stampLine(pts[0], pts[1]);
-    else if(pts.length>=3){
-      const b=pts[pts.length-2], c=pts[pts.length-1];
-      stampLine({x:(b.x+c.x)/2, y:(b.y+c.y)/2, w:(b.w+c.w)/2}, c);
+    if(drawing && pts.length){
+      restoreBackup();
+      drawStroke(pts);
     }
     drawing=false;
     pts=[];
+  }
+  function ingest(ev){
+    const list=(typeof ev.getCoalescedEvents==="function")?ev.getCoalescedEvents():[];
+    const src=list.length?list:[ev];
+    for(const item of src) addPoint(pointFromPointer(item));
   }
   const opts={passive:false, capture:true};
   wrap.addEventListener("touchstart",e=>{
@@ -1362,16 +1488,14 @@ function initSignaturePads(){
   wrap.addEventListener("pointermove",e=>{
     if(!drawing) return;
     e.preventDefault();
-    const list=(typeof e.getCoalescedEvents==="function" && e.getCoalescedEvents().length)?e.getCoalescedEvents():[e];
-    for(const item of list) addPoint(pointFromPointer(item));
+    ingest(e);
   }, opts);
   wrap.addEventListener("pointerup",e=>{ e.preventDefault(); endStroke(); }, opts);
   wrap.addEventListener("pointercancel",()=>endStroke(), opts);
-  if(window.PointerEvent && "onpointerrawupdate" in window){
+  if(useRawUpdate){
     wrap.addEventListener("pointerrawupdate",e=>{
       if(!drawing) return;
-      const list=(typeof e.getCoalescedEvents==="function" && e.getCoalescedEvents().length)?e.getCoalescedEvents():[e];
-      for(const item of list) addPoint(pointFromPointer(item));
+      ingest(e);
     });
   }
 
@@ -1382,6 +1506,7 @@ function initSignaturePads(){
     modal.setAttribute("aria-hidden","false");
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
+        inkBounds=null;
         const ctx=sizeModalCanvas();
         const url=signatureStore[id];
         if(!url) return;
@@ -1390,7 +1515,10 @@ function initSignaturePads(){
           const r=canvas.getBoundingClientRect();
           const scale=Math.min(r.width/img.width, r.height/img.height);
           const dw=img.width*scale, dh=img.height*scale;
-          ctx.drawImage(img,(r.width-dw)/2,(r.height-dh)/2,dw,dh);
+          const dx=(r.width-dw)/2, dy=(r.height-dh)/2;
+          ctx.drawImage(img,dx,dy,dw,dh);
+          const dpr=dprNow();
+          inkBounds={x0:dx*dpr,y0:dy*dpr,x1:(dx+dw)*dpr,y1:(dy+dh)*dpr};
         };
         img.src=url;
       });
@@ -1412,15 +1540,43 @@ function initSignaturePads(){
     });
   });
   $("sigModalCancel").addEventListener("click",closeModal);
-  $("sigModalClear").addEventListener("click",()=>sizeModalCanvas());
+  $("sigModalClear").addEventListener("click",()=>{ inkBounds=null; sizeModalCanvas(); });
+  try{
+    const savedC=localStorage.getItem("sig_ink_color");
+    const savedW=parseFloat(localStorage.getItem("sig_ink_thick")||"");
+    if(savedC) inkColor=savedC;
+    if(savedW>0.3 && savedW<3) widthMul=savedW;
+  }catch(e){}
+  document.querySelectorAll("[data-sig-color]").forEach(btn=>{
+    btn.classList.toggle("is-on", btn.getAttribute("data-sig-color").toLowerCase()===inkColor.toLowerCase());
+    btn.addEventListener("click",()=>{
+      inkColor=btn.getAttribute("data-sig-color");
+      document.querySelectorAll("[data-sig-color]").forEach(b=>b.classList.toggle("is-on", b===btn));
+      try{ localStorage.setItem("sig_ink_color", inkColor); }catch(e){}
+    });
+  });
+  document.querySelectorAll("[data-sig-thick]").forEach(btn=>{
+    btn.classList.toggle("is-on", Math.abs(parseFloat(btn.getAttribute("data-sig-thick"))-widthMul)<0.05);
+    btn.addEventListener("click",()=>{
+      widthMul=parseFloat(btn.getAttribute("data-sig-thick"))||1;
+      document.querySelectorAll("[data-sig-thick]").forEach(b=>b.classList.toggle("is-on", b===btn));
+      try{ localStorage.setItem("sig_ink_thick", String(widthMul)); }catch(e){}
+    });
+  });
   $("sigModalDone").addEventListener("click",()=>{
-    if(activeId && canvasHasInk(canvas)){
-      signatureStore[activeId]=cropSignatureCanvas(canvas)||canvas.toDataURL("image/png");
-    }else if(activeId){
-      signatureStore[activeId]=null;
+    const id=activeId;
+    if(!id){ closeModal(); return; }
+    if(!canvasHasInk(canvas, inkBounds)){
+      signatureStore[id]=null;
+      updateSigPreview(id);
+      closeModal();
+      return;
     }
-    if(activeId) updateSigPreview(activeId);
-    closeModal();
+    pngFromCanvas(canvas).then(url=>{
+      signatureStore[id]=url;
+      updateSigPreview(id);
+      closeModal();
+    });
   });
   document.querySelectorAll("[data-sig-clear]").forEach(btn=>{
     btn.addEventListener("click",()=>{
@@ -1441,19 +1597,44 @@ window.importSignatureData=function(data){
     updateSigPreview(id);
   });
 };
-async function embedSignatures(pdf){
-  const page=pdf.getPages()[0];
-  const rects={
+function signatureFieldBoxes(form){
+  const fallback={
     sigTech:{x:343,y:43,width:221,height:45},
     sigKunde:{x:202,y:33,width:121,height:39}
   };
+  const fieldNames={
+    sigTech:["Unterschrift Servicetechniker","Unterschrift Techniker"],
+    sigKunde:["Unterschrift Kunde"]
+  };
+  const out={};
+  for(const id of ["sigTech","sigKunde"]){
+    let box=null;
+    if(form){
+      for(const name of fieldNames[id]){
+        try{
+          const field=form.getTextField(name);
+          const widget=field.acroField.getWidgets()[0];
+          if(widget){
+            const r=widget.getRectangle();
+            if(r && r.width>8 && r.height>8){ box={x:r.x,y:r.y,width:r.width,height:r.height}; break; }
+          }
+        }catch(e){}
+      }
+    }
+    out[id]=box||fallback[id];
+  }
+  return out;
+}
+async function embedSignatures(pdf, boxes){
+  const page=pdf.getPages()[0];
+  const rects=boxes||signatureFieldBoxes(null);
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
     const png=await fetch(url).then(r=>r.arrayBuffer());
     const img=await pdf.embedPng(png);
     const box=rects[id];
-    const pad=2;
+    const pad=1;
     const maxW=Math.max(4, box.width-pad*2);
     const maxH=Math.max(4, box.height-pad*2);
     const scale=Math.min(maxW/img.width, maxH/img.height);
@@ -1582,11 +1763,14 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
-form.updateFieldAppearances();form.flatten();
-await embedSignatures(pdf);
+form.updateFieldAppearances();
+const sigBoxes=signatureFieldBoxes(form);
+form.flatten();
+await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
-$("status").textContent="Fertig – das PDF ist vorbereitet.";
+$("status").textContent="PDF zur Prüfung bereit.";
+if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob);
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
 
@@ -2094,67 +2278,233 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
 <script>
 (function(){
-  function installCombined(){
-    const btn=document.getElementById("generate");
-    if(!btn || btn.dataset.combinedInstalled==="1") return;
-    btn.dataset.combinedInstalled="1";
-
-    btn.addEventListener("click",function(){
-      let tries=0;
-      const previousBlob=lastPdfBlob;
-    const finish=async()=>{
-      if(lastPdfBlob===previousBlob){
-        setTimeout(finish,100);
+  let previewUrl=null;
+  function closePdfPreview(){
+    const modal=$("pdfPreviewModal");
+    const frame=$("pdfPreviewFrame");
+    if(modal){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); }
+    if(frame) frame.src="about:blank";
+    if(previewUrl){ URL.revokeObjectURL(previewUrl); previewUrl=null; }
+  }
+  window.showPdfPreview=function(blob){
+    if(!blob) return;
+    const modal=$("pdfPreviewModal");
+    const frame=$("pdfPreviewFrame");
+    if(!modal||!frame) return;
+    if(previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl=URL.createObjectURL(blob);
+    frame.src=previewUrl;
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+    const s=$("status");
+    if(s) s.textContent="PDF prüfen, dann Speichern.";
+  };
+  window.saveCurrentPdf=async function(){
+    if(!lastPdfBlob){
+      const s=$("status");
+      if(s) s.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+      return;
+    }
+    const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    try{
+      const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
+      const ua=navigator.userAgent||"";
+      const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+      if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        const s=$("status");
+        if(s) s.textContent="PDF zum Speichern geöffnet.";
         return;
       }
-        if(typeof lastPdfBlob!=="undefined" && lastPdfBlob){
-          const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
-          try{
-            const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
-            const ua=navigator.userAgent||"";
-            const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-            if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-              await navigator.share({files:[file]});
-              const s=document.getElementById("status");
-              if(s) s.textContent="PDF zum Speichern geöffnet.";
-              return;
-            }
-          }catch(e){
-            if(e && e.name==="AbortError") return;
-          }
-          try{
-            if(window.showSaveFilePicker){
-              const handle=await window.showSaveFilePicker({
-                suggestedName:filename,
-                types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
-              });
-              const w=await handle.createWritable();
-              await w.write(lastPdfBlob);
-              await w.close();
-              const s=document.getElementById("status");
-              if(s) s.textContent="PDF wurde gespeichert.";
-              return;
-            }
-          }catch(e){
-            if(e && e.name==="AbortError") return;
-          }
-          const url=URL.createObjectURL(lastPdfBlob);
-          const a=document.createElement("a");
-          a.href=url; a.download=filename; a.style.display="none";
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(()=>URL.revokeObjectURL(url),5000);
-          const s=document.getElementById("status");
-          if(s) s.textContent="PDF zum Speichern geöffnet.";
-          return;
-        }
-        if(++tries<150) setTimeout(finish,100);
-      };
-      setTimeout(finish,100);
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    try{
+      if(window.showSaveFilePicker){
+        const handle=await window.showSaveFilePicker({
+          suggestedName:filename,
+          types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
+        });
+        const w=await handle.createWritable();
+        await w.write(lastPdfBlob);
+        await w.close();
+        const s=$("status");
+        if(s) s.textContent="PDF wurde gespeichert.";
+        return;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    const url=URL.createObjectURL(lastPdfBlob);
+    const a=document.createElement("a");
+    a.href=url; a.download=filename; a.style.display="none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    const s=$("status");
+    if(s) s.textContent="PDF zum Speichern geöffnet.";
+  };
+  function bindPreview(){
+    $("pdfPreviewCancel")?.addEventListener("click",closePdfPreview);
+    $("pdfPreviewSave")?.addEventListener("click",async()=>{
+      await window.saveCurrentPdf();
+      closePdfPreview();
     });
   }
-  if(document.readyState==="loading")
-    document.addEventListener("DOMContentLoaded",installCombined);
-  else installCombined();
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPreview);
+  else bindPreview();
+})();
+</script>
+
+<script>
+(function(){
+  const KEY="servicebericht_customer_machines_v1";
+  const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
+  function loadAll(){
+    try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
+    catch(e){ return {}; }
+  }
+  function saveAll(map){
+    try{ localStorage.setItem(KEY, JSON.stringify(map)); }catch(e){}
+  }
+  function customerKey(){
+    return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
+  }
+  function listForCustomer(){
+    const k=customerKey();
+    if(!k) return [];
+    const all=loadAll();
+    return Array.isArray(all[k])?all[k]:[];
+  }
+  function fromForm(){
+    const m={};
+    FIELD_IDS.forEach(id=>{ m[id]=String($(id)?.value||"").trim(); });
+    return m;
+  }
+  function applyMachine(m){
+    if(!m) return;
+    FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=m[id]||""; });
+  }
+  function labelOf(m){
+    return [m.manufacturer,m.type,m.machineNo].filter(Boolean).join(" · ") || "Maschine";
+  }
+  function isEmpty(m){
+    return !m.manufacturer && !m.type && !m.machineNo && !m.control && !m.nc && !m.plc;
+  }
+  function refreshSelect(keepId){
+    const sel=$("machineSelect");
+    if(!sel) return;
+    const list=listForCustomer();
+    const cur=keepId!=null?String(keepId):sel.value;
+    sel.innerHTML='<option value="">— Neue Maschine —</option>'+
+      list.map((m,i)=>`<option value="${i}">${labelOf(m)}</option>`).join("");
+    if(cur!=="" && list[Number(cur)]) sel.value=cur;
+  }
+  function persistCurrent(asNew){
+    const k=customerKey();
+    if(!k){
+      const s=$("status");
+      if(s) s.textContent="Zuerst den Kunden / die Firma wählen.";
+      return;
+    }
+    const rec=fromForm();
+    if(isEmpty(rec)){
+      const s=$("status");
+      if(s) s.textContent="Maschine hat noch keine Daten.";
+      return;
+    }
+    const all=loadAll();
+    const list=Array.isArray(all[k])?all[k]:[];
+    const sel=$("machineSelect");
+    let idx=sel && sel.value!=="" ? Number(sel.value) : -1;
+    if(!(idx>=0 && list[idx])){
+      idx=list.findIndex(m=>
+        (rec.machineNo && m.machineNo===rec.machineNo) ||
+        (!rec.machineNo && rec.type && m.type===rec.type && m.manufacturer===rec.manufacturer)
+      );
+    }
+    if(idx>=0 && list[idx]) list[idx]=rec;
+    else { list.push(rec); idx=list.length-1; }
+    all[k]=list;
+    saveAll(all);
+    refreshSelect(String(idx));
+    const s=$("status");
+    if(s) s.textContent="Maschine beim Kunden gespeichert.";
+  }
+  window.refreshCustomerMachines=function(){ refreshSelect(""); };
+  function bind(){
+    const sel=$("machineSelect");
+    if(!sel || sel.dataset.bound==="1") return;
+    sel.dataset.bound="1";
+    refreshSelect("");
+    sel.addEventListener("change",()=>{
+      if(sel.value===""){
+        FIELD_IDS.forEach(id=>{ if($(id) && id!=="fault" && id!=="hours") $(id).value=""; });
+        return;
+      }
+      const list=listForCustomer();
+      applyMachine(list[Number(sel.value)]);
+    });
+    $("machineSave")?.addEventListener("click",()=>persistCurrent(false));
+    $("machineDelete")?.addEventListener("click",()=>{
+      const k=customerKey();
+      const idx=sel.value===""?-1:Number(sel.value);
+      if(idx<0){
+        FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+        return;
+      }
+      const all=loadAll();
+      const list=Array.isArray(all[k])?all[k]:[];
+      list.splice(idx,1);
+      all[k]=list;
+      saveAll(all);
+      FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+      refreshSelect("");
+      const s=$("status");
+      if(s) s.textContent="Maschine gelöscht.";
+    });
+    FIELD_IDS.forEach(id=>{
+      $(id)?.addEventListener("change",()=>{
+        if(!customerKey()) return;
+        if(isEmpty(fromForm())) return;
+        persistCurrent(false);
+      });
+    });
+    $("customerSearch")?.addEventListener("blur",()=>refreshSelect(sel.value));
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
+  else bind();
+})();
+</script>
+
+<script>
+(function(){
+  let penField=null;
+  document.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="pen") return;
+    const field=e.target && e.target.closest && e.target.closest("input,textarea,select");
+    penField=field||null;
+  }, true);
+  document.addEventListener("focusin",e=>{
+    const el=e.target;
+    if(!el || !el.tagName) return;
+    if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
+    if(el.closest && el.closest("#sigModal,#pdfPreviewModal")) return;
+    if(!penField || penField===el) return;
+    penField=null;
+    const prevMode=el.getAttribute("inputmode");
+    const prevRead=el.readOnly;
+    el.setAttribute("inputmode","none");
+    el.readOnly=true;
+    requestAnimationFrame(()=>{
+      el.readOnly=prevRead;
+      if(prevMode!=null) el.setAttribute("inputmode", prevMode);
+      else el.removeAttribute("inputmode");
+      if(el.type==="number") el.setAttribute("inputmode", el.getAttribute("inputmode")||"decimal");
+      else if(el.type!=="date" && el.type!=="time" && el.type!=="checkbox" && el.tagName!=="SELECT")
+        el.setAttribute("inputmode","text");
+      try{ el.focus({preventScroll:true}); }catch(_e){ el.focus(); }
+    });
+  }, true);
 })();
 </script>
 
