@@ -268,30 +268,10 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
-#pdfPreviewModal{
-  display:none;position:fixed;inset:0;z-index:96;background:#d8d8de;flex-direction:column;min-height:0;
-}
-#pdfPreviewModal.open{display:flex}
-.pdf-preview-top{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:#fff;border-bottom:1px solid #ccc;
-}
-.pdf-preview-top button{border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;flex:0 0 auto}
-.pdf-preview-title{font-size:17px;font-weight:750}
-.pdf-preview-stage{
-  flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 10px;
-}
-#pdfPreviewFrame{
-  width:min(100%, calc((100dvh - 140px) * 210 / 297));
-  height:min(calc(100dvh - 140px), calc(100vw * 297 / 210));
-  max-width:100%;
-  border:0;background:#fff;box-shadow:0 8px 28px #0005;border-radius:4px;
-}
-.pdf-preview-fallback{padding:12px;font-size:14px;color:#444}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
 .machine-bar select{flex:1 1 180px;min-width:0}
 .machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
-input.km-check{
+input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
 }
@@ -422,7 +402,7 @@ input.km-check{
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen</button></div>
+<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -441,17 +421,6 @@ input.km-check{
     </div>
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
-</div>
-<div id="pdfPreviewModal" aria-hidden="true">
-  <div class="pdf-preview-top">
-    <button type="button" id="pdfPreviewCancel" class="sig-modal-cancel">Zurück</button>
-    <div class="pdf-preview-title">PDF prüfen</div>
-    <button type="button" id="pdfPreviewSave" class="sig-modal-done">Speichern</button>
-  </div>
-  <div class="pdf-preview-stage">
-    <iframe id="pdfPreviewFrame" title="PDF-Vorschau"></iframe>
-  </div>
-  <div class="pdf-preview-fallback" id="pdfPreviewHint">Prüfen, dann Speichern. Bei leerer Vorschau: Speichern öffnet das PDF.</div>
 </div>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>
@@ -518,37 +487,38 @@ function syncWorkEndToReturnStart(d){
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
   for(let h=0;h<24;h++) for(const m of [0,15,30,45]){
-    const hh=String(h).padStart(2,"0"), mm=String(m).padStart(2,"0");
-    o+=`<option value="${hh}:${mm}">${hh}:${mm}</option>`;
+    const t=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    o+=`<option value="${t}">${t}</option>`;
   }
   return o;
 }
 function initQuarterTimeSelects(root=document){
   root.querySelectorAll("select.quarter-time").forEach(s=>{
-    if(!s.options.length) s.innerHTML=quarterTimeOptions();
+    if(!s.options.length){
+      s.innerHTML=quarterTimeOptions();
+      s.value="";
+    }
   });
-}
-
-function applyTypicalDayTimes(d){
-  const box=dayBoxEl(d);
-  if(!box) return;
-  const outRow=d*2-1;
-  const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
-  const azEnd=box.querySelector(`[data-k="AZende${outRow}"]`);
-  if(a2 && !a2.value) a2.value="07:30";
-  if(azEnd && !azEnd.value) azEnd.value="15:30";
-  const outMin=travelMinutesForDay(d,"out");
-  const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
-  if(a1 && !a1.value && a2?.value && outMin) a1.value=addMinutesToTime(a2.value,-outMin);
-  const az=box.querySelector(`[data-k="AZstart${outRow}"]`);
-  if(az && !az.value && a2?.value) az.value=a2.value;
-  syncWorkEndToReturnStart(d);
 }
 function markKmToCheck(box){
   if(!box) return;
   box.querySelectorAll('input[data-k^="Kilometer"]').forEach(el=>{
     el.classList.add("km-check");
   });
+}
+function markReturnPauseToCheck(box){
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  if(!d) return;
+  const el=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+  if(!el) return;
+  if(String(el.value||"").trim()==="") el.value="45";
+  el.classList.add("to-check");
+}
+function clearCheckHighlight(el){
+  if(!el || !el.classList) return;
+  el.classList.remove("km-check");
+  el.classList.remove("to-check");
 }
 
 function dayTemplate(d){
@@ -569,7 +539,7 @@ function dayTemplate(d){
     <div class="sectiontitle">Anfahrt</div>
     <div class="row">
       <div class="field"><label>Anfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${(d*2)-1}" aria-label="Anfahrt von"></select></div>
-      <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" data-time-anchor="07:30" aria-label="Anfahrt bis"></select></div>
+      <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" aria-label="Anfahrt bis"></select></div>
     </div>
     <div class="row">
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
@@ -583,7 +553,7 @@ function dayTemplate(d){
     <div class="sectiontitle">Arbeitszeit</div>
     <div class="row">
       <div class="field"><label>Arbeitszeit von – Arbeitsbeginn</label><select class="quarter-time" data-k="AZstart${(d*2)-1}"></select></div>
-      <div class="field"><label>Arbeitszeit bis – Arbeitsende</label><select class="quarter-time" data-k="AZende${(d*2)-1}" data-time-anchor="15:30"></select></div>
+      <div class="field"><label>Arbeitszeit bis – Arbeitsende</label><select class="quarter-time" data-k="AZende${(d*2)-1}"></select></div>
     </div>
     <div class="row">
       <div class="field"><label>Pause Arbeit (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseAZ${(d*2)-1}" placeholder="Minuten"></div>
@@ -596,7 +566,7 @@ function dayTemplate(d){
       <div class="field"><label>Rückfahrt bis – Ankunft zuhause</label><select class="quarter-time" data-k="RZende${d*2}"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" placeholder="Minuten"></div>
+      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="45" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
     </div>
@@ -635,8 +605,8 @@ $("times").innerHTML=dayTemplate(1)+`
 `;
 initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
+markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
-applyTypicalDayTimes(1);
 $("times").addEventListener("change",e=>{
   if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
     syncTag1ToEinsatzdatum();
@@ -652,8 +622,8 @@ $("addDay").onclick=()=>{
    if(newDayDate && !newDayDate.value) newDayDate.value=isoAddDays($("date")?.value||"",d-1);
   visibleDays=Math.max(1,d);
   bindTimeInputs();
-  applyTypicalDayTimes(d);
   applyCustomerRouteDay(d);
+  markReturnPauseToCheck(box);
   if(d>1) markKmToCheck(box);
 
   if(visibleDays>=6)$("addDay").style.display="none";
@@ -686,20 +656,12 @@ function updateDayRouteNetto(d){
   }
 }
 
-document.getElementById("times").addEventListener("focusin",function(e){
-  const s=e.target;
-  if(!s.matches || !s.matches("select.quarter-time")) return;
-  const anchor=s.getAttribute("data-time-anchor");
-  if(!anchor || s.value) return;
-  s.value=anchor;
-});
 document.getElementById("times").addEventListener("input",function(e){
-  const el=e.target;
-  if(el && el.classList.contains("km-check")) el.classList.remove("km-check");
+  clearCheckHighlight(e.target);
 });
 document.getElementById("times").addEventListener("change",function(e){
   const el=e.target;
-  if(el && el.classList.contains("km-check")) el.classList.remove("km-check");
+  clearCheckHighlight(el);
   if(!el.matches("select.quarter-time")) return;
 
   const key=el.dataset.k||"";
@@ -1023,7 +985,6 @@ fetch("companies.json").then(r=>{
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
-    applyTypicalDayTimes(1);
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
@@ -1286,7 +1247,7 @@ function canvasHasInk(canvas, bounds){
   try{
     const data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
     for(let i=0;i<data.length;i+=16){
-      if(data[i]<248 || data[i+1]<248 || data[i+2]<248) return true;
+      if(data[i+3]>12 && (data[i]<248 || data[i+1]<248 || data[i+2]<248)) return true;
     }
   }catch(e){}
   return false;
@@ -1309,15 +1270,18 @@ function updateSigPreview(id){
   if(!url){ box.style.height=""; img.removeAttribute("src"); img.src=""; return; }
   img.src=url;
 }
-function trimWhitePng(srcCanvas){
+function inkPngFromCanvas(srcCanvas){
   const w=srcCanvas.width, h=srcCanvas.height;
+  if(!w||!h) return null;
   const ctx=srcCanvas.getContext("2d",{willReadFrequently:true});
-  const data=ctx.getImageData(0,0,w,h).data;
+  let data;
+  try{ data=ctx.getImageData(0,0,w,h).data; }
+  catch(e){ return null; }
   let minX=w, minY=h, maxX=0, maxY=0, found=false;
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
-      if(data[i]<250||data[i+1]<250||data[i+2]<250){
+      if(data[i+3]>12 && (data[i]<248||data[i+1]<248||data[i+2]<248)){
         found=true;
         if(x<minX)minX=x; if(y<minY)minY=y;
         if(x>maxX)maxX=x; if(y>maxY)maxY=y;
@@ -1325,38 +1289,45 @@ function trimWhitePng(srcCanvas){
     }
   }
   if(!found) return null;
-  const pad=Math.round(Math.max(8, Math.min(w,h)*0.02));
+  const pad=Math.round(Math.max(4, Math.min(w,h)*0.012));
   minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad);
   maxX=Math.min(w,maxX+1+pad); maxY=Math.min(h,maxY+1+pad);
   const cw=Math.max(1,maxX-minX), ch=Math.max(1,maxY-minY);
-  if(cw>=w-2 && ch>=h-2) return srcCanvas.toDataURL("image/png");
   const out=document.createElement("canvas");
   out.width=cw; out.height=ch;
-  const octx=out.getContext("2d");
-  octx.fillStyle="#fff";
-  octx.fillRect(0,0,cw,ch);
+  const octx=out.getContext("2d",{willReadFrequently:true});
+  octx.clearRect(0,0,cw,ch);
   octx.drawImage(srcCanvas,minX,minY,cw,ch,0,0,cw,ch);
+  const img=octx.getImageData(0,0,cw,ch);
+  const p=img.data;
+  for(let i=0;i<p.length;i+=4){
+    if(p[i+3]<12 || (p[i]>=248 && p[i+1]>=248 && p[i+2]>=248)){
+      p[i]=0; p[i+1]=0; p[i+2]=0; p[i+3]=0;
+    }
+  }
+  octx.putImageData(img,0,0);
   return out.toDataURL("image/png");
 }
 function pngFromCanvas(canvas){
   return new Promise(resolve=>{
-    const fallback=()=>resolve(canvas.toDataURL("image/png"));
-    if(!canvas.toBlob){ fallback(); return; }
+    const done=src=>{
+      resolve(inkPngFromCanvas(src));
+    };
+    if(!canvas.toBlob){ done(canvas); return; }
     canvas.toBlob(blob=>{
-      if(!blob){ fallback(); return; }
+      if(!blob){ done(canvas); return; }
       const url=URL.createObjectURL(blob);
       const img=new Image();
       img.onload=()=>{
         const c=document.createElement("canvas");
         c.width=img.width; c.height=img.height;
         const ctx=c.getContext("2d",{willReadFrequently:true});
-        ctx.fillStyle="#fff";
-        ctx.fillRect(0,0,c.width,c.height);
+        ctx.clearRect(0,0,c.width,c.height);
         ctx.drawImage(img,0,0);
         URL.revokeObjectURL(url);
-        resolve(trimWhitePng(c) || c.toDataURL("image/png"));
+        done(c);
       };
-      img.onerror=()=>{ URL.revokeObjectURL(url); fallback(); };
+      img.onerror=()=>{ URL.revokeObjectURL(url); done(canvas); };
       img.src=url;
     }, "image/png");
   });
@@ -1375,8 +1346,7 @@ function sizeModalCanvas(){
   canvas.dataset.dpr=String(dpr);
   const ctx=canvas.getContext("2d",{alpha:true});
   ctx.setTransform(1,0,0,1,0,0);
-  ctx.fillStyle="#fff";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.lineCap="round";
   ctx.lineJoin="round";
@@ -1633,7 +1603,7 @@ function initSignaturePads(){
       return;
     }
     pngFromCanvas(canvas).then(url=>{
-      signatureStore[id]=url;
+      signatureStore[id]=url||null;
       updateSigPreview(id);
       closeModal();
     });
@@ -1694,14 +1664,16 @@ async function embedSignatures(pdf, boxes){
     const png=await fetch(url).then(r=>r.arrayBuffer());
     const img=await pdf.embedPng(png);
     const box=rects[id];
-    const pad=1;
-    const maxW=Math.max(4, box.width-pad*2);
-    const maxH=Math.max(4, box.height-pad*2);
+    const padX=3;
+    const lineGap=Math.max(10, Math.round(box.height*0.28));
+    const topPad=2;
+    const maxW=Math.max(4, box.width-padX*2);
+    const maxH=Math.max(4, box.height-lineGap-topPad);
     const scale=Math.min(maxW/img.width, maxH/img.height);
     const w=img.width*scale, h=img.height*scale;
     page.drawImage(img,{
-      x:box.x+pad+(maxW-w)/2,
-      y:box.y+pad+(maxH-h)/2,
+      x:box.x+padX+(maxW-w)/2,
+      y:box.y+lineGap,
       width:w,
       height:h
     });
@@ -1825,12 +1797,15 @@ for(let d=1;d<=dayBoxes.length;d++){
 }
 form.updateFieldAppearances();
 const sigBoxes=signatureFieldBoxes(form);
+["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
+  try{ form.removeField(form.getTextField(name)); }catch(e){}
+});
 form.flatten();
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
-$("status").textContent="PDF zur Prüfung bereit.";
-if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob);
+$("status").textContent="Fertig – das PDF ist vorbereitet.";
+if(typeof window.saveCurrentPdf==="function") await window.saveCurrentPdf();
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
 
@@ -1948,6 +1923,7 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     });
 
     bindTimeInputs();
+    document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
       const label=el.closest(".choice-opt");
@@ -2271,7 +2247,7 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     btn.addEventListener("click",async function(){
       if(!lastPdfBlob){
         const status=document.getElementById("status");
-        if(status) status.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+        if(status) status.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
         return;
       }
 
@@ -2338,80 +2314,42 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
 
 <script>
 (function(){
-  let previewUrl=null;
-  function closePdfPreview(){
-    const modal=$("pdfPreviewModal");
-    const frame=$("pdfPreviewFrame");
-    if(modal){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); }
-    if(frame) frame.src="about:blank";
-    if(previewUrl){ URL.revokeObjectURL(previewUrl); previewUrl=null; }
-  }
-  window.showPdfPreview=function(blob){
-    if(!blob) return;
-    const modal=$("pdfPreviewModal");
-    const frame=$("pdfPreviewFrame");
-    if(!modal||!frame) return;
-    if(previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl=URL.createObjectURL(blob);
-    frame.src=previewUrl;
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden","false");
-    const s=$("status");
-    if(s) s.textContent="PDF prüfen, dann Speichern.";
-  };
   window.saveCurrentPdf=async function(){
     if(!lastPdfBlob){
       const s=$("status");
-      if(s) s.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+      if(s) s.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
       return;
     }
     const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    const setStatus=t=>{ const s=$("status"); if(s) s.textContent=t; };
     try{
       const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
       const ua=navigator.userAgent||"";
       const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
       if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
         await navigator.share({files:[file]});
-        const s=$("status");
-        if(s) s.textContent="PDF zum Speichern geöffnet.";
+        setStatus("PDF zum Senden geöffnet.");
         return;
       }
     }catch(e){
-      if(e && e.name==="AbortError") return;
-    }
-    try{
-      if(window.showSaveFilePicker){
-        const handle=await window.showSaveFilePicker({
-          suggestedName:filename,
-          types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
-        });
-        const w=await handle.createWritable();
-        await w.write(lastPdfBlob);
-        await w.close();
-        const s=$("status");
-        if(s) s.textContent="PDF wurde gespeichert.";
-        return;
-      }
-    }catch(e){
-      if(e && e.name==="AbortError") return;
+      if(e && e.name!=="AbortError") { /* weiter: PDF direkt öffnen */ }
+      else if(e && e.name==="AbortError") return;
     }
     const url=URL.createObjectURL(lastPdfBlob);
-    const a=document.createElement("a");
-    a.href=url; a.download=filename; a.style.display="none";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    const s=$("status");
-    if(s) s.textContent="PDF zum Speichern geöffnet.";
+    const opened=window.open(url,"_blank","noopener");
+    if(!opened){
+      const a=document.createElement("a");
+      a.href=url;
+      a.target="_blank";
+      a.rel="noopener";
+      a.style.display="none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+    setStatus("PDF geöffnet – senden oder speichern.");
   };
-  function bindPreview(){
-    $("pdfPreviewCancel")?.addEventListener("click",closePdfPreview);
-    $("pdfPreviewSave")?.addEventListener("click",async()=>{
-      await window.saveCurrentPdf();
-      closePdfPreview();
-    });
-  }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPreview);
-  else bindPreview();
 })();
 </script>
 
@@ -2559,7 +2497,7 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     const el=e.target;
     if(!el || !el.tagName) return;
     if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
-    if(el.closest && el.closest("#sigModal,#pdfPreviewModal")) return;
+    if(el.closest && el.closest("#sigModal")) return;
     if(!penField || penField===el) return;
     penField=null;
     const prevMode=el.getAttribute("inputmode");
