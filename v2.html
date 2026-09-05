@@ -3619,18 +3619,27 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const incomplete=matches.filter(m=>!norm(m.machineNo));
     return incomplete.length===1 ? incomplete[0] : null;
   }
-  function applyIfUniqueNr(){
-    if(!norm($("type")?.value||"")){
-      syncNrEnabled();
-      return;
-    }
-    const nos=nrOptions();
-    if(nos.length===1 && !$("machineNo").value){
-      $("machineNo").value=nos[0];
-    }
-    const saved=findSaved();
-    if(saved) applyMachine(saved, true);
+  const comboApi={};
+  function offerNrList(){
+    syncNrEnabled();
     syncComboClears();
+    if(!nrOptions().length) return;
+    setTimeout(()=>{
+      if(comboApi.manufacturer && comboApi.manufacturer.close) comboApi.manufacturer.close();
+      if(comboApi.type && comboApi.type.close) comboApi.type.close();
+      if(comboApi.machineNo && comboApi.machineNo.show) comboApi.machineNo.show(false);
+      const box=$("machineNoBox");
+      if(box && typeof box.scrollIntoView==="function")
+        box.scrollIntoView({block:"nearest", inline:"nearest"});
+    }, 50);
+  }
+  function onBrandOrTypeChosen(){
+    const nr=$("machineNo");
+    if(nr) nr.value="";
+    FIELD_IDS.filter(id=>id!=="manufacturer" && id!=="type" && id!=="machineNo").forEach(id=>{
+      if($(id)) $(id).value="";
+    });
+    offerNrList();
   }
   function syncNrEnabled(){
     const hasType=!!norm($("type")?.value||"");
@@ -3721,6 +3730,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     document.addEventListener("click",e=>{
       if(box && !box.contains(e.target)) close();
     });
+    comboApi[input.id]={ show, close };
   }
   function recKey(m){
     return [norm(m&&m.manufacturer), norm(m&&m.type), norm(m&&m.machineNo)].join("\0");
@@ -3835,7 +3845,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $("manufacturer"), $("manufacturerResults"), $("manufacturerBox"), $("manufacturerClear"),
       manufacturerOptions,
       function(){
-        applyIfUniqueNr();
+        onBrandOrTypeChosen();
       },
       q=> q ? "Kein Treffer – Name wird übernommen." : "Marke wählen oder neu eintippen."
     );
@@ -3843,7 +3853,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $("type"), $("typeResults"), $("typeBox"), $("typeClear"),
       typeOptions,
       function(){
-        applyIfUniqueNr();
+        onBrandOrTypeChosen();
       },
       q=>{
         if(!norm($("manufacturer")?.value||"")) return "Zuerst den Hersteller wählen.";
