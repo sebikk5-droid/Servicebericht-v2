@@ -29,6 +29,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
+.bottom button{flex:1 1 0;min-width:0}
 #status{font-size:13px;color:#555;margin:7px 2px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 @media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
@@ -472,18 +473,23 @@ input.km-check,input.to-check{
 </div>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>
+function formResetPending(){
+  try{ return sessionStorage.getItem("servicebericht_reset_v2")==="1"; }catch(e){ return false; }
+}
 document.querySelectorAll("#pdfFields input,#pdfFields textarea").forEach(el=>{
   const k="pdf_"+el.id;
-  try{el.value=localStorage.getItem(k)||"";}catch(e){}
-  el.addEventListener("input",()=>{try{localStorage.setItem(k,el.value);}catch(e){}});
+  try{ if(!formResetPending()) el.value=localStorage.getItem(k)||""; }catch(e){}
+  el.addEventListener("input",()=>{
+    try{ if(formResetPending()) return; localStorage.setItem(k,el.value); }catch(e){}
+  });
 });
 
 // Auswahl bleibt auf diesem Gerät gespeichert.
 document.querySelectorAll('#choices input').forEach(el=>{
   const k='choice_'+(el.id||el.name+'_'+el.value);
-  try{el.checked=localStorage.getItem(k)==='1';}catch(e){}
+  try{ if(!formResetPending()) el.checked=localStorage.getItem(k)==='1'; }catch(e){}
   el.addEventListener('change',()=>{
-    try{localStorage.setItem(k,el.checked?'1':'0');}catch(e){}
+    try{ if(formResetPending()) return; localStorage.setItem(k,el.checked?'1':'0'); }catch(e){}
   });
 });
 </script>
@@ -690,7 +696,9 @@ document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1")
 markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 $("resetForm")?.addEventListener("click",()=>{
-  if(typeof window.clearLiveDraft==="function") window.clearLiveDraft();
+  if(!confirm("Formular wirklich zurücksetzen?\nHistorie bleibt erhalten.")) return;
+  if(typeof window.beginFormReset==="function") window.beginFormReset();
+  else if(typeof window.clearLiveDraft==="function") window.clearLiveDraft();
   location.reload();
 });
 $("times").addEventListener("change",e=>{
@@ -2010,6 +2018,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 (function(){
   const HISTORY_KEY="servicebericht_history_v26";
   const LIVE_KEY="servicebericht_live_draft_v2";
+  const RESET_FLAG="servicebericht_reset_v2";
   const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
 
   function loadHistory(){
@@ -2419,7 +2428,30 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
     let saveTimer=null;
     let liveDraftApplied=false;
+    function resetting(){
+      try{ return sessionStorage.getItem(RESET_FLAG)==="1"; }catch(e){ return false; }
+    }
+    function clearFormPersistence(){
+      try{
+        localStorage.removeItem(LIVE_KEY);
+        sessionStorage.removeItem(LIVE_KEY);
+      }catch(e){}
+      try{
+        const drop=[];
+        for(let i=0;i<localStorage.length;i++){
+          const k=localStorage.key(i);
+          if(k && (k.indexOf("choice_")==0 || k.indexOf("pdf_")==0)) drop.push(k);
+        }
+        drop.forEach(k=> localStorage.removeItem(k));
+      }catch(e){}
+    }
+    function consumeResetFlag(){
+      try{ sessionStorage.removeItem(RESET_FLAG); }catch(e){}
+      liveDraftApplied=true;
+      clearFormPersistence();
+    }
     function saveLiveDraft(){
+      if(resetting()) return;
       try{
         const payload=JSON.stringify({savedAt:Date.now(), data:collectForm()});
         localStorage.setItem(LIVE_KEY, payload);
@@ -2435,6 +2467,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }catch(e){ return null; }
     }
     function restoreLiveDraft(force){
+      if(resetting()){
+        consumeResetFlag();
+        return false;
+      }
       const data=readLiveDraft();
       if(!data) return false;
       if(liveDraftApplied && force){
@@ -2454,10 +2490,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     window.restoreLiveDraft=restoreLiveDraft;
     window.clearLiveDraft=function(){
       liveDraftApplied=true;
-      try{
-        localStorage.removeItem(LIVE_KEY);
-        sessionStorage.removeItem(LIVE_KEY);
-      }catch(e){}
+      clearFormPersistence();
+    };
+    window.beginFormReset=function(){
+      try{ sessionStorage.setItem(RESET_FLAG,"1"); }catch(e){}
+      liveDraftApplied=true;
+      clearFormPersistence();
     };
     document.addEventListener("input",()=>{
       clearTimeout(saveTimer);
