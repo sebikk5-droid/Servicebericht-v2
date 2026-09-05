@@ -232,7 +232,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .combo-row-del:hover{color:#7a1f1f;background:#f8ecec}
 .combo-empty{padding:10px;color:#777;font-size:13px}
-#company.sr-only, #machineSelect.sr-only{
+#company.sr-only{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0
 }
@@ -398,7 +398,6 @@ input.km-check,input.to-check{
   <button type="button" id="machineSave">Speichern</button>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
-<select id="machineSelect" class="sr-only" tabindex="-1" aria-hidden="true"><option value="">— Neue Maschine —</option></select>
 </section>
 
 <section class="card"><h2>Bemerkungen</h2><textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea></section>
@@ -2966,22 +2965,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     const saved=findSaved();
     if(saved) applyMachine(saved, true);
-    syncHiddenSelect();
     syncComboClears();
-  }
-  function syncHiddenSelect(){
-    const sel=$("machineSelect");
-    if(!sel) return;
-    const list=listForCustomer();
-    const rec=fromForm();
-    const idx=list.findIndex(m=>
-      sameBrand(m.manufacturer, rec.manufacturer) &&
-      sameType(m.type, rec.type) &&
-      sameType(m.machineNo, rec.machineNo)
-    );
-    sel.innerHTML='<option value="">— Neue Maschine —</option>'+
-      list.map((m,i)=>`<option value="${i}">${i}</option>`).join("");
-    sel.value=idx>=0?String(idx):"";
   }
   function syncComboClears(){
     [["manufacturerBox","manufacturer"],["typeBox","type"],["machineNoBox","machineNo"]].forEach(([boxId, inputId])=>{
@@ -3068,12 +3052,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     else { list.push(rec); idx=list.length-1; }
     all[k]=list;
     saveAll(all);
-    syncHiddenSelect();
     const s=$("status");
     if(s) s.textContent="Maschine beim Kunden gespeichert.";
   }
   window.refreshCustomerMachines=function(){
-    syncHiddenSelect();
     syncComboClears();
   };
   function bind(){
@@ -3110,7 +3092,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       function(){
         const saved=findSaved();
         if(saved) applyMachine(saved, true);
-        syncHiddenSelect();
         syncComboClears();
       },
       q=>{
@@ -3132,7 +3113,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
         syncComboClears();
-        syncHiddenSelect();
         return;
       }
       if(!confirm("Diese Maschine beim Kunden löschen?")) return;
@@ -3140,7 +3120,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       all[k]=list;
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
-      syncHiddenSelect();
       syncComboClears();
       const s=$("status");
       if(s) s.textContent="Maschine gelöscht.";
