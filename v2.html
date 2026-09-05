@@ -3019,11 +3019,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function mergeCompanyEmails(list, firmaKey, email){
     const arr=Array.isArray(list)?list.map(c=>Object.assign({}, c)):list;
     if(!Array.isArray(arr)) return list;
-    const k=String(firmaKey||"").toLowerCase();
+    const k=String(firmaKey||"").trim().toLowerCase();
     const e=String(email||"").trim();
+    if(!k || !e) return arr;
+    let hit=0;
     arr.forEach(c=>{
       const name=String((c&& (c.firma||c.name))||"").trim().toLowerCase();
-      if(name!==k) return;
+      const match=name===k || (k.length>=6 && name.indexOf(k)===0) || (name.length>=6 && k.indexOf(name)===0);
+      if(!match) return;
+      hit++;
       const have=String(c.email||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
       if(!have.some(x=>x.toLowerCase()===e.toLowerCase())){
         have.push(e);
@@ -3034,17 +3038,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pushEmails(message, email){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
-    const {merged, result}=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
+    const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
       return mergeEmailMaps(window.sbLists.asMap(remote), local||{});
     });
-    saveMap(merged);
-    if(email && result && result.ok){
-      await window.sbLists.pushMerged("companies", {firma:customerKey(), email}, "E-Mail in Firmenliste", function(remote, local){
+    if(emailPush && emailPush.merged) saveMap(emailPush.merged);
+    let companyPush=null;
+    if(email){
+      companyPush=await window.sbLists.pushMerged("companies", {firma:customerKey(), email}, "E-Mail in Firmenliste", function(remote, local){
         if(!Array.isArray(remote)) return remote;
         return mergeCompanyEmails(remote, local.firma, local.email);
       });
     }
-    return result;
+    if(emailPush && emailPush.result && emailPush.result.ok) return emailPush.result;
+    if(companyPush && companyPush.result && companyPush.result.ok) return companyPush.result;
+    return (emailPush && emailPush.result) || (companyPush && companyPush.result) || {ok:false};
   }
   function emailsForCustomer(){
     const k=customerKey();
@@ -3060,10 +3067,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return out;
   }
+  function validEmail(e){
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim());
+  }
+  let addLock=Promise.resolve();
   async function addEmail(email){
+    const prev=addLock;
+    let unlock=()=>{};
+    addLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    try{
     const k=customerKey();
     const e=String(email||"").trim();
-    if(!k || !e || e.indexOf("@")<1) return false;
+    if(!k || !validEmail(e)) return false;
     await pullEmails();
     const map=loadMap();
     const list=Array.isArray(map[k])?map[k]:[];
@@ -3078,6 +3094,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
     return true;
+    }finally{ unlock(); }
   }
   function currentEmail(){
     return String($("customerEmail")?.value||"").trim();
@@ -3144,6 +3161,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       setEmail(input.value);
       show();
     });
+    input.addEventListener("change",()=>{ persistEmailField(); });
+    input.addEventListener("blur",()=>{ persistEmailField(); });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -3163,6 +3182,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         setEmail(e);
       }
     });
+  }
+  async function persistEmailField(){
+    const e=currentEmail();
+    if(!customerKey() || !validEmail(e)) return;
+    await addEmail(e);
   }
   window.refreshCustomerEmails=async function(mode){
     await pullEmails();
