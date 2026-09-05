@@ -309,9 +309,10 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
-.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
-.machine-bar select{flex:1 1 180px;min-width:0}
+.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}
 .machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-combo input{padding-right:40px}
+.machine-combo .combo-results{z-index:70}
 input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
@@ -361,19 +362,44 @@ input.km-check,input.to-check{
 </div></section>
 
 <section class="card"><h2>Maschine</h2>
+<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer.</div>
+<div class="grid">
+<div class="machine-combo combo-box" id="manufacturerBox">
+  <label for="manufacturer">Hersteller</label>
+  <div class="combo-field">
+    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG MORI, Hermle">
+    <button type="button" class="combo-clear" id="manufacturerClear" aria-label="Hersteller löschen">×</button>
+  </div>
+  <div id="manufacturerResults" class="combo-results"></div>
+</div>
+<div class="machine-combo combo-box" id="typeBox">
+  <label for="type">Typ</label>
+  <div class="combo-field">
+    <input id="type" autocomplete="off" placeholder="Modell dieser Marke">
+    <button type="button" class="combo-clear" id="typeClear" aria-label="Typ löschen">×</button>
+  </div>
+  <div id="typeResults" class="combo-results"></div>
+</div>
+<div class="machine-combo combo-box" id="machineNoBox">
+  <label for="machineNo">Nr.</label>
+  <div class="combo-field">
+    <input id="machineNo" autocomplete="off" placeholder="Seriennummer wählen oder neu">
+    <button type="button" class="combo-clear" id="machineNoClear" aria-label="Nr. löschen">×</button>
+  </div>
+  <div id="machineNoResults" class="combo-results"></div>
+</div>
+<div><label>Steuerungstyp</label><input id="control"></div>
+<div><label>NC-Nr.</label><input id="nc"></div>
+<div><label>PLC-Nr.</label><input id="plc"></div>
+<div class="full"><label>Maschinenstörung</label><input id="fault"></div>
+<div class="full"><label>Betriebsstunden</label><input id="hours"></div>
+</div>
 <div class="machine-bar">
-  <select id="machineSelect" autocomplete="off"><option value="">— Neue Maschine —</option></select>
   <button type="button" id="machineSave">Speichern</button>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
-<div class="muted" style="margin:-4px 0 8px">Einmal eingegebene Maschinen bleiben beim Kunden und lassen sich hier ändern.</div>
-<div class="grid">
-<div><label>Hersteller</label><input id="manufacturer"></div><div><label>Typ</label><input id="type"></div>
-<div><label>Nr.</label><input id="machineNo"></div><div><label>Steuerungstyp</label><input id="control"></div>
-<div><label>NC-Nr.</label><input id="nc"></div><div><label>PLC-Nr.</label><input id="plc"></div>
-<div class="full"><label>Maschinenstörung</label><input id="fault"></div>
-<div class="full"><label>Betriebsstunden</label><input id="hours"></div>
-</div></section>
+<select id="machineSelect" class="sr-only" tabindex="-1" aria-hidden="true"><option value="">— Neue Maschine —</option></select>
+</section>
 
 <section class="card"><h2>Bemerkungen</h2><textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..."></textarea></section>
 <section class="card"><h2>Ersatzteile</h2><textarea id="parts" placeholder="- ..."></textarea></section>
@@ -2828,6 +2854,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 (function(){
   const KEY="servicebericht_customer_machines_v1";
   const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
+  let catalog=[];
   function loadAll(){
     try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
     catch(e){ return {}; }
@@ -2849,26 +2876,175 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     FIELD_IDS.forEach(id=>{ m[id]=String($(id)?.value||"").trim(); });
     return m;
   }
-  function applyMachine(m){
+  function applyMachine(m, skipIdentity){
     if(!m) return;
-    FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=m[id]||""; });
-  }
-  function labelOf(m){
-    return [m.manufacturer,m.type,m.machineNo].filter(Boolean).join(" · ") || "Maschine";
+    FIELD_IDS.forEach(id=>{
+      if(skipIdentity && (id==="manufacturer" || id==="type" || id==="machineNo")) return;
+      if($(id)) $(id).value=m[id]||"";
+    });
+    syncComboClears();
   }
   function isEmpty(m){
     return !m.manufacturer && !m.type && !m.machineNo && !m.control && !m.nc && !m.plc;
   }
-  function refreshSelect(keepId){
+  function norm(s){
+    return String(s||"").trim().toLocaleLowerCase("de-DE").replace(/\s+/g," ");
+  }
+  function unique(list){
+    const seen=Object.create(null), out=[];
+    list.forEach(v=>{
+      const t=String(v||"").trim();
+      if(!t) return;
+      const k=norm(t);
+      if(seen[k]) return;
+      seen[k]=1;
+      out.push(t);
+    });
+    return out;
+  }
+  function catalogEntry(name){
+    const n=norm(name);
+    if(!n) return null;
+    return catalog.find(c=>{
+      if(norm(c.name)===n) return true;
+      return (c.match||[]).some(a=> n===norm(a) || n.indexOf(norm(a))===0 || norm(a).indexOf(n)===0);
+    })||null;
+  }
+  function sameBrand(a,b){
+    if(!norm(a) || !norm(b)) return false;
+    if(norm(a)===norm(b)) return true;
+    const ca=catalogEntry(a), cb=catalogEntry(b);
+    if(ca && cb) return ca.name===cb.name;
+    if(ca) return norm(b)===norm(ca.name) || (ca.match||[]).some(x=>norm(b)===norm(x) || norm(b).indexOf(norm(x))===0);
+    if(cb) return norm(a)===norm(cb.name) || (cb.match||[]).some(x=>norm(a)===norm(x) || norm(a).indexOf(norm(x))===0);
+    return false;
+  }
+  function sameType(a,b){ return norm(a)===norm(b); }
+  function manufacturerOptions(){
+    const fromCat=catalog.map(c=>c.name);
+    const fromCust=listForCustomer().map(m=>m.manufacturer);
+    return unique(fromCat.concat(fromCust));
+  }
+  function typeOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    if(!norm(mfr)) return unique(listForCustomer().map(m=>m.type));
+    const cat=catalogEntry(mfr);
+    const fromCat=cat? (cat.types||[]) : [];
+    const fromCust=listForCustomer().filter(m=>sameBrand(m.manufacturer,mfr)).map(m=>m.type);
+    return unique(fromCat.concat(fromCust));
+  }
+  function nrOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    const typ=$("type")?.value||"";
+    return unique(listForCustomer().filter(m=>{
+      if(norm(mfr) && !sameBrand(m.manufacturer,mfr)) return false;
+      if(norm(typ) && !sameType(m.type,typ)) return false;
+      return !!m.machineNo;
+    }).map(m=>m.machineNo));
+  }
+  function findSaved(){
+    const rec=fromForm();
+    const list=listForCustomer();
+    if(rec.machineNo){
+      const hit=list.find(m=>
+        sameType(m.machineNo, rec.machineNo) &&
+        (!norm(rec.type) || sameType(m.type, rec.type)) &&
+        (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer))
+      );
+      if(hit) return hit;
+    }
+    const matches=list.filter(m=>
+      (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer)) &&
+      (!norm(rec.type) || sameType(m.type, rec.type))
+    );
+    return matches.length===1 ? matches[0] : null;
+  }
+  function applyIfUniqueNr(){
+    const nos=nrOptions();
+    if(nos.length===1 && !$("machineNo").value){
+      $("machineNo").value=nos[0];
+    }
+    const saved=findSaved();
+    if(saved) applyMachine(saved, true);
+    syncHiddenSelect();
+    syncComboClears();
+  }
+  function syncHiddenSelect(){
     const sel=$("machineSelect");
     if(!sel) return;
     const list=listForCustomer();
-    const cur=keepId!=null?String(keepId):sel.value;
+    const rec=fromForm();
+    const idx=list.findIndex(m=>
+      sameBrand(m.manufacturer, rec.manufacturer) &&
+      sameType(m.type, rec.type) &&
+      sameType(m.machineNo, rec.machineNo)
+    );
     sel.innerHTML='<option value="">— Neue Maschine —</option>'+
-      list.map((m,i)=>`<option value="${i}">${labelOf(m)}</option>`).join("");
-    if(cur!=="" && list[Number(cur)]) sel.value=cur;
+      list.map((m,i)=>`<option value="${i}">${i}</option>`).join("");
+    sel.value=idx>=0?String(idx):"";
   }
-  function persistCurrent(asNew){
+  function syncComboClears(){
+    [["manufacturerBox","manufacturer"],["typeBox","type"],["machineNoBox","machineNo"]].forEach(([boxId, inputId])=>{
+      const box=$(boxId), el=$(inputId);
+      if(box && el) box.classList.toggle("has-value", String(el.value||"").trim()!=="");
+    });
+  }
+  function setupCombo(input, results, box, clearBtn, getOptions, onChoose, emptyHint){
+    if(!input || !results || input.dataset.comboBound==="1") return;
+    input.dataset.comboBound="1";
+    function close(){
+      results.style.display="none";
+      results.innerHTML="";
+    }
+    function show(){
+      const q=norm(input.value);
+      const options=getOptions().filter(v=> !q || norm(v).includes(q));
+      results.innerHTML="";
+      if(!options.length){
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent=emptyHint(q);
+        results.appendChild(empty);
+        results.style.display="block";
+        return;
+      }
+      options.forEach(v=>{
+        const pick=document.createElement("button");
+        pick.type="button";
+        pick.className="combo-pick";
+        pick.textContent=v;
+        if(norm(input.value)===norm(v)) pick.classList.add("is-on");
+        pick.addEventListener("mousedown",e=>e.preventDefault());
+        pick.addEventListener("click",()=>{
+          input.value=v;
+          syncComboClears();
+          close();
+          onChoose(v);
+        });
+        results.appendChild(pick);
+      });
+      results.style.display="block";
+    }
+    input.addEventListener("focus", show);
+    input.addEventListener("click", show);
+    input.addEventListener("input",()=>{
+      syncComboClears();
+      show();
+    });
+    clearBtn?.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      input.value="";
+      syncComboClears();
+      onChoose("");
+      input.focus();
+      show();
+    });
+    document.addEventListener("click",e=>{
+      if(box && !box.contains(e.target)) close();
+    });
+  }
+  function persistCurrent(){
     const k=customerKey();
     if(!k){
       const s=$("status");
@@ -2883,73 +3059,103 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     const all=loadAll();
     const list=Array.isArray(all[k])?all[k]:[];
-    const sel=$("machineSelect");
-    let idx=sel && sel.value!=="" ? Number(sel.value) : -1;
-    const selected=idx>=0 ? list[idx] : null;
-    const typeOrNrChanged=!!(selected && (
-      String(selected.type||"")!==rec.type ||
-      String(selected.machineNo||"")!==rec.machineNo
-    ));
-    if(typeOrNrChanged){
-      list.push(rec);
-      idx=list.length-1;
-    }else if(idx>=0 && list[idx]){
-      list[idx]=rec;
-    }else{
-      idx=list.findIndex(m=>
-        rec.machineNo && m.machineNo===rec.machineNo && m.type===rec.type
-      );
-      if(idx>=0) list[idx]=rec;
-      else { list.push(rec); idx=list.length-1; }
-    }
+    let idx=list.findIndex(m=>
+      sameBrand(m.manufacturer, rec.manufacturer) &&
+      sameType(m.type, rec.type) &&
+      sameType(m.machineNo, rec.machineNo)
+    );
+    if(idx>=0) list[idx]=rec;
+    else { list.push(rec); idx=list.length-1; }
     all[k]=list;
     saveAll(all);
-    refreshSelect(String(idx));
+    syncHiddenSelect();
     const s=$("status");
     if(s) s.textContent="Maschine beim Kunden gespeichert.";
   }
-  window.refreshCustomerMachines=function(){ refreshSelect(""); };
+  window.refreshCustomerMachines=function(){
+    syncHiddenSelect();
+    syncComboClears();
+  };
   function bind(){
-    const sel=$("machineSelect");
-    if(!sel || sel.dataset.bound==="1") return;
-    sel.dataset.bound="1";
-    refreshSelect("");
-    sel.addEventListener("change",()=>{
-      if(sel.value===""){
-        FIELD_IDS.forEach(id=>{ if($(id) && id!=="fault" && id!=="hours") $(id).value=""; });
-        return;
+    setupCombo(
+      $("manufacturer"), $("manufacturerResults"), $("manufacturerBox"), $("manufacturerClear"),
+      manufacturerOptions,
+      function(){
+        const types=typeOptions();
+        if($("type").value && !types.some(t=>sameType(t,$("type").value))){
+          $("type").value="";
+          $("machineNo").value="";
+        }
+        applyIfUniqueNr();
+      },
+      q=> q ? "Kein Treffer – Name wird übernommen." : "Marke wählen oder neu eintippen."
+    );
+    setupCombo(
+      $("type"), $("typeResults"), $("typeBox"), $("typeClear"),
+      typeOptions,
+      function(){
+        const nos=nrOptions();
+        if($("machineNo").value && !nos.some(n=>sameType(n,$("machineNo").value)))
+          $("machineNo").value="";
+        applyIfUniqueNr();
+      },
+      q=>{
+        if(!norm($("manufacturer")?.value||"")) return "Zuerst den Hersteller wählen.";
+        return q ? "Kein Treffer – Typ wird übernommen." : "Modell dieser Marke wählen.";
       }
-      const list=listForCustomer();
-      applyMachine(list[Number(sel.value)]);
-    });
-    $("machineSave")?.addEventListener("click",()=>persistCurrent(false));
+    );
+    setupCombo(
+      $("machineNo"), $("machineNoResults"), $("machineNoBox"), $("machineNoClear"),
+      nrOptions,
+      function(){
+        const saved=findSaved();
+        if(saved) applyMachine(saved, true);
+        syncHiddenSelect();
+        syncComboClears();
+      },
+      q=>{
+        if(!norm($("type")?.value||"")) return "Zuerst Hersteller und Typ wählen.";
+        return q ? "Neue Nummer wird übernommen." : "Nr. dieser Maschine wählen. Zwei gleiche Typen haben unterschiedliche Nr.";
+      }
+    );
+    $("machineSave")?.addEventListener("click", persistCurrent);
     $("machineDelete")?.addEventListener("click",()=>{
       const k=customerKey();
-      const idx=sel.value===""?-1:Number(sel.value);
-      if(idx<0){
-        FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
-        return;
-      }
+      const rec=fromForm();
       const all=loadAll();
       const list=Array.isArray(all[k])?all[k]:[];
+      const idx=list.findIndex(m=>
+        sameBrand(m.manufacturer, rec.manufacturer) &&
+        sameType(m.type, rec.type) &&
+        sameType(m.machineNo, rec.machineNo)
+      );
+      if(idx<0){
+        FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+        syncComboClears();
+        syncHiddenSelect();
+        return;
+      }
+      if(!confirm("Diese Maschine beim Kunden löschen?")) return;
       list.splice(idx,1);
       all[k]=list;
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
-      refreshSelect("");
+      syncHiddenSelect();
+      syncComboClears();
       const s=$("status");
       if(s) s.textContent="Maschine gelöscht.";
     });
-    FIELD_IDS.forEach(id=>{
+    ["control","nc","plc"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
-        if(!customerKey()) return;
-        if(isEmpty(fromForm())) return;
-        const selected=sel.value!=="" ? listForCustomer()[Number(sel.value)] : null;
-        if(!selected) return;
-        persistCurrent(false);
+        if(!customerKey() || isEmpty(fromForm())) return;
+        if(findSaved()) persistCurrent();
       });
     });
-    $("customerSearch")?.addEventListener("blur",()=>refreshSelect(sel.value));
+    $("customerSearch")?.addEventListener("blur",()=>window.refreshCustomerMachines());
+    syncComboClears();
+    fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+      if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
+    }).catch(()=>{});
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
   else bind();
