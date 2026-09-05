@@ -214,7 +214,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 @media (min-width:700px){.sig-grid{grid-template-columns:1fr 1fr}}
 .sig-box label{margin-bottom:5px}
 .sig-preview{
-  height:120px;border:1px dashed #b4b4bb;border-radius:10px;background:#fff;
+  height:140px;border:1px dashed #b4b4bb;border-radius:10px;background:#fff;
   display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
 }
 .sig-preview img{
@@ -1353,13 +1353,20 @@ function initSignaturePads(){
       ctx.fill();
       return;
     }
-    for(let i=1;i<p.length;i++){
-      ctx.beginPath();
-      ctx.lineWidth=Math.max(0.9, (p[i-1].w+p[i].w)/2);
-      ctx.moveTo(p[i-1].x, p[i-1].y);
-      ctx.lineTo(p[i].x, p[i].y);
-      ctx.stroke();
+    let sum=0;
+    for(const pt of p) sum+=pt.w;
+    ctx.lineWidth=Math.max(1.1, sum/p.length);
+    ctx.beginPath();
+    ctx.moveTo(p[0].x, p[0].y);
+    if(p.length===2){
+      ctx.lineTo(p[1].x, p[1].y);
+    }else{
+      for(let i=1;i<p.length-1;i++){
+        ctx.quadraticCurveTo(p[i].x, p[i].y, (p[i].x+p[i+1].x)/2, (p[i].y+p[i+1].y)/2);
+      }
+      ctx.lineTo(p[p.length-1].x, p[p.length-1].y);
     }
+    ctx.stroke();
   }
   function captureBackup(){
     backup.width=canvas.width;
