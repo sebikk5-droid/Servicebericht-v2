@@ -21,6 +21,14 @@ function isV2Navigation(req) {
   );
 }
 
+function isSharedData(url) {
+  const path = new URL(url).pathname;
+  return (
+    path.endsWith("/customer-emails.json") ||
+    path.endsWith("/customer-machines.json")
+  );
+}
+
 function isV2Asset(url) {
   const path = new URL(url).pathname;
   return (
@@ -67,6 +75,11 @@ self.addEventListener("fetch", event => {
         })
         .catch(() => caches.match("./v2.html"))
     );
+    return;
+  }
+
+  if (isSharedData(req.url)) {
+    event.respondWith(fetch(req, {cache: "no-store"}).catch(() => caches.match(req)));
     return;
   }
 
