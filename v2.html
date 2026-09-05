@@ -208,9 +208,43 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
 @media (min-width:700px){.sig-grid{grid-template-columns:1fr 1fr}}
 .sig-box label{margin-bottom:5px}
-.sig-pad-wrap{border:1px solid #c9c9ce;border-radius:10px;background:#fafafa;overflow:hidden}
-.sig-pad{width:100%;height:96px;display:block;touch-action:none;cursor:crosshair}
-.sig-clear{margin-top:6px;padding:6px 10px;font-size:13px;font-weight:650;border:0;border-radius:8px;background:#e5e5ea;min-height:32px;cursor:pointer}
+.sig-preview{
+  height:72px;border:1px dashed #b4b4bb;border-radius:10px;background:#fafafa;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;
+}
+.sig-preview img{max-height:100%;max-width:100%;display:none}
+.sig-preview.has-ink img{display:block}
+.sig-preview.has-ink .sig-hint{display:none}
+.sig-hint{font-size:13px;color:#888;font-weight:650}
+.sig-actions{display:flex;gap:6px;margin-top:6px}
+.sig-actions button{padding:7px 10px;font-size:13px;font-weight:650;border:0;border-radius:8px;background:#e5e5ea;min-height:32px;cursor:pointer}
+.sig-actions .sig-open{background:#163a5c;color:#fff}
+#signdate{max-width:138px;min-height:32px;padding:4px 8px;font-size:13px;width:auto}
+.sign-date-wrap{max-width:160px}
+#sigModal{
+  display:none;position:fixed;inset:0;z-index:90;background:#d8d8de;
+  flex-direction:column;
+}
+#sigModal.open{display:flex}
+.sig-modal-top{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:#fff;border-bottom:1px solid #ccc;
+}
+.sig-modal-title{font-size:17px;font-weight:750}
+.sig-modal-top button,.sig-modal-bottom button{
+  border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;cursor:pointer;
+}
+.sig-modal-cancel{background:#e5e5ea}
+.sig-modal-done{background:#163a5c;color:#fff}
+.sig-modal-canvas-wrap{
+  flex:1;margin:10px 12px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #c5c5ca;min-height:180px;
+}
+#sigModalCanvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.sig-modal-bottom{
+  display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.sig-modal-clear{background:#fff;border:1px solid #ccc!important;flex:1}
 </style>
 </head>
 <body>
@@ -307,23 +341,40 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 
 <section class="card"><h2>Unterschrift</h2>
 <div class="grid"><div><label>Auftrags-Nr.</label><input id="order"></div><div><label>Techniker</label><input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
-<div><label>Datum</label><input id="signdate" type="date"></div><div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div></div>
+<div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div><div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div></div>
 <div class="sig-grid">
   <div class="sig-box">
-    <label>Unterschrift Techniker (iPad)</label>
-    <div class="sig-pad-wrap"><canvas id="sigTech" class="sig-pad" width="600" height="192"></canvas></div>
-    <button type="button" class="sig-clear" data-sig-clear="sigTech">Löschen</button>
+    <label>Unterschrift Techniker</label>
+    <div class="sig-preview" id="sigTechPreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-actions">
+      <button type="button" class="sig-open" data-sig-open="sigTech">Unterschreiben</button>
+      <button type="button" class="sig-clear" data-sig-clear="sigTech">Löschen</button>
+    </div>
   </div>
   <div class="sig-box">
-    <label>Unterschrift Kunde (iPad)</label>
-    <div class="sig-pad-wrap"><canvas id="sigKunde" class="sig-pad" width="600" height="192"></canvas></div>
-    <button type="button" class="sig-clear" data-sig-clear="sigKunde">Löschen</button>
+    <label>Unterschrift Kunde</label>
+    <div class="sig-preview" id="sigKundePreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-actions">
+      <button type="button" class="sig-open" data-sig-open="sigKunde">Unterschreiben</button>
+      <button type="button" class="sig-clear" data-sig-clear="sigKunde">Löschen</button>
+    </div>
   </div>
 </div>
 </section>
 <div id="status"></div>
 </main>
 <div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div id="sigModal" aria-hidden="true">
+  <div class="sig-modal-top">
+    <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
+    <div class="sig-modal-title" id="sigModalTitle">Unterschrift</div>
+    <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
+  </div>
+  <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas"></canvas></div>
+  <div class="sig-modal-bottom">
+    <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
+  </div>
+</div>
 <script src="vendor/pdf-lib.min.js"></script>
 <script>
 document.querySelectorAll("#pdfFields input,#pdfFields textarea").forEach(el=>{
@@ -421,7 +472,7 @@ function dayTemplate(d){
       <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" aria-label="Anfahrt bis"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" value="0" placeholder="Minuten"></div>
+      <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90"></div>
     </div>
@@ -435,7 +486,7 @@ function dayTemplate(d){
       <div class="field"><label>Arbeitszeit bis – Arbeitsende</label><select class="quarter-time" data-k="AZende${(d*2)-1}"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Pause Arbeit (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseAZ${(d*2)-1}" value="0" placeholder="Minuten"></div>
+      <div class="field"><label>Pause Arbeit (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseAZ${(d*2)-1}" placeholder="Minuten"></div>
       <div class="field"><label>Arbeitszeit netto</label><input type="text" data-calc="wt${d}" readonly></div>
     </div>
 
@@ -445,7 +496,7 @@ function dayTemplate(d){
       <div class="field"><label>Rückfahrt bis – Ankunft zuhause</label><select class="quarter-time" data-k="RZende${d*2}"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="0" placeholder="Minuten"></div>
+      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
     </div>
@@ -466,10 +517,16 @@ function dayTemplate(d){
 function syncDayDatesFromMainDate(){
   const main=$("date")?.value||"";
   if(!main) return;
+  const tag1=document.querySelector('[data-daybox="1"] .daydate');
+  if(tag1) tag1.value=main;
   document.querySelectorAll(".daydate").forEach(el=>{
     const d=Number(el.dataset.day||0);
-    if(d>0 && !el.value) el.value=isoAddDays(main,d-1);
+    if(d>1 && !el.value) el.value=isoAddDays(main,d-1);
   });
+}
+function syncTag1ToEinsatzdatum(){
+  const tag1=document.querySelector('[data-daybox="1"] .daydate');
+  if(tag1?.value && $("date")) $("date").value=tag1.value;
 }
 $("date")?.addEventListener("change",syncDayDatesFromMainDate);
 
@@ -478,6 +535,11 @@ $("times").innerHTML=dayTemplate(1)+`
 `;
 initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
+syncDayDatesFromMainDate();
+$("times").addEventListener("change",e=>{
+  if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
+    syncTag1ToEinsatzdatum();
+});
 $("addDay").onclick=()=>{
   if(visibleDays>=6)return;
   const d=document.querySelectorAll('[data-daybox]').length+1;
@@ -947,6 +1009,14 @@ function syncChoiceVisual(el){
   const label=el.closest(".choice-opt");
   if(label) label.classList.toggle("is-on", !!el.checked);
 }
+function syncIoToMaschine(){
+  const io=document.querySelector('#choices input[name="betriebs"][value="io"]');
+  const ok=document.getElementById("maschine_ok");
+  if(!ok||!io) return;
+  ok.checked=!!io.checked;
+  try{localStorage.setItem("choice_maschine_ok", ok.checked?"1":"0");}catch(e){}
+  syncChoiceVisual(ok);
+}
 document.querySelectorAll('#choices input[type="checkbox"]').forEach(cb=>{
   syncChoiceVisual(cb);
   cb.addEventListener('change',()=>{
@@ -960,8 +1030,10 @@ document.querySelectorAll('#choices input[type="checkbox"]').forEach(cb=>{
       });
     }
     syncChoiceVisual(cb);
+    if(cb.name==="betriebs") syncIoToMaschine();
   });
 });
+syncIoToMaschine();
 function pdfCheck(form,name,on){
   try{
     const f=form.getCheckBox(name);
@@ -1081,83 +1153,123 @@ function canvasHasInk(canvas){
   }catch(e){}
   return false;
 }
-function fitSignatureCanvas(canvas){
+const signatureStore={sigTech:null,sigKunde:null};
+const SIG_TITLES={sigTech:"Unterschrift Techniker",sigKunde:"Unterschrift Kunde"};
+function updateSigPreview(id){
+  const box=$(id+"Preview");
+  if(!box) return;
+  const img=box.querySelector("img");
+  const url=signatureStore[id];
+  box.classList.toggle("has-ink", !!url);
+  if(img) img.src=url||"";
+}
+function sizeModalCanvas(){
+  const canvas=$("sigModalCanvas");
   const wrap=canvas.parentElement;
-  const cssW=Math.max(200, wrap.clientWidth||300);
-  const cssH=96;
   const dpr=Math.max(1, Math.min(3, window.devicePixelRatio||1));
-  canvas.style.width=cssW+"px";
-  canvas.style.height=cssH+"px";
-  canvas.width=Math.round(cssW*dpr);
-  canvas.height=Math.round(cssH*dpr);
+  const w=Math.max(280, wrap.clientWidth||window.innerWidth);
+  const h=Math.max(160, wrap.clientHeight||Math.round(window.innerHeight*0.55));
+  canvas.style.width=w+"px";
+  canvas.style.height=h+"px";
+  canvas.width=Math.round(w*dpr);
+  canvas.height=Math.round(h*dpr);
   const ctx=canvas.getContext("2d");
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.lineCap="round";
   ctx.lineJoin="round";
-  ctx.strokeStyle="#163a5c";
-  ctx.lineWidth=2.4;
+  ctx.strokeStyle="#111";
+  ctx.lineWidth=2.8;
+  return ctx;
 }
 function initSignaturePads(){
-  document.querySelectorAll("canvas.sig-pad").forEach(canvas=>{
-    if(canvas.dataset.sigBound==="1") return;
-    canvas.dataset.sigBound="1";
-    fitSignatureCanvas(canvas);
+  const modal=$("sigModal");
+  const canvas=$("sigModalCanvas");
+  if(!modal||!canvas||modal.dataset.bound==="1") return;
+  modal.dataset.bound="1";
+  let drawing=false, last=null, activeId=null;
+  const pos=e=>{
+    const r=canvas.getBoundingClientRect();
+    return {x:e.clientX-r.left, y:e.clientY-r.top};
+  };
+  canvas.addEventListener("pointerdown",e=>{
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    drawing=true;
+    last=pos(e);
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!drawing) return;
+    e.preventDefault();
+    const p=pos(e);
     const ctx=canvas.getContext("2d");
-    let drawing=false, last=null;
-    const pos=e=>{
-      const r=canvas.getBoundingClientRect();
-      return {x:e.clientX-r.left, y:e.clientY-r.top};
-    };
-    canvas.addEventListener("pointerdown",e=>{
-      e.preventDefault();
-      canvas.setPointerCapture(e.pointerId);
-      drawing=true;
-      last=pos(e);
+    ctx.beginPath();
+    ctx.moveTo(last.x,last.y);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    last=p;
+  });
+  const stop=()=>{ drawing=false; last=null; };
+  canvas.addEventListener("pointerup",stop);
+  canvas.addEventListener("pointercancel",stop);
+
+  function openModal(id){
+    activeId=id;
+    $("sigModalTitle").textContent=SIG_TITLES[id]||"Unterschrift";
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden","false");
+    document.body.style.overflow="hidden";
+    requestAnimationFrame(()=>{
+      const ctx=sizeModalCanvas();
+      const url=signatureStore[id];
+      if(!url) return;
+      const img=new Image();
+      img.onload=()=>{
+        const r=canvas.getBoundingClientRect();
+        ctx.drawImage(img,0,0,r.width,r.height);
+      };
+      img.src=url;
     });
-    canvas.addEventListener("pointermove",e=>{
-      if(!drawing) return;
-      e.preventDefault();
-      const p=pos(e);
-      ctx.beginPath();
-      ctx.moveTo(last.x,last.y);
-      ctx.lineTo(p.x,p.y);
-      ctx.stroke();
-      last=p;
+  }
+  function closeModal(){
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden","true");
+    document.body.style.overflow="";
+    activeId=null;
+  }
+  document.querySelectorAll("[data-sig-open]").forEach(btn=>{
+    btn.addEventListener("click",()=>openModal(btn.getAttribute("data-sig-open")));
+  });
+  document.querySelectorAll(".sig-preview").forEach(box=>{
+    box.addEventListener("click",()=>{
+      const id=box.id.replace("Preview","");
+      openModal(id);
     });
-    const stop=()=>{ drawing=false; last=null; };
-    canvas.addEventListener("pointerup",stop);
-    canvas.addEventListener("pointercancel",stop);
+  });
+  $("sigModalCancel").addEventListener("click",closeModal);
+  $("sigModalClear").addEventListener("click",()=>sizeModalCanvas());
+  $("sigModalDone").addEventListener("click",()=>{
+    if(activeId && canvasHasInk(canvas)) signatureStore[activeId]=canvas.toDataURL("image/png");
+    else if(activeId && !canvasHasInk(canvas)) signatureStore[activeId]=null;
+    if(activeId) updateSigPreview(activeId);
+    closeModal();
   });
   document.querySelectorAll("[data-sig-clear]").forEach(btn=>{
     btn.addEventListener("click",()=>{
-      const canvas=$(btn.getAttribute("data-sig-clear"));
-      if(!canvas) return;
-      fitSignatureCanvas(canvas);
+      const id=btn.getAttribute("data-sig-clear");
+      signatureStore[id]=null;
+      updateSigPreview(id);
     });
   });
 }
 window.exportSignatureData=function(){
   const out={};
-  ["sigTech","sigKunde"].forEach(id=>{
-    const c=$(id);
-    if(c && canvasHasInk(c)) out["__"+id]=c.toDataURL("image/png");
-  });
+  ["sigTech","sigKunde"].forEach(id=>{ if(signatureStore[id]) out["__"+id]=signatureStore[id]; });
   return out;
 };
 window.importSignatureData=function(data){
   ["sigTech","sigKunde"].forEach(id=>{
-    const c=$(id);
-    const url=data && data["__"+id];
-    if(!c) return;
-    fitSignatureCanvas(c);
-    if(!url) return;
-    const img=new Image();
-    img.onload=()=>{
-      const ctx=c.getContext("2d");
-      const r=c.getBoundingClientRect();
-      ctx.drawImage(img,0,0,r.width,r.height);
-    };
-    img.src=url;
+    signatureStore[id]=(data && data["__"+id]) || null;
+    updateSigPreview(id);
   });
 };
 async function embedSignatures(pdf){
@@ -1167,11 +1279,10 @@ async function embedSignatures(pdf){
     sigKunde:{x:202,y:33,width:121,height:39}
   };
   for(const id of ["sigTech","sigKunde"]){
-    const canvas=$(id);
-    if(!canvas || !canvasHasInk(canvas)) continue;
-    const png=await new Promise(resolve=>canvas.toBlob(b=>resolve(b), "image/png"));
-    if(!png) continue;
-    const img=await pdf.embedPng(await png.arrayBuffer());
+    const url=signatureStore[id];
+    if(!url) continue;
+    const png=await fetch(url).then(r=>r.arrayBuffer());
+    const img=await pdf.embedPng(png);
     const box=rects[id];
     const scale=Math.min(box.width/img.width, box.height/img.height);
     const w=img.width*scale, h=img.height*scale;
@@ -1421,6 +1532,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const label=el.closest(".choice-opt");
       if(label) label.classList.toggle("is-on", !!el.checked);
     });
+    if(typeof syncIoToMaschine==="function") syncIoToMaschine();
     if(typeof window.importSignatureData==="function") window.importSignatureData(data);
   }
   function historyItemData(item){
