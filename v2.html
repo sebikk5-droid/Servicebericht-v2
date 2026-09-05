@@ -339,8 +339,9 @@ input.km-check,input.to-check{
     <button type="button" id="historySave" class="history-file-btn">Speichern</button>
     <label class="history-file-btn" for="historyFileInput">Öffnen</label>
     <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
+    <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
   </div>
-  <div class="muted">Tippen öffnet die Liste. × entfernt die Auswahl, × in der Liste löscht den Bericht.</div>
+  <div class="muted">Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
 </section>
 <section class="card"><h2>Kunde</h2>
 <label for="customerSearch">Firma</label>
@@ -2282,6 +2283,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     refresh("");
     const save=document.getElementById("historySave");
     const fileInput=document.getElementById("historyFileInput");
+    const del=document.getElementById("historyDelete");
     const input=document.getElementById("historySearch");
     const results=document.getElementById("historySearchResults");
     const combo=document.getElementById("historyCombo");
@@ -2303,8 +2305,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         results.appendChild(empty);
       }else{
         items.forEach(({item,i})=>{
-          const row=document.createElement("div");
-          row.className="combo-row";
           const pick=document.createElement("button");
           pick.type="button";
           pick.className="combo-pick";
@@ -2315,27 +2315,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
             openHistoryIndex(i);
             closeResults();
           });
-          const rm=document.createElement("button");
-          rm.type="button";
-          rm.className="combo-row-del";
-          rm.setAttribute("aria-label","Bericht löschen");
-          rm.textContent="×";
-          rm.addEventListener("mousedown",e=>{
-            e.preventDefault();
-            e.stopPropagation();
-            if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
-            const list=loadHistory();
-            if(!list[i]) return;
-            list.splice(i,1);
-            saveHistory(list);
-            if(selectedHistory===i) setSelectedHistory(null, null);
-            else if(selectedHistory!=null && selectedHistory>i) selectedHistory-=1;
-            $("status").textContent="Bericht gelöscht.";
-            showResults(filtered());
-          });
-          row.appendChild(pick);
-          row.appendChild(rm);
-          results.appendChild(row);
+          results.appendChild(pick);
         });
       }
       results.hidden=false;
@@ -2419,6 +2399,22 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(e?.name!=="AbortError")
           alert("Historie konnte nicht geöffnet werden: "+(e?.message||e));
       }
+    });
+
+    del?.addEventListener("click",()=>{
+      const idx=selectedHistory;
+      if(idx==null || Number.isNaN(idx)){
+        alert("Bitte zuerst einen Bericht auswählen.");
+        return;
+      }
+      const list=loadHistory();
+      if(!list[idx]) return;
+      if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
+      list.splice(idx,1);
+      saveHistory(list);
+      setSelectedHistory(null, null);
+      closeResults();
+      $("status").textContent="Bericht gelöscht.";
     });
 
     let saveTimer=null;
