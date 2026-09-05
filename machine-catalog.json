@@ -1,0 +1,123 @@
+{
+  "manufacturers": [
+    {
+      "name": "DMG MORI",
+      "match": ["dmg", "dmg mori", "gildemeister", "mori seiki", "deckel maho"],
+      "types": [
+        "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
+        "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
+        "DMC 635 V", "DMC 1035 V", "DMC 1150 V", "DMC 80 U", "DMC 125 U", "DMC 160 U",
+        "CMX 50 U", "CMX 70 U", "CMX 1100 V", "CMX V",
+        "CTX 310", "CTX 450", "CTX 650", "CTX beta", "CTX gamma",
+        "CLX 350", "CLX 450", "CLX 550",
+        "NLX 1500", "NLX 2000", "NLX 2500", "NLX 3000",
+        "NHX 4000", "NHX 5000", "NHX 5500", "NHX 6300",
+        "NTX 1000", "NTX 2000", "NTX 2500",
+        "MILLTAP 700", "NVX 5080", "NVX 5100"
+      ]
+    },
+    {
+      "name": "Hermle",
+      "match": ["hermle"],
+      "types": [
+        "C 12", "C 22", "C 250", "C 32", "C 400", "C 42", "C 52", "C 62",
+        "C 650", "C 800 U", "C 40", "C 50", "U 1130", "C 600 U"
+      ]
+    },
+    {
+      "name": "Mazak",
+      "match": ["mazak", "yamazaki"],
+      "types": [
+        "VTC-800", "VTC-530", "VCN-530", "VCN-700",
+        "HCN-4000", "HCN-5000", "HCN-6800",
+        "INTEGREX i-200", "INTEGREX i-400", "INTEGREX e-500",
+        "QUICK TURN 250", "QUICK TURN 350", "VARIAXIS i-600", "VARIAXIS i-800"
+      ]
+    },
+    {
+      "name": "Okuma",
+      "match": ["okuma"],
+      "types": ["GENOS M560", "MB-46", "MB-56", "MU-4000V", "MU-5000V", "MU-6300V", "MULTUS U3000", "LB3000", "LB4000"]
+    },
+    {
+      "name": "Haas",
+      "match": ["haas"],
+      "types": ["VF-2", "VF-3", "VF-4", "VF-5", "VF-6", "UMC-500", "UMC-750", "UMC-1000", "ST-20", "ST-30", "EC-400"]
+    },
+    {
+      "name": "GROB",
+      "match": ["grob"],
+      "types": ["G350", "G550", "G750", "G1050", "G150"]
+    },
+    {
+      "name": "Heller",
+      "match": ["heller"],
+      "types": ["HF 3500", "HF 5500", "H 2000", "H 4000", "H 5000", "H 6000"]
+    },
+    {
+      "name": "Chiron",
+      "match": ["chiron"],
+      "types": ["FZ 08", "FZ 12", "FZ 15", "FZ 16", "FZ 18", "DZ 15", "DZ 16", "Mill 2000"]
+    },
+    {
+      "name": "Index",
+      "match": ["index"],
+      "types": ["G200", "G220", "G400", "C200", "C100", "ABC", "R200"]
+    },
+    {
+      "name": "Traub",
+      "match": ["traub"],
+      "types": ["TNA400", "TNA500", "TNX65", "TNL12", "TNL20"]
+    },
+    {
+      "name": "Doosan",
+      "match": ["doosan", "dn solutions"],
+      "types": ["DNM 4500", "DNM 5700", "DNM 6700", "VC 630", "NHM 6300", "Lynx 2100", "Puma 2600"]
+    },
+    {
+      "name": "Hurco",
+      "match": ["hurco"],
+      "types": ["VMX30", "VMX42", "VMX50", "VMX60", "VMX42i", "VMX50i", "5-axis"]
+    },
+    {
+      "name": "Brother",
+      "match": ["brother"],
+      "types": ["Speedio S700", "Speedio S500", "Speedio M140", "TC-S2"]
+    },
+    {
+      "name": "Fanuc",
+      "match": ["fanuc", "robodrill"],
+      "types": ["Robodrill α-D14MiB", "Robodrill α-D21LiB", "Robodrill α-D28LiB"]
+    },
+    {
+      "name": "Mikron",
+      "match": ["mikron", "gf machining"],
+      "types": ["HEM 500", "HEM 800", "HSM 500", "HSM 600", "MILL P 500", "MILL P 800"]
+    },
+    {
+      "name": "Spinner",
+      "match": ["spinner"],
+      "types": ["U5-620", "U5-1520", "VC750", "TC600", "PD-CNC"]
+    },
+    {
+      "name": "EMAG",
+      "match": ["emag"],
+      "types": ["VL 2", "VL 4", "VL 8", "VSC 250", "VT 2"]
+    },
+    {
+      "name": "Kern",
+      "match": ["kern"],
+      "types": ["Micro", "Evo", "Pyramid Nano", "Micro HD"]
+    },
+    {
+      "name": "Röders",
+      "match": ["roeders", "röders"],
+      "types": ["RXU 1001", "RXP 500", "RXP 601", "RHP 500"]
+    },
+    {
+      "name": "Datron",
+      "match": ["datron"],
+      "types": ["MLCube", "MXCube", "M8Cube", "Neo"]
+    }
+  ]
+}
