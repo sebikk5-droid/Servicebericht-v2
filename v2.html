@@ -1082,7 +1082,7 @@ function wrapIntoFields(form, names, text, font){
     const r=fieldRectOf(form,n);
     return {n, w:Math.max(8, r.width-12), h:r.height};
   });
-  let size=Math.min(8, ...meta.map(m=>m.h*0.62));
+  let size=Math.min(9, ...meta.map(m=>m.h*0.72));
   const pack=sz=>{
     const out=[];
     let overflow=false;
@@ -1129,16 +1129,16 @@ function setSize(form,n,size){
 }
 function fitSizeForField(n){
   const name=String(n||"");
-  if(/^Datum\d+$/.test(name)) return 5.5;
-  if(/^Datum\b/.test(name)) return 6.5;
-  if(/^(RZstart|RZende|AZstart|AZende)\d+$/.test(name)) return 7;
-  if(/^(PauseRZ|PauseAZ)\d+$/.test(name)) return 6;
-  if(/^Kilometer\d+$/.test(name)) return 6.5;
-  if(/^(RZ|AZ)\d+$/.test(name)) return 7;
-  if(/gesamt|Gesamtzeit/i.test(name)) return 8;
-  if(/^(Firma|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 8;
-  if(/^Bemerkung\d+$/.test(name) || /^Ersatzteile/.test(name)) return 8;
-  return 8;
+  if(/^Datum\d+$/.test(name)) return 6.5;
+  if(/^Datum\b/.test(name)) return 7.5;
+  if(/^(RZstart|RZende|AZstart|AZende)\d+$/.test(name)) return 8;
+  if(/^(PauseRZ|PauseAZ)\d+$/.test(name)) return 7;
+  if(/^Kilometer\d+$/.test(name)) return 7.5;
+  if(/^(RZ|AZ)\d+$/.test(name)) return 8;
+  if(/gesamt|Gesamtzeit/i.test(name)) return 9;
+  if(/^(Firma|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 9;
+  if(/^Bemerkung\d+$/.test(name) || /^Ersatzteile/.test(name)) return 9;
+  return 9;
 }
 function setFit(form,n,v,size){
   const s=v==null?"":String(v);
@@ -1874,7 +1874,7 @@ function pdfDateFromDay(dayNo){
   const el=box?.querySelector(".daydate");
   return el?.value || isoAddDays($("date")?.value||"", Number(dayNo)-1);
 }
-setFit(form,"Firma",firmaName(),8);
+setFit(form,"Firma",firmaName(),9);
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
 setIf(form,"Hersteller",$("manufacturer").value);setIf(form,"Typ",$("type").value);setIf(form,"Maschinennummer",$("machineNo").value);
@@ -1895,20 +1895,20 @@ for(let d=1;d<=dayBoxes.length;d++){
   const dateIso=dateEl?.value || (hasTimes ? isoAddDays($("date")?.value||"",d-1) : "");
   const date=pdfDate(dateIso);
   if(date){
-    setFit(form,`Datum${a}`,date,5.5);
-    setFit(form,`Datum${b}`,date,5.5);
+    setFit(form,`Datum${a}`,date,6.5);
+    setFit(form,`Datum${b}`,date,6.5);
   }
-  ["RZstart","RZende","AZstart","AZende"].forEach(k=>{ if(filledTime(q(`${k}${a}`).value)) setFit(form,`${k}${a}`,q(`${k}${a}`).value,7); });
-  ["RZstart","RZende"].forEach(k=>{ if(filledTime(q(`${k}${b}`).value)) setFit(form,`${k}${b}`,q(`${k}${b}`).value,7); });
+  ["RZstart","RZende","AZstart","AZende"].forEach(k=>{ if(filledTime(q(`${k}${a}`).value)) setFit(form,`${k}${a}`,q(`${k}${a}`).value,8); });
+  ["RZstart","RZende"].forEach(k=>{ if(filledTime(q(`${k}${b}`).value)) setFit(form,`${k}${b}`,q(`${k}${b}`).value,8); });
   const pauseOut=pauseMinutes(q(`PauseRZ${a}`).value||"");
   const pauseWork=pauseMinutes(q(`PauseAZ${a}`).value||"");
   const pauseBack=pauseMinutes(q(`PauseRZ${b}`).value||"");
-  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),6);
-  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),6);
-  if(pauseBack) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),6);
+  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),7);
+  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
+  if(pauseBack) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
   const kmA=q(`Kilometer${a}`).value, kmB=q(`Kilometer${b}`).value;
-  if(String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,6.5);
-  if(String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,6.5);
+  if(String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
+  if(String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const outOv=box.querySelector('[data-route-override="out"]');
   const backOv=box.querySelector('[data-route-override="back"]');
   const rt=outOv && String(outOv.value).trim()!==""
@@ -1918,17 +1918,17 @@ for(let d=1;d<=dayBoxes.length;d++){
   const rr=backOv && String(backOv.value).trim()!==""
     ? Math.max(0,parseInt(backOv.value,10)||0)
     : Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack);
-  if(rt) setFit(form,`RZ${a}`,fmtMinPdf(rt),7);
-  if(wt) setFit(form,`AZ${a}`,fmtMinPdf(wt),7);
-  if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),7);
+  if(rt) setFit(form,`RZ${a}`,fmtMinPdf(rt),8);
+  if(wt) setFit(form,`AZ${a}`,fmtMinPdf(wt),8);
+  if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),8);
   km+=(parseFloat((kmA||"").replace(",","."))||0);
   km+=(parseFloat((kmB||"").replace(",","."))||0);
   travel+=rt+rr;work+=wt;
 }
-if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),8);
-if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),8);
-if(work) setFit(form,"Arbeitszeit gesamt",fmtMinPdf(work),8);
-if(travel||work) setFit(form,"Gesamtzeit",fmtMinPdf(travel+work),8);
+if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
+if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),9);
+if(work) setFit(form,"Arbeitszeit gesamt",fmtMinPdf(work),9);
+if(travel||work) setFit(form,"Gesamtzeit",fmtMinPdf(travel+work),9);
 
 const pdfHasContent=!!(
   c || firmaName() || String($("remarks").value||"").trim() || String($("parts").value||"").trim() || km || travel || work || bet || ein || art ||
@@ -1938,10 +1938,10 @@ const pdfHasContent=!!(
 );
 if(pdfHasContent){
   if($("date").value){
-    setFit(form,"Datum Einsatzbeginn",pdfDate($("date").value),6.5);
+    setFit(form,"Datum Einsatzbeginn",pdfDate($("date").value),7.5);
   }
   if($("signdate").value){
-    setFit(form,"Datum Unterschrift",pdfDate($("signdate").value),6.5);
+    setFit(form,"Datum Unterschrift",pdfDate($("signdate").value),7.5);
   }
 }
 
