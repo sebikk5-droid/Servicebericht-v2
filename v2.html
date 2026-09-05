@@ -195,13 +195,16 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   font-size:13px;
 }
 #historySection .muted{margin-top:6px;font-size:11px}
-.day-title{display:flex;align-items:center;gap:8px;min-width:0}
-.daybox .daydate{
-  width:auto;
-  max-width:148px;
-  min-height:32px;
-  padding:4px 8px;
-  font-size:13px;
+.day-title{display:flex;align-items:center;gap:6px;min-width:0}
+.daybox input.daydate[type="date"]{
+  width:auto !important;
+  max-width:7.1em !important;
+  min-height:26px !important;
+  height:28px !important;
+  padding:1px 4px !important;
+  font-size:12px !important;
+  line-height:1.15;
+  flex:0 0 auto;
 }
 .overnight-end{margin:10px 0 0;padding-top:8px;border-top:1px solid #b7cde3}
 .overnight-end .check{font-size:13px;font-weight:650}
@@ -238,9 +241,14 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-modal-cancel{background:#e5e5ea}
 .sig-modal-done{background:#163a5c;color:#fff}
 .sig-modal-canvas-wrap{
-  flex:1;margin:10px 12px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #c5c5ca;min-height:180px;
+  position:relative;flex:1;margin:10px 12px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #c5c5ca;min-height:220px;
+  touch-action:none;-webkit-user-select:none;user-select:none;
 }
-#sigModalCanvas{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#sigModalCanvas{
+  position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;
+  -webkit-user-select:none;user-select:none;touch-action:none;
+}
+#sigModal{touch-action:none;overscroll-behavior:none;-webkit-user-select:none}
 .sig-modal-bottom{
   display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
 }
@@ -340,8 +348,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 </section>
 
 <section class="card"><h2>Unterschrift</h2>
-<div class="grid"><div><label>Auftrags-Nr.</label><input id="order"></div><div><label>Techniker</label><input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
-<div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div><div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div></div>
+<div class="grid">
+  <div><label>Techniker</label><input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
+  <div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
+  <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div>
+</div>
 <div class="sig-grid">
   <div class="sig-box">
     <label>Unterschrift Techniker</label>
@@ -370,7 +381,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
     <div class="sig-modal-title" id="sigModalTitle">Unterschrift</div>
     <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
   </div>
-  <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas"></canvas></div>
+  <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas" tabindex="0"></canvas></div>
   <div class="sig-modal-bottom">
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
@@ -775,6 +786,26 @@ function firmaName(){
   const c=selectedCompany();
   return c?String(c.firma||c.name||"").trim():"";
 }
+function techInitials(name){
+  const parts=String(name||"").trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return "XX";
+  if(parts.length===1){
+    const w=parts[0];
+    return (w.slice(0,2)||"X").toUpperCase();
+  }
+  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+function fileSafePart(s){
+  return String(s||"").trim().replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").replace(/^_+|_+$/g,"").slice(0,48);
+}
+function pdfFileName(){
+  const n=new Date();
+  const iso=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
+  const initials=techInitials($("tech")?.value);
+  const firma=fileSafePart(firmaName()||"Kunde")||"Kunde";
+  return `Servicebericht_${iso}_${initials}_${firma}.pdf`;
+}
+window.pdfFileName=pdfFileName;
 function customerRoute(){
   if(!Array.isArray(companies)) return {km:0,minutes:0};
   return parseRoute(selectedCompany());
@@ -1149,7 +1180,9 @@ function canvasHasInk(canvas){
   if(!canvas||!canvas.width) return false;
   try{
     const data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
-    for(let i=3;i<data.length;i+=4) if(data[i]>12) return true;
+    for(let i=0;i<data.length;i+=4){
+      if(data[i]<248 || data[i+1]<248 || data[i+2]<248) return true;
+    }
   }catch(e){}
   return false;
 }
@@ -1167,18 +1200,22 @@ function sizeModalCanvas(){
   const canvas=$("sigModalCanvas");
   const wrap=canvas.parentElement;
   const dpr=Math.max(1, Math.min(3, window.devicePixelRatio||1));
-  const w=Math.max(280, wrap.clientWidth||window.innerWidth);
-  const h=Math.max(160, wrap.clientHeight||Math.round(window.innerHeight*0.55));
+  const r=wrap.getBoundingClientRect();
+  const w=Math.max(280, Math.floor(r.width||window.innerWidth));
+  const h=Math.max(180, Math.floor(r.height||window.innerHeight*0.55));
   canvas.style.width=w+"px";
   canvas.style.height=h+"px";
   canvas.width=Math.round(w*dpr);
   canvas.height=Math.round(h*dpr);
-  const ctx=canvas.getContext("2d");
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle="#fff";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.lineCap="round";
   ctx.lineJoin="round";
   ctx.strokeStyle="#111";
-  ctx.lineWidth=2.8;
+  ctx.lineWidth=2.4;
   return ctx;
 }
 function initSignaturePads(){
@@ -1186,31 +1223,82 @@ function initSignaturePads(){
   const canvas=$("sigModalCanvas");
   if(!modal||!canvas||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
-  let drawing=false, last=null, activeId=null;
-  const pos=e=>{
+  let drawing=false, last=null, activeId=null, drawPointer=null, penDown=false;
+  const pos=ev=>{
     const r=canvas.getBoundingClientRect();
-    return {x:e.clientX-r.left, y:e.clientY-r.top};
+    const src=ev.touches&&ev.touches[0] ? ev.touches[0] : (ev.changedTouches&&ev.changedTouches[0] ? ev.changedTouches[0] : ev);
+    return {x:src.clientX-r.left, y:src.clientY-r.top};
   };
+  const widthFor=ev=>{
+    if(ev.pointerType==="pen"){
+      const p=Number.isFinite(ev.pressure)&&ev.pressure>0 ? ev.pressure : 0.5;
+      return 1.1+p*4.2;
+    }
+    return 2.6;
+  };
+  function stroke(ev){
+    if(!drawing||!last) return;
+    const ctx=canvas.getContext("2d");
+    const list=(typeof ev.getCoalescedEvents==="function" && ev.getCoalescedEvents().length)
+      ? ev.getCoalescedEvents() : [ev];
+    ctx.strokeStyle="#111";
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    for(const item of list){
+      const p=pos(item);
+      ctx.lineWidth=widthFor(item);
+      ctx.beginPath();
+      ctx.moveTo(last.x,last.y);
+      ctx.lineTo(p.x,p.y);
+      ctx.stroke();
+      last=p;
+    }
+  }
+  function startDraw(ev){
+    if(ev.pointerType==="touch" && penDown) return;
+    if(ev.pointerType==="pen") penDown=true;
+    drawing=true;
+    drawPointer=ev.pointerId;
+    last=pos(ev);
+    const ctx=canvas.getContext("2d");
+    ctx.beginPath();
+    ctx.fillStyle="#111";
+    ctx.arc(last.x,last.y, Math.max(0.8, widthFor(ev)/2), 0, Math.PI*2);
+    ctx.fill();
+  }
+  function endDraw(ev){
+    if(ev && drawPointer!=null && ev.pointerId!==drawPointer && ev.pointerType!=="touch") return;
+    if(ev && ev.pointerType==="pen") penDown=false;
+    drawing=false; last=null; drawPointer=null;
+  }
+  const opts={passive:false, capture:true};
   canvas.addEventListener("pointerdown",e=>{
     e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
-    drawing=true;
-    last=pos(e);
-  });
+    e.stopPropagation();
+    if(typeof canvas.setPointerCapture==="function"){
+      try{ canvas.setPointerCapture(e.pointerId); }catch(_e){}
+    }
+    startDraw(e);
+  }, opts);
   canvas.addEventListener("pointermove",e=>{
     if(!drawing) return;
     e.preventDefault();
-    const p=pos(e);
-    const ctx=canvas.getContext("2d");
-    ctx.beginPath();
-    ctx.moveTo(last.x,last.y);
-    ctx.lineTo(p.x,p.y);
-    ctx.stroke();
-    last=p;
-  });
-  const stop=()=>{ drawing=false; last=null; };
-  canvas.addEventListener("pointerup",stop);
-  canvas.addEventListener("pointercancel",stop);
+    e.stopPropagation();
+    stroke(e);
+  }, opts);
+  canvas.addEventListener("pointerup",e=>{ e.preventDefault(); endDraw(e); }, opts);
+  canvas.addEventListener("pointercancel",e=>{ endDraw(e); }, opts);
+  canvas.addEventListener("touchstart",e=>{
+    e.preventDefault();
+    if(penDown) return;
+    startDraw(e);
+  }, opts);
+  canvas.addEventListener("touchmove",e=>{
+    e.preventDefault();
+    if(!drawing || penDown) return;
+    stroke(e);
+  }, opts);
+  canvas.addEventListener("touchend",e=>{ e.preventDefault(); endDraw(e); }, opts);
 
   function openModal(id){
     activeId=id;
@@ -1218,23 +1306,28 @@ function initSignaturePads(){
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
     document.body.style.overflow="hidden";
+    document.documentElement.style.touchAction="none";
     requestAnimationFrame(()=>{
-      const ctx=sizeModalCanvas();
-      const url=signatureStore[id];
-      if(!url) return;
-      const img=new Image();
-      img.onload=()=>{
-        const r=canvas.getBoundingClientRect();
-        ctx.drawImage(img,0,0,r.width,r.height);
-      };
-      img.src=url;
+      requestAnimationFrame(()=>{
+        const ctx=sizeModalCanvas();
+        const url=signatureStore[id];
+        if(!url) return;
+        const img=new Image();
+        img.onload=()=>{
+          const r=canvas.getBoundingClientRect();
+          ctx.drawImage(img,0,0,r.width,r.height);
+        };
+        img.src=url;
+      });
     });
   }
   function closeModal(){
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden","true");
     document.body.style.overflow="";
+    document.documentElement.style.touchAction="";
     activeId=null;
+    drawing=false; last=null; penDown=false;
   }
   document.querySelectorAll("[data-sig-open]").forEach(btn=>{
     btn.addEventListener("click",()=>openModal(btn.getAttribute("data-sig-open")));
@@ -1322,7 +1415,7 @@ setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
 setIf(form,"Hersteller",$("manufacturer").value);setIf(form,"Typ",$("type").value);setIf(form,"Maschinennummer",$("machineNo").value);
 setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value);setIf(form,"PLC Version",$("plc").value);
-setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);setIf(form,"Auftrags-Nr",$("order").value);
+setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
 setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
 let r=String($("remarks").value||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
@@ -1377,7 +1470,7 @@ if(travel||work) set(form,"Gesamtzeit",fmtMinPdf(travel+work));
 const pdfHasContent=!!(
   c || firmaName() || r.length || p.length || km || travel || work || bet || ein || art ||
   document.getElementById("maschine_ok")?.checked ||
-  ["street","city","contact","manufacturer","type","machineNo","control","nc","plc","fault","hours","order","tech","customersign"]
+  ["street","city","contact","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
     .some(id=>String($(id)?.value||"").trim())
 );
 if(pdfHasContent){
@@ -1854,7 +1947,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
 
-      const defaultName="Servicebericht.pdf";
+      const defaultName=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+
+      try{
+        const file=new File([lastPdfBlob],defaultName,{type:"application/pdf"});
+        const ua=navigator.userAgent||"";
+        const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+        if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+          await navigator.share({files:[file]});
+          const status=document.getElementById("status");
+          if(status) status.textContent="PDF zum Speichern geöffnet.";
+          return;
+        }
+      }catch(e){
+        if(e && e.name==="AbortError") return;
+      }
 
       try{
         if(window.showSaveFilePicker){
@@ -1917,7 +2024,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
         if(typeof lastPdfBlob!=="undefined" && lastPdfBlob){
-          const filename="Servicebericht.pdf";
+          const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+          try{
+            const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
+            const ua=navigator.userAgent||"";
+            const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+            if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+              await navigator.share({files:[file]});
+              const s=document.getElementById("status");
+              if(s) s.textContent="PDF zum Speichern geöffnet.";
+              return;
+            }
+          }catch(e){
+            if(e && e.name==="AbortError") return;
+          }
           try{
             if(window.showSaveFilePicker){
               const handle=await window.showSaveFilePicker({
