@@ -200,20 +200,42 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #historySection #historySearch{
   width:100%;
   min-height:40px;
-  padding:8px 12px;
+  padding:8px 40px 8px 12px;
   font-size:16px;
 }
-#historySearchResults{
+.combo-box{position:relative}
+.combo-field{position:relative}
+.combo-clear{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border:0;border-radius:50%;padding:0;
+  background:#b4b4bb;color:#fff;font-size:17px;font-weight:700;line-height:1;
+  display:none;align-items:center;justify-content:center;
+  min-height:26px;flex:none;cursor:pointer;z-index:2
+}
+.combo-box.has-value .combo-clear{display:inline-flex}
+.combo-results{
   display:none;position:absolute;left:0;right:0;top:100%;z-index:60;
   background:#fff;border:1px solid #bbb;border-radius:8px;max-height:260px;overflow-y:auto;
   box-shadow:0 4px 12px rgba(0,0,0,.15);
 }
-#historySearchResults button{
-  display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:#fff;
-  font-size:14px;font-weight:600;cursor:pointer;flex:none;border-radius:0
+.combo-row{display:flex;align-items:stretch;border-bottom:1px solid #eee}
+.combo-row:last-child{border-bottom:0}
+.combo-pick{
+  flex:1;display:block;width:auto;text-align:left;padding:10px 12px;border:0;background:#fff;
+  font-size:14px;font-weight:600;cursor:pointer;border-radius:0;min-height:44px
 }
-#historySearchResults button:hover,#historySearchResults button.is-on{background:#eef5fb}
-#historySearchResults .history-empty{padding:10px;color:#777;font-size:13px}
+.combo-pick:hover,.combo-pick.is-on{background:#eef5fb}
+.combo-row-del{
+  flex:0 0 44px;border:0;background:transparent;color:#888;font-size:20px;font-weight:700;
+  cursor:pointer;min-height:44px;padding:0
+}
+.combo-row-del:hover{color:#7a1f1f;background:#f8ecec}
+.combo-empty{padding:10px;color:#777;font-size:13px}
+#company.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0
+}
+#customerSearch{padding-right:40px}
 #historySection .muted{margin-top:6px;font-size:11px}
 .day-title{display:flex;align-items:center;gap:6px;min-width:0}
 .daybox input.daydate[type="date"]{
@@ -307,24 +329,30 @@ input.km-check,input.to-check{
 <section id="historySection" class="card">
   <h2>Historie</h2>
   <div class="history-bar">
-    <div class="history-search-box">
-      <input id="historySearch" type="search" placeholder="Suchen oder Bericht wählen" autocomplete="off">
-      <div id="historySearchResults" hidden></div>
+    <div class="combo-box history-search-box" id="historyCombo">
+      <div class="combo-field">
+        <input id="historySearch" type="text" placeholder="Suchen oder Bericht wählen" autocomplete="off">
+        <button type="button" class="combo-clear" id="historyClear" aria-label="Auswahl löschen">×</button>
+      </div>
+      <div id="historySearchResults" class="combo-results" hidden></div>
     </div>
     <button type="button" id="historySave" class="history-file-btn">Speichern</button>
     <label class="history-file-btn" for="historyFileInput">Öffnen</label>
     <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
-    <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
   </div>
-  <div class="muted">Tippen öffnet die Liste. Name eintippen sucht in der Historie.</div>
+  <div class="muted">Tippen öffnet die Liste. × entfernt die Auswahl, × in der Liste löscht den Bericht.</div>
 </section>
 <section class="card"><h2>Kunde</h2>
-<label>Firma</label><div id="customerSearchBox" style="margin:8px 0 10px;position:relative;">
-<label for="customerSearch">Name eingeben oder Kunde suchen</label>
-<input id="customerSearch" type="search" placeholder="Firma schreiben oder aus der Liste wählen" autocomplete="off" style="width:100%;">
-<div id="customerSearchResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid #bbb;border-radius:8px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+<label for="customerSearch">Firma</label>
+<div id="customerSearchBox" class="combo-box" style="margin:4px 0 10px">
+  <div class="combo-field">
+    <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
+    <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+  </div>
+  <div id="customerSearchResults" class="combo-results"></div>
 </div>
-<select id="company" autocomplete="off"><option value="">— Firma auswählen —</option></select>
+<select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. × entfernt die Auswahl.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -1037,6 +1065,9 @@ fetch("companies.json").then(r=>{
     const c=selectedCompany();
     if(!c)return;
     if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
+    const box=$("customerSearchBox");
+    if(box && $("customerSearch"))
+      box.classList.toggle("has-value", String($("customerSearch").value||"").trim()!=="");
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
@@ -2074,6 +2105,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const search=document.getElementById("customerSearch");
     if(company && search && company.value!=="" && company.selectedOptions[0])
       search.value=company.selectedOptions[0].textContent.trim();
+    const searchBox=document.getElementById("customerSearchBox");
+    if(searchBox && search)
+      searchBox.classList.toggle("has-value", String(search?.value||"").trim()!=="");
 
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       const d=box.getAttribute("data-daybox");
@@ -2116,11 +2150,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return when ? name+" – "+when : name;
   }
   let selectedHistory=null;
+  function syncComboValue(box, input){
+    if(!box || !input) return;
+    box.classList.toggle("has-value", String(input.value||"").trim()!=="");
+  }
   function setSelectedHistory(index, item){
     selectedHistory=index==null||index==="" ? null : Number(index);
     const input=document.getElementById("historySearch");
-    if(input && item) input.value=historyLabel(item);
-    if(input) input.dataset.index=selectedHistory==null?"":String(selectedHistory);
+    if(input){
+      if(item) input.value=historyLabel(item);
+      else if(index==null || index==="") input.value="";
+      input.dataset.index=selectedHistory==null?"":String(selectedHistory);
+    }
+    syncComboValue(document.getElementById("historyCombo"), input);
   }
   function refresh(keepValue){
     const list=loadHistory();
@@ -2240,9 +2282,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     refresh("");
     const save=document.getElementById("historySave");
     const fileInput=document.getElementById("historyFileInput");
-    const del=document.getElementById("historyDelete");
     const input=document.getElementById("historySearch");
     const results=document.getElementById("historySearchResults");
+    const combo=document.getElementById("historyCombo");
+    const clearBtn=document.getElementById("historyClear");
 
     function closeResults(){
       if(!results) return;
@@ -2255,21 +2298,44 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.innerHTML="";
       if(!items.length){
         const empty=document.createElement("div");
-        empty.className="history-empty";
+        empty.className="combo-empty";
         empty.textContent="Kein Bericht in der Historie.";
         results.appendChild(empty);
       }else{
         items.forEach(({item,i})=>{
-          const btn=document.createElement("button");
-          btn.type="button";
-          btn.textContent=historyLabel(item);
-          if(selectedHistory===i) btn.classList.add("is-on");
-          btn.addEventListener("mousedown",e=>{
+          const row=document.createElement("div");
+          row.className="combo-row";
+          const pick=document.createElement("button");
+          pick.type="button";
+          pick.className="combo-pick";
+          pick.textContent=historyLabel(item);
+          if(selectedHistory===i) pick.classList.add("is-on");
+          pick.addEventListener("mousedown",e=>{
             e.preventDefault();
             openHistoryIndex(i);
             closeResults();
           });
-          results.appendChild(btn);
+          const rm=document.createElement("button");
+          rm.type="button";
+          rm.className="combo-row-del";
+          rm.setAttribute("aria-label","Bericht löschen");
+          rm.textContent="×";
+          rm.addEventListener("mousedown",e=>{
+            e.preventDefault();
+            e.stopPropagation();
+            if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
+            const list=loadHistory();
+            if(!list[i]) return;
+            list.splice(i,1);
+            saveHistory(list);
+            if(selectedHistory===i) setSelectedHistory(null, null);
+            else if(selectedHistory!=null && selectedHistory>i) selectedHistory-=1;
+            $("status").textContent="Bericht gelöscht.";
+            showResults(filtered());
+          });
+          row.appendChild(pick);
+          row.appendChild(rm);
+          results.appendChild(row);
         });
       }
       results.hidden=false;
@@ -2288,6 +2354,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     input?.addEventListener("input",()=>{
       selectedHistory=null;
       if(input) input.dataset.index="";
+      syncComboValue(combo, input);
+      showResults(filtered());
+    });
+    clearBtn?.addEventListener("click",e=>{
+      e.preventDefault();
+      selectedHistory=null;
+      if(input){ input.value=""; input.dataset.index=""; input.focus(); }
+      syncComboValue(combo, input);
       showResults(filtered());
     });
     input?.addEventListener("keydown",e=>{
@@ -2347,23 +2421,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     });
 
-    del?.addEventListener("click",()=>{
-      const idx=selectedHistory;
-      if(idx==null || Number.isNaN(idx)){
-        alert("Bitte zuerst einen Bericht auswählen.");
-        return;
-      }
-      const list=loadHistory();
-      if(!list[idx]) return;
-      if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
-      list.splice(idx,1);
-      saveHistory(list);
-      selectedHistory=null;
-      if(input){ input.value=""; input.dataset.index=""; }
-      closeResults();
-      $("status").textContent="Bericht gelöscht.";
-    });
-
     let saveTimer=null;
     let liveDraftApplied=false;
     function saveLiveDraft(){
@@ -2418,6 +2475,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       restoreLiveDraft(false);
     });
     restoreLiveDraft(false);
+    syncComboValue(combo, input);
   }
 
   if(document.readyState==="loading")
@@ -2431,83 +2489,85 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const input=document.getElementById("customerSearch");
     const results=document.getElementById("customerSearchResults");
     const select=document.getElementById("company");
+    const box=document.getElementById("customerSearchBox");
+    const clearBtn=document.getElementById("customerClear");
     if(!input||!results||!select||input.dataset.bound==="1") return;
     input.dataset.bound="1";
 
+    function sync(){
+      if(box) box.classList.toggle("has-value", String(input.value||"").trim()!=="");
+    }
     function getOptions(){
       return Array.from(select.options).filter(o=>o.value!=="" && !o.disabled);
     }
-
     function close(){
       results.style.display="none";
       results.innerHTML="";
     }
-
     function choose(opt){
       select.value=opt.value;
       input.value=opt.textContent.trim();
+      sync();
       close();
-      // Trigger the original V26 company handler so address, contact,
-      // kilometers and travel time are loaded normally.
       select.dispatchEvent(new Event("change",{bubbles:true}));
     }
-
     function clearListIfManual(){
       const typed=input.value.trim();
       const current=select.selectedOptions[0];
       if(current && current.value!=="" && current.textContent.trim()!==typed)
         select.value="";
     }
-
     function show(){
       const q=input.value.trim().toLocaleLowerCase("de-DE");
       results.innerHTML="";
-      if(!q){ close(); return; }
-
-      const options=getOptions().filter(o =>
-        o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q)
-      );
-
+      const options=getOptions().filter(o=>{
+        if(!q) return true;
+        return o.textContent.trim().toLocaleLowerCase("de-DE").includes(q);
+      });
       if(!options.length){
         const empty=document.createElement("div");
-        empty.textContent="Kein Treffer – der eingegebene Name wird ins PDF übernommen.";
-        empty.style.padding="10px";
-        empty.style.color="#777";
+        empty.className="combo-empty";
+        empty.textContent=q
+          ? "Kein Treffer – der eingegebene Name wird ins PDF übernommen."
+          : "Keine Kunden in der Liste.";
         results.appendChild(empty);
         results.style.display="block";
         return;
       }
-
       options.forEach(opt=>{
-        const item=document.createElement("button");
-        item.type="button";
-        item.textContent=opt.textContent.trim();
-        item.style.display="block";
-        item.style.width="100%";
-        item.style.textAlign="left";
-        item.style.padding="10px 12px";
-        item.style.border="0";
-        item.style.background="#fff";
-        item.style.cursor="pointer";
-        item.addEventListener("mousedown",function(e){
+        const pick=document.createElement("button");
+        pick.type="button";
+        pick.className="combo-pick";
+        pick.textContent=opt.textContent.trim();
+        if(select.value===opt.value) pick.classList.add("is-on");
+        pick.addEventListener("mousedown",function(e){
           e.preventDefault();
           choose(opt);
         });
-        results.appendChild(item);
+        results.appendChild(pick);
       });
       results.style.display="block";
     }
 
     input.addEventListener("input",function(){
       clearListIfManual();
+      sync();
       show();
     });
-    input.addEventListener("focus",function(){
-      if(input.value.trim()) show();
+    input.addEventListener("focus",function(){ show(); });
+    input.addEventListener("click",function(){ show(); });
+    clearBtn?.addEventListener("click",function(e){
+      e.preventDefault();
+      input.value="";
+      select.value="";
+      sync();
+      input.focus();
+      show();
     });
     document.addEventListener("click",function(e){
-      if(!document.getElementById("customerSearchBox").contains(e.target)) close();
+      if(!box.contains(e.target)) close();
     });
+    sync();
   }
 
   if(document.readyState==="loading")
