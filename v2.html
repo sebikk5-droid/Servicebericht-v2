@@ -1009,9 +1009,9 @@ function fitFontSize(font, text, width, height, maxSize){
   const t=String(text||"");
   const cap=Math.min(maxSize||11, Math.max(5, (height||16)*0.72));
   if(!font || !t) return cap;
-  const maxW=Math.max(6, (width||80)-5);
+  const maxW=Math.max(6, (width||80)-8);
   let size=cap;
-  while(size>4.2 && font.widthOfTextAtSize(t, size)>maxW) size-=0.15;
+  while(size>3.6 && font.widthOfTextAtSize(t, size)>maxW) size-=0.15;
   return Math.round(size*10)/10;
 }
 function consumeLine(font, words, size, maxW){
@@ -1040,9 +1040,9 @@ function wrapIntoFields(form, names, text, font){
   }
   const meta=names.map(n=>{
     const r=fieldRectOf(form,n);
-    return {n, w:Math.max(8, r.width-5), h:r.height};
+    return {n, w:Math.max(8, r.width-10), h:r.height};
   });
-  let size=Math.min(9, ...meta.map(m=>m.h*0.72));
+  let size=Math.min(8, ...meta.map(m=>m.h*0.68));
   const pack=sz=>{
     const out=[];
     let overflow=false;
