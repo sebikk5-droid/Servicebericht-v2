@@ -1281,7 +1281,7 @@ function inkPngFromCanvas(srcCanvas){
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
-      if(data[i+3]>12 && (data[i]<248||data[i+1]<248||data[i+2]<248)){
+      if(data[i+3]>4 && (data[i]<252||data[i+1]<252||data[i+2]<252)){
         found=true;
         if(x<minX)minX=x; if(y<minY)minY=y;
         if(x>maxX)maxX=x; if(y>maxY)maxY=y;
@@ -1289,60 +1289,70 @@ function inkPngFromCanvas(srcCanvas){
     }
   }
   if(!found) return null;
-  const pad=Math.round(Math.max(4, Math.min(w,h)*0.012));
+  const pad=Math.round(Math.max(6, Math.min(w,h)*0.016));
   minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad);
   maxX=Math.min(w,maxX+1+pad); maxY=Math.min(h,maxY+1+pad);
   const cw=Math.max(1,maxX-minX), ch=Math.max(1,maxY-minY);
   const out=document.createElement("canvas");
   out.width=cw; out.height=ch;
-  const octx=out.getContext("2d",{willReadFrequently:true});
+  const octx=out.getContext("2d",{willReadFrequently:true,alpha:true});
+  octx.imageSmoothingEnabled=false;
   octx.clearRect(0,0,cw,ch);
   octx.drawImage(srcCanvas,minX,minY,cw,ch,0,0,cw,ch);
   const img=octx.getImageData(0,0,cw,ch);
   const p=img.data;
-  for(let i=0;i<p.length;i+=4){
-    if(p[i+3]<12 || (p[i]>=248 && p[i+1]>=248 && p[i+2]>=248)){
-      p[i]=0; p[i+1]=0; p[i+2]=0; p[i+3]=0;
+  const src=new Uint8ClampedArray(p);
+  const thicken=Math.max(1, Math.round(Math.min(cw,ch)*0.004));
+  for(let y=0;y<ch;y++){
+    for(let x=0;x<cw;x++){
+      const i=(y*cw+x)*4;
+      let a=src[i+3], r=src[i], g=src[i+1], b=src[i+2];
+      if(a<2 || (r>=252 && g>=252 && b>=252)){
+        a=0; r=0; g=0; b=0;
+        if(thicken){
+          let best=0, br=0, bg=0, bb=0;
+          for(let dy=-thicken; dy<=thicken; dy++){
+            for(let dx=-thicken; dx<=thicken; dx++){
+              const xx=x+dx, yy=y+dy;
+              if(xx<0||yy<0||xx>=cw||yy>=ch) continue;
+              const j=(yy*cw+xx)*4;
+              const ja=src[j+3];
+              if(ja>best && (src[j]<252||src[j+1]<252||src[j+2]<252)){
+                best=ja; br=src[j]; bg=src[j+1]; bb=src[j+2];
+              }
+            }
+          }
+          if(best>18){ a=best; r=br; g=bg; b=bb; }
+        }
+      }
+      if(a<2){ p[i]=0; p[i+1]=0; p[i+2]=0; p[i+3]=0; continue; }
+      const coverage=a/255;
+      const darkness=1-((r+g+b)/3)/255;
+      const ink=Math.min(1, Math.max(coverage, darkness)*1.2);
+      p[i]=r; p[i+1]=g; p[i+2]=b;
+      p[i+3]=Math.max(a, Math.round(ink*255));
     }
   }
   octx.putImageData(img,0,0);
   return out.toDataURL("image/png");
 }
 function pngFromCanvas(canvas){
-  return new Promise(resolve=>{
-    const done=src=>{
-      resolve(inkPngFromCanvas(src));
-    };
-    if(!canvas.toBlob){ done(canvas); return; }
-    canvas.toBlob(blob=>{
-      if(!blob){ done(canvas); return; }
-      const url=URL.createObjectURL(blob);
-      const img=new Image();
-      img.onload=()=>{
-        const c=document.createElement("canvas");
-        c.width=img.width; c.height=img.height;
-        const ctx=c.getContext("2d",{willReadFrequently:true});
-        ctx.clearRect(0,0,c.width,c.height);
-        ctx.drawImage(img,0,0);
-        URL.revokeObjectURL(url);
-        done(c);
-      };
-      img.onerror=()=>{ URL.revokeObjectURL(url); done(canvas); };
-      img.src=url;
-    }, "image/png");
-  });
+  return Promise.resolve(inkPngFromCanvas(canvas));
 }
 function sizeModalCanvas(){
   const canvas=$("sigModalCanvas");
   const wrap=canvas.parentElement;
-  const dpr=Math.max(2, Math.min(3, window.devicePixelRatio||2));
   const r=wrap.getBoundingClientRect();
-  const w=Math.max(280, Math.floor(r.width||window.innerWidth));
-  const h=Math.max(180, Math.floor(r.height||window.innerHeight*0.55));
-  canvas.style.width=w+"px";
-  canvas.style.height=h+"px";
-  canvas.width=Math.round(w*dpr);
-  canvas.height=Math.round(h*dpr);
+  const cssW=Math.max(280, Math.floor(r.width||window.innerWidth));
+  const cssH=Math.max(180, Math.floor(r.height||window.innerHeight*0.55));
+  const maxSide=4096;
+  let dpr=Math.max(3, Math.min(4, (window.devicePixelRatio||2)*2));
+  dpr=Math.min(dpr, maxSide/cssW, maxSide/cssH);
+  dpr=Math.max(2, dpr);
+  canvas.style.width=cssW+"px";
+  canvas.style.height=cssH+"px";
+  canvas.width=Math.round(cssW*dpr);
+  canvas.height=Math.round(cssH*dpr);
   canvas.dataset.dpr=String(dpr);
   const ctx=canvas.getContext("2d",{alpha:true});
   ctx.setTransform(1,0,0,1,0,0);
@@ -1658,25 +1668,32 @@ function signatureFieldBoxes(form){
 async function embedSignatures(pdf, boxes){
   const page=pdf.getPages()[0];
   const rects=boxes||signatureFieldBoxes(null);
+  const push=PDFLib.pushGraphicsState, pop=PDFLib.popGraphicsState;
+  const rectOp=PDFLib.rectangle, clipOp=PDFLib.clip, endOp=PDFLib.endPath;
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
     const png=await fetch(url).then(r=>r.arrayBuffer());
     const img=await pdf.embedPng(png);
     const box=rects[id];
-    const padX=3;
-    const lineGap=Math.max(10, Math.round(box.height*0.28));
-    const topPad=2;
+    const padX=2;
+    const lineGap=Math.max(6, Math.round(box.height*0.12));
+    const topPad=1;
     const maxW=Math.max(4, box.width-padX*2);
     const maxH=Math.max(4, box.height-lineGap-topPad);
-    const scale=Math.min(maxW/img.width, maxH/img.height);
-    const w=img.width*scale, h=img.height*scale;
+    const cover=Math.max(maxW/img.width, maxH/img.height);
+    const w=img.width*cover, h=img.height*cover;
+    const clipX=box.x+padX, clipY=box.y+lineGap, clipW=maxW, clipH=maxH;
+    try{
+      page.pushOperators(push(), rectOp(clipX, clipY, clipW, clipH), clipOp(), endOp());
+    }catch(e){}
     page.drawImage(img,{
-      x:box.x+padX+(maxW-w)/2,
-      y:box.y+lineGap,
+      x:clipX+(clipW-w)/2,
+      y:clipY,
       width:w,
       height:h
     });
+    try{ page.pushOperators(pop()); }catch(e){}
   }
 }
 initSignaturePads();
