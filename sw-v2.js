@@ -1,10 +1,8 @@
-const CACHE_NAME = "servicebericht-v2-17";
+const CACHE_NAME = "servicebericht-v2-18";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
   "./vendor/pdf-lib.min.js",
-  "./vendor/pdf.min.js",
-  "./vendor/pdf.worker.min.js",
   "./companies.json",
   "./Leer.pdf",
   "./favicon.png",
@@ -30,8 +28,6 @@ function isV2Asset(url) {
     path.endsWith("/sw-v2.js") ||
     path.endsWith("/manifest-v2.webmanifest") ||
     path.endsWith("/vendor/pdf-lib.min.js") ||
-    path.endsWith("/vendor/pdf.min.js") ||
-    path.endsWith("/vendor/pdf.worker.min.js") ||
     path.endsWith("/companies.json") ||
     path.endsWith("/Leer.pdf") ||
     path.endsWith("/favicon.png") ||

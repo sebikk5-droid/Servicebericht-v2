@@ -268,24 +268,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
-#pdfPreviewModal{
-  display:none;position:fixed;inset:0;z-index:96;background:#d8d8de;flex-direction:column;min-height:0;
-}
-#pdfPreviewModal.open{display:flex}
-.pdf-preview-top{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:#fff;border-bottom:1px solid #ccc;
-}
-.pdf-preview-top button{border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;flex:0 0 auto}
-.pdf-preview-title{font-size:17px;font-weight:750}
-.pdf-preview-stage{
-  flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 10px;
-}
-#pdfPreviewCanvas{
-  display:block;max-width:100%;max-height:calc(100dvh - 140px);width:auto;height:auto;
-  background:#fff;box-shadow:0 8px 28px #0005;border-radius:4px;
-}
-.pdf-preview-fallback{padding:12px;font-size:14px;color:#444}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
 .machine-bar select{flex:1 1 180px;min-width:0}
 .machine-bar button{flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
@@ -420,7 +402,7 @@ input.km-check{
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen</button></div>
+<div class="bottom"><button class="clear" onclick="location.reload()">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -440,19 +422,7 @@ input.km-check{
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
 </div>
-<div id="pdfPreviewModal" aria-hidden="true">
-  <div class="pdf-preview-top">
-    <button type="button" id="pdfPreviewCancel" class="sig-modal-cancel">Zurück</button>
-    <div class="pdf-preview-title">PDF prüfen</div>
-    <button type="button" id="pdfPreviewSave" class="sig-modal-done">Speichern</button>
-  </div>
-  <div class="pdf-preview-stage">
-    <canvas id="pdfPreviewCanvas"></canvas>
-  </div>
-  <div class="pdf-preview-fallback" id="pdfPreviewHint">PDF wird geladen…</div>
-</div>
 <script src="vendor/pdf-lib.min.js"></script>
-<script src="vendor/pdf.min.js"></script>
 <script>
 document.querySelectorAll("#pdfFields input,#pdfFields textarea").forEach(el=>{
   const k="pdf_"+el.id;
@@ -1680,7 +1650,7 @@ async function embedSignatures(pdf, boxes){
     const img=await pdf.embedPng(png);
     const box=rects[id];
     const padX=3;
-    const lineGap=Math.max(8, Math.round(box.height*0.22));
+    const lineGap=Math.max(10, Math.round(box.height*0.28));
     const topPad=2;
     const maxW=Math.max(4, box.width-padX*2);
     const maxH=Math.max(4, box.height-lineGap-topPad);
@@ -1819,8 +1789,8 @@ form.flatten();
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
-$("status").textContent="PDF zur Prüfung bereit.";
-if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob);
+$("status").textContent="Fertig – das PDF ist vorbereitet.";
+if(typeof window.saveCurrentPdf==="function") await window.saveCurrentPdf();
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
 
@@ -2261,7 +2231,7 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     btn.addEventListener("click",async function(){
       if(!lastPdfBlob){
         const status=document.getElementById("status");
-        if(status) status.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+        if(status) status.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
         return;
       }
 
@@ -2328,114 +2298,42 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
 
 <script>
 (function(){
-  let previewDoc=null;
-  function closePdfPreview(){
-    const modal=$("pdfPreviewModal");
-    if(modal){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); }
-    if(previewDoc && previewDoc.destroy) try{ previewDoc.destroy(); }catch(e){}
-    previewDoc=null;
-    const canvas=$("pdfPreviewCanvas");
-    if(canvas){ const ctx=canvas.getContext("2d"); ctx && ctx.clearRect(0,0,canvas.width,canvas.height); canvas.width=0; canvas.height=0; }
-  }
-  window.showPdfPreview=async function(blob){
-    if(!blob) return;
-    const modal=$("pdfPreviewModal");
-    const canvas=$("pdfPreviewCanvas");
-    const hint=$("pdfPreviewHint");
-    if(!modal||!canvas) return;
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden","false");
-    const s=$("status");
-    if(s) s.textContent="PDF prüfen, dann Speichern.";
-    if(hint) hint.textContent="PDF wird geladen…";
-    try{
-      if(!window.pdfjsLib) throw new Error("pdf.js fehlt");
-      pdfjsLib.GlobalWorkerOptions.workerSrc="./vendor/pdf.worker.min.js";
-      const data=new Uint8Array(await blob.arrayBuffer());
-      if(previewDoc && previewDoc.destroy) try{ previewDoc.destroy(); }catch(e){}
-      previewDoc=await pdfjsLib.getDocument({data, disableWorker:true}).promise;
-      const page=await previewDoc.getPage(1);
-      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-      await new Promise(r=>setTimeout(r,40));
-      const stageEl=canvas.parentElement;
-      const stage=stageEl.getBoundingClientRect();
-      const base=page.getViewport({scale:1});
-      const fitH=Math.max(320, stage.height>80?stage.height-12:window.innerHeight*0.78);
-      const fitW=Math.max(220, stage.width>80?stage.width-12:window.innerWidth-24);
-      const cssScale=Math.min(fitW/base.width, fitH/base.height, 2.4);
-      const vp=page.getViewport({scale:Math.max(0.65, cssScale)});
-      const outputScale=Math.min(2, window.devicePixelRatio||1);
-      canvas.width=Math.ceil(vp.width*outputScale);
-      canvas.height=Math.ceil(vp.height*outputScale);
-      canvas.style.width=Math.floor(vp.width)+"px";
-      canvas.style.height=Math.floor(vp.height)+"px";
-      const ctx=canvas.getContext("2d");
-      ctx.fillStyle="#fff";
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      const renderTask=page.render({
-        canvasContext:ctx,
-        viewport:vp,
-        transform:outputScale!==1?[outputScale,0,0,outputScale,0,0]:null
-      });
-      await renderTask.promise;
-      if(hint) hint.textContent="Prüfen, dann Speichern.";
-    }catch(e){
-      if(hint) hint.textContent="Vorschau nicht möglich. Speichern öffnet das PDF. "+(e&&e.message?e.message:"");
-    }
-  };
   window.saveCurrentPdf=async function(){
     if(!lastPdfBlob){
       const s=$("status");
-      if(s) s.textContent="Bitte zuerst „PDF erstellen“ klicken.";
+      if(s) s.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
       return;
     }
     const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    const setStatus=t=>{ const s=$("status"); if(s) s.textContent=t; };
     try{
       const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
       const ua=navigator.userAgent||"";
       const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
       if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
         await navigator.share({files:[file]});
-        const s=$("status");
-        if(s) s.textContent="PDF zum Speichern geöffnet.";
+        setStatus("PDF zum Senden geöffnet.");
         return;
       }
     }catch(e){
-      if(e && e.name==="AbortError") return;
-    }
-    try{
-      if(window.showSaveFilePicker){
-        const handle=await window.showSaveFilePicker({
-          suggestedName:filename,
-          types:[{description:"PDF-Datei",accept:{"application/pdf":[".pdf"]}}]
-        });
-        const w=await handle.createWritable();
-        await w.write(lastPdfBlob);
-        await w.close();
-        const s=$("status");
-        if(s) s.textContent="PDF wurde gespeichert.";
-        return;
-      }
-    }catch(e){
-      if(e && e.name==="AbortError") return;
+      if(e && e.name!=="AbortError") { /* weiter: PDF direkt öffnen */ }
+      else if(e && e.name==="AbortError") return;
     }
     const url=URL.createObjectURL(lastPdfBlob);
-    const a=document.createElement("a");
-    a.href=url; a.download=filename; a.style.display="none";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    const s=$("status");
-    if(s) s.textContent="PDF zum Speichern geöffnet.";
+    const opened=window.open(url,"_blank","noopener");
+    if(!opened){
+      const a=document.createElement("a");
+      a.href=url;
+      a.target="_blank";
+      a.rel="noopener";
+      a.style.display="none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+    setStatus("PDF geöffnet – senden oder speichern.");
   };
-  function bindPreview(){
-    $("pdfPreviewCancel")?.addEventListener("click",closePdfPreview);
-    $("pdfPreviewSave")?.addEventListener("click",async()=>{
-      await window.saveCurrentPdf();
-      closePdfPreview();
-    });
-  }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPreview);
-  else bindPreview();
 })();
 </script>
 
@@ -2583,7 +2481,7 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
     const el=e.target;
     if(!el || !el.tagName) return;
     if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
-    if(el.closest && el.closest("#sigModal,#pdfPreviewModal")) return;
+    if(el.closest && el.closest("#sigModal")) return;
     if(!penField || penField===el) return;
     penField=null;
     const prevMode=el.getAttribute("inputmode");
