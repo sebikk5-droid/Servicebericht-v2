@@ -440,7 +440,7 @@ document.querySelectorAll('#choices input').forEach(el=>{
 });
 </script>
 <script>
-const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null;
+const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
 
 // V27.6.65 — PDF return state
 // Save the exact live report immediately before PDF generation.
@@ -998,7 +998,86 @@ fetch("companies.json").then(r=>{
   $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
 });
 
-function set(form,n,v){try{form.getTextField(n).setText(v||"")}catch(e){}}
+function fieldRectOf(form,n){
+  try{
+    return form.getTextField(n).acroField.getWidgets()[0].getRectangle();
+  }catch(e){
+    return {width:140, height:16, x:0, y:0};
+  }
+}
+function fitFontSize(font, text, width, height, maxSize){
+  const t=String(text||"");
+  const cap=Math.min(maxSize||11, Math.max(5, (height||16)*0.72));
+  if(!font || !t) return cap;
+  const maxW=Math.max(6, (width||80)-5);
+  let size=cap;
+  while(size>4.2 && font.widthOfTextAtSize(t, size)>maxW) size-=0.15;
+  return Math.round(size*10)/10;
+}
+function consumeLine(font, words, size, maxW){
+  if(!words.length) return "";
+  let word=words[0];
+  if(font.widthOfTextAtSize(word, size)>maxW){
+    let cut=word.length;
+    while(cut>1 && font.widthOfTextAtSize(word.slice(0,cut), size)>maxW) cut--;
+    words[0]=word.slice(cut);
+    return word.slice(0,cut);
+  }
+  words.shift();
+  let line=word;
+  while(words.length){
+    const trial=line+" "+words[0];
+    if(font.widthOfTextAtSize(trial, size)<=maxW){ line=trial; words.shift(); }
+    else break;
+  }
+  return line;
+}
+function wrapIntoFields(form, names, text, font){
+  const raw=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  if(!raw.length || !font){
+    names.forEach((n,i)=>setIf(form,n, raw[i]||""));
+    return;
+  }
+  const meta=names.map(n=>{
+    const r=fieldRectOf(form,n);
+    return {n, w:Math.max(8, r.width-5), h:r.height};
+  });
+  let size=Math.min(9, ...meta.map(m=>m.h*0.72));
+  const pack=sz=>{
+    const out=[];
+    let overflow=false;
+    raw.forEach(para=>{
+      const words=para.split(/\s+/).filter(Boolean);
+      while(words.length && out.length<names.length){
+        out.push(consumeLine(font, words, sz, meta[out.length].w));
+      }
+      if(words.length) overflow=true;
+    });
+    return {out, overflow};
+  };
+  let packed=pack(size);
+  while(packed.overflow && size>5){
+    size-=0.25;
+    packed=pack(size);
+  }
+  names.forEach((n,i)=>{
+    const line=packed.out[i]||"";
+    if(!line) return;
+    set(form,n,line);
+    try{ form.getTextField(n).setFontSize(size); }catch(e){}
+  });
+}
+function set(form,n,v){
+  try{
+    const field=form.getTextField(n);
+    const text=v==null?"":String(v);
+    field.setText(text);
+    if(pdfFitFont && text){
+      const r=field.acroField.getWidgets()[0].getRectangle();
+      field.setFontSize(fitFontSize(pdfFitFont, text, r.width, r.height));
+    }
+  }catch(e){}
+}
 function setSize(form,n,size){
   try{ form.getTextField(n).setFontSize(size); }catch(e){}
 }
@@ -1702,6 +1781,7 @@ initSignaturePads();
 $("status").textContent="PDF wird erstellt…";
 try{
 let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
+pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 clearPdfForm(form);
 let c=selectedCompany();
 
@@ -1732,9 +1812,8 @@ setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value
 setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
 setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
-let r=String($("remarks").value||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-for(let i=1;i<=7;i++)setIf(form,"Bemerkung"+i,r[i-1]||"");
-let p=ls($("parts").value);for(let i=1;i<=4;i++)setIf(form,"Ersatzteile "+i,p[i-1]||"");
+wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
+wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
 let km=0, travel=0, work=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
@@ -1782,7 +1861,7 @@ if(work) set(form,"Arbeitszeit gesamt",fmtMinPdf(work));
 if(travel||work) set(form,"Gesamtzeit",fmtMinPdf(travel+work));
 
 const pdfHasContent=!!(
-  c || firmaName() || r.length || p.length || km || travel || work || bet || ein || art ||
+  c || firmaName() || String($("remarks").value||"").trim() || String($("parts").value||"").trim() || km || travel || work || bet || ein || art ||
   document.getElementById("maschine_ok")?.checked ||
   ["street","city","contact","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
     .some(id=>String($(id)?.value||"").trim())
@@ -1812,7 +1891,7 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
-form.updateFieldAppearances();
+form.updateFieldAppearances(pdfFitFont);
 const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
@@ -1822,7 +1901,6 @@ await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 $("status").textContent="Fertig – das PDF ist vorbereitet.";
-if(typeof window.saveCurrentPdf==="function") await window.saveCurrentPdf();
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
 
@@ -2331,42 +2409,46 @@ if(typeof window.saveCurrentPdf==="function") await window.saveCurrentPdf();
 
 <script>
 (function(){
-  window.saveCurrentPdf=async function(){
+  window.saveCurrentPdf=function(){
     if(!lastPdfBlob){
       const s=$("status");
       if(s) s.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
       return;
     }
     const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
-    const setStatus=t=>{ const s=$("status"); if(s) s.textContent=t; };
-    try{
-      const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
-      const ua=navigator.userAgent||"";
-      const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-      if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-        await navigator.share({files:[file]});
-        setStatus("PDF zum Senden geöffnet.");
-        return;
-      }
-    }catch(e){
-      if(e && e.name!=="AbortError") { /* weiter: PDF direkt öffnen */ }
-      else if(e && e.name==="AbortError") return;
-    }
     const url=URL.createObjectURL(lastPdfBlob);
-    const opened=window.open(url,"_blank","noopener");
-    if(!opened){
-      const a=document.createElement("a");
-      a.href=url;
-      a.target="_blank";
-      a.rel="noopener";
-      a.style.display="none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    }
-    setTimeout(()=>URL.revokeObjectURL(url),120000);
-    setStatus("PDF geöffnet – senden oder speichern.");
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=filename;
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    const s=$("status");
+    if(s) s.textContent="PDF zum Speichern geöffnet.";
   };
+  function installCombined(){
+    const btn=document.getElementById("generate");
+    if(!btn || btn.dataset.combinedInstalled==="1") return;
+    btn.dataset.combinedInstalled="1";
+    btn.addEventListener("click",function(){
+      let tries=0;
+      const previousBlob=lastPdfBlob;
+      const finish=()=>{
+        if(lastPdfBlob===previousBlob){
+          if(++tries<150) setTimeout(finish,100);
+          return;
+        }
+        if(lastPdfBlob) window.saveCurrentPdf();
+      };
+      setTimeout(finish,100);
+    });
+  }
+  if(document.readyState==="loading")
+    document.addEventListener("DOMContentLoaded",installCombined);
+  else
+    installCombined();
 })();
 </script>
 
