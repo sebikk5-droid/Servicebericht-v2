@@ -780,7 +780,7 @@ function dayTemplate(d){
     </div>
     <div class="row">
       <div class="field"><label>KM Rückfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${d*2}" placeholder="KM Rückfahrt"></div>
-      <div class="field"><label>Gesamtzeit netto</label><input type="text" data-calc="total${d}" readonly></div>
+      <div class="field"><label>Gesamtzeit</label><input type="text" data-calc="total${d}" readonly></div>
     </div>
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
@@ -1437,7 +1437,7 @@ function syncVisibleDaysFromDOM(){
 }
 function recalcTimes(){
   syncVisibleDaysFromDOM();
-  let travel=0,work=0,km=0;
+  let travel=0,work=0,km=0,all=0;
   for(let d=1;d<=Math.max(1,Number(visibleDays)||1);d++){
     const a=d*2-1,b=d*2;
     const box=dayBoxEl(d);
@@ -1446,6 +1446,7 @@ function recalcTimes(){
     const backOverride=box?.querySelector('[data-route-override="back"]');
 
     const pauseOut=pauseMinutes(q(`PauseRZ${a}`).value);
+    const pauseWork=pauseMinutes(q(`PauseAZ${a}`).value);
     const pauseBack=pauseMinutes(q(`PauseRZ${b}`).value);
 
     let rt;
@@ -1462,19 +1463,20 @@ function recalcTimes(){
       rr=Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack);
     }
 
-    const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseMinutes(q(`PauseAZ${a}`).value));
+    const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
 
     travel+=rt+rr; work+=wt;
+    all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
     km+=(parseFloat(String(q(`Kilometer${a}`).value).replace(",","."))||0);
     km+=(parseFloat(String(q(`Kilometer${b}`).value).replace(",","."))||0);
 
     const sc=(name,val)=>{const el=box?.querySelector(`[data-calc="${name}"]`)||document.querySelector(`[data-calc="${name}"]`);if(el)el.value=fmtMin(val);};
-    sc(`rt${d}`,rt); sc(`wt${d}`,wt); sc(`wt2${d}`,wt); sc(`rr${d}`,rr); sc(`total${d}`,rt+wt+rr);
+    sc(`rt${d}`,rt); sc(`wt${d}`,wt); sc(`wt2${d}`,wt); sc(`rr${d}`,rr); sc(`total${d}`,rt+pauseOut+wt+pauseWork+rr+pauseBack);
   }
   if($("travelTotal"))$("travelTotal").value=fmtMin(travel);
   if($("workTotal"))$("workTotal").value=fmtMin(work);
   if($("kmTotal"))$("kmTotal").value=String(Math.round(km*10)/10).replace(".",",");
-  if($("allTotal"))$("allTotal").value=fmtMin(travel+work);
+  if($("allTotal"))$("allTotal").value=fmtMin(all);
 }
 // Auswahlfelder: innerhalb jeder Gruppe nur eine Option gleichzeitig.
 function syncChoiceVisual(el){
@@ -2123,7 +2125,7 @@ setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
 wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
 wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
-let km=0, travel=0, work=0;
+let km=0, travel=0, work=0, all=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
   const box=dayBoxes[d-1];
@@ -2163,11 +2165,12 @@ for(let d=1;d<=dayBoxes.length;d++){
   km+=(parseFloat((kmA||"").replace(",","."))||0);
   km+=(parseFloat((kmB||"").replace(",","."))||0);
   travel+=rt+rr;work+=wt;
+  all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
 if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),9);
 if(work) setFit(form,"Arbeitszeit gesamt",fmtMinPdf(work),9);
-if(travel||work) setFit(form,"Gesamtzeit",fmtMinPdf(travel+work),9);
+if(all) setFit(form,"Gesamtzeit",fmtMinPdf(all),9);
 
 const pdfHasContent=!!(
   c || firmaName() || String($("remarks").value||"").trim() || String($("parts").value||"").trim() || km || travel || work || bet || ein || art ||
