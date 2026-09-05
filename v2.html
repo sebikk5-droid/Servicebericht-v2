@@ -1923,6 +1923,7 @@ if(typeof window.saveCurrentPdf==="function") await window.saveCurrentPdf();
     });
 
     bindTimeInputs();
+    document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
       const label=el.closest(".choice-opt");
