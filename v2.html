@@ -281,11 +281,9 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .pdf-preview-stage{
   flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 10px;
 }
-#pdfPreviewFrame{
-  width:min(100%, calc((100dvh - 140px) * 210 / 297));
-  height:min(calc(100dvh - 140px), calc(100vw * 297 / 210));
-  max-width:100%;
-  border:0;background:#fff;box-shadow:0 8px 28px #0005;border-radius:4px;
+#pdfPreviewCanvas{
+  display:block;max-width:100%;max-height:calc(100dvh - 140px);width:auto;height:auto;
+  background:#fff;box-shadow:0 8px 28px #0005;border-radius:4px;
 }
 .pdf-preview-fallback{padding:12px;font-size:14px;color:#444}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
@@ -449,11 +447,12 @@ input.km-check{
     <button type="button" id="pdfPreviewSave" class="sig-modal-done">Speichern</button>
   </div>
   <div class="pdf-preview-stage">
-    <iframe id="pdfPreviewFrame" title="PDF-Vorschau"></iframe>
+    <canvas id="pdfPreviewCanvas"></canvas>
   </div>
-  <div class="pdf-preview-fallback" id="pdfPreviewHint">Prüfen, dann Speichern. Bei leerer Vorschau: Speichern öffnet das PDF.</div>
+  <div class="pdf-preview-fallback" id="pdfPreviewHint">PDF wird geladen…</div>
 </div>
 <script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
 <script>
 document.querySelectorAll("#pdfFields input,#pdfFields textarea").forEach(el=>{
   const k="pdf_"+el.id;
@@ -518,31 +517,18 @@ function syncWorkEndToReturnStart(d){
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
   for(let h=0;h<24;h++) for(const m of [0,15,30,45]){
-    const hh=String(h).padStart(2,"0"), mm=String(m).padStart(2,"0");
-    o+=`<option value="${hh}:${mm}">${hh}:${mm}</option>`;
+    const t=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+    o+=`<option value="${t}">${t}</option>`;
   }
   return o;
 }
 function initQuarterTimeSelects(root=document){
   root.querySelectorAll("select.quarter-time").forEach(s=>{
-    if(!s.options.length) s.innerHTML=quarterTimeOptions();
+    if(!s.options.length){
+      s.innerHTML=quarterTimeOptions();
+      s.value="";
+    }
   });
-}
-
-function applyTypicalDayTimes(d){
-  const box=dayBoxEl(d);
-  if(!box) return;
-  const outRow=d*2-1;
-  const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
-  const azEnd=box.querySelector(`[data-k="AZende${outRow}"]`);
-  if(a2 && !a2.value) a2.value="07:30";
-  if(azEnd && !azEnd.value) azEnd.value="15:30";
-  const outMin=travelMinutesForDay(d,"out");
-  const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
-  if(a1 && !a1.value && a2?.value && outMin) a1.value=addMinutesToTime(a2.value,-outMin);
-  const az=box.querySelector(`[data-k="AZstart${outRow}"]`);
-  if(az && !az.value && a2?.value) az.value=a2.value;
-  syncWorkEndToReturnStart(d);
 }
 function markKmToCheck(box){
   if(!box) return;
@@ -569,7 +555,7 @@ function dayTemplate(d){
     <div class="sectiontitle">Anfahrt</div>
     <div class="row">
       <div class="field"><label>Anfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${(d*2)-1}" aria-label="Anfahrt von"></select></div>
-      <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" data-time-anchor="07:30" aria-label="Anfahrt bis"></select></div>
+      <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" aria-label="Anfahrt bis"></select></div>
     </div>
     <div class="row">
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
@@ -583,7 +569,7 @@ function dayTemplate(d){
     <div class="sectiontitle">Arbeitszeit</div>
     <div class="row">
       <div class="field"><label>Arbeitszeit von – Arbeitsbeginn</label><select class="quarter-time" data-k="AZstart${(d*2)-1}"></select></div>
-      <div class="field"><label>Arbeitszeit bis – Arbeitsende</label><select class="quarter-time" data-k="AZende${(d*2)-1}" data-time-anchor="15:30"></select></div>
+      <div class="field"><label>Arbeitszeit bis – Arbeitsende</label><select class="quarter-time" data-k="AZende${(d*2)-1}"></select></div>
     </div>
     <div class="row">
       <div class="field"><label>Pause Arbeit (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseAZ${(d*2)-1}" placeholder="Minuten"></div>
@@ -636,7 +622,6 @@ $("times").innerHTML=dayTemplate(1)+`
 initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
 syncDayDatesFromMainDate();
-applyTypicalDayTimes(1);
 $("times").addEventListener("change",e=>{
   if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
     syncTag1ToEinsatzdatum();
@@ -652,7 +637,6 @@ $("addDay").onclick=()=>{
    if(newDayDate && !newDayDate.value) newDayDate.value=isoAddDays($("date")?.value||"",d-1);
   visibleDays=Math.max(1,d);
   bindTimeInputs();
-  applyTypicalDayTimes(d);
   applyCustomerRouteDay(d);
   if(d>1) markKmToCheck(box);
 
@@ -686,13 +670,6 @@ function updateDayRouteNetto(d){
   }
 }
 
-document.getElementById("times").addEventListener("focusin",function(e){
-  const s=e.target;
-  if(!s.matches || !s.matches("select.quarter-time")) return;
-  const anchor=s.getAttribute("data-time-anchor");
-  if(!anchor || s.value) return;
-  s.value=anchor;
-});
 document.getElementById("times").addEventListener("input",function(e){
   const el=e.target;
   if(el && el.classList.contains("km-check")) el.classList.remove("km-check");
@@ -1023,7 +1000,6 @@ fetch("companies.json").then(r=>{
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
-    applyTypicalDayTimes(1);
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
@@ -1286,7 +1262,7 @@ function canvasHasInk(canvas, bounds){
   try{
     const data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data;
     for(let i=0;i<data.length;i+=16){
-      if(data[i]<248 || data[i+1]<248 || data[i+2]<248) return true;
+      if(data[i+3]>12 && (data[i]<248 || data[i+1]<248 || data[i+2]<248)) return true;
     }
   }catch(e){}
   return false;
@@ -1309,15 +1285,18 @@ function updateSigPreview(id){
   if(!url){ box.style.height=""; img.removeAttribute("src"); img.src=""; return; }
   img.src=url;
 }
-function trimWhitePng(srcCanvas){
+function inkPngFromCanvas(srcCanvas){
   const w=srcCanvas.width, h=srcCanvas.height;
+  if(!w||!h) return null;
   const ctx=srcCanvas.getContext("2d",{willReadFrequently:true});
-  const data=ctx.getImageData(0,0,w,h).data;
+  let data;
+  try{ data=ctx.getImageData(0,0,w,h).data; }
+  catch(e){ return null; }
   let minX=w, minY=h, maxX=0, maxY=0, found=false;
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=(y*w+x)*4;
-      if(data[i]<250||data[i+1]<250||data[i+2]<250){
+      if(data[i+3]>12 && (data[i]<248||data[i+1]<248||data[i+2]<248)){
         found=true;
         if(x<minX)minX=x; if(y<minY)minY=y;
         if(x>maxX)maxX=x; if(y>maxY)maxY=y;
@@ -1325,38 +1304,45 @@ function trimWhitePng(srcCanvas){
     }
   }
   if(!found) return null;
-  const pad=Math.round(Math.max(8, Math.min(w,h)*0.02));
+  const pad=Math.round(Math.max(4, Math.min(w,h)*0.012));
   minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad);
   maxX=Math.min(w,maxX+1+pad); maxY=Math.min(h,maxY+1+pad);
   const cw=Math.max(1,maxX-minX), ch=Math.max(1,maxY-minY);
-  if(cw>=w-2 && ch>=h-2) return srcCanvas.toDataURL("image/png");
   const out=document.createElement("canvas");
   out.width=cw; out.height=ch;
-  const octx=out.getContext("2d");
-  octx.fillStyle="#fff";
-  octx.fillRect(0,0,cw,ch);
+  const octx=out.getContext("2d",{willReadFrequently:true});
+  octx.clearRect(0,0,cw,ch);
   octx.drawImage(srcCanvas,minX,minY,cw,ch,0,0,cw,ch);
+  const img=octx.getImageData(0,0,cw,ch);
+  const p=img.data;
+  for(let i=0;i<p.length;i+=4){
+    if(p[i+3]<12 || (p[i]>=248 && p[i+1]>=248 && p[i+2]>=248)){
+      p[i]=0; p[i+1]=0; p[i+2]=0; p[i+3]=0;
+    }
+  }
+  octx.putImageData(img,0,0);
   return out.toDataURL("image/png");
 }
 function pngFromCanvas(canvas){
   return new Promise(resolve=>{
-    const fallback=()=>resolve(canvas.toDataURL("image/png"));
-    if(!canvas.toBlob){ fallback(); return; }
+    const done=src=>{
+      resolve(inkPngFromCanvas(src));
+    };
+    if(!canvas.toBlob){ done(canvas); return; }
     canvas.toBlob(blob=>{
-      if(!blob){ fallback(); return; }
+      if(!blob){ done(canvas); return; }
       const url=URL.createObjectURL(blob);
       const img=new Image();
       img.onload=()=>{
         const c=document.createElement("canvas");
         c.width=img.width; c.height=img.height;
         const ctx=c.getContext("2d",{willReadFrequently:true});
-        ctx.fillStyle="#fff";
-        ctx.fillRect(0,0,c.width,c.height);
+        ctx.clearRect(0,0,c.width,c.height);
         ctx.drawImage(img,0,0);
         URL.revokeObjectURL(url);
-        resolve(trimWhitePng(c) || c.toDataURL("image/png"));
+        done(c);
       };
-      img.onerror=()=>{ URL.revokeObjectURL(url); fallback(); };
+      img.onerror=()=>{ URL.revokeObjectURL(url); done(canvas); };
       img.src=url;
     }, "image/png");
   });
@@ -1375,8 +1361,7 @@ function sizeModalCanvas(){
   canvas.dataset.dpr=String(dpr);
   const ctx=canvas.getContext("2d",{alpha:true});
   ctx.setTransform(1,0,0,1,0,0);
-  ctx.fillStyle="#fff";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.lineCap="round";
   ctx.lineJoin="round";
@@ -1633,7 +1618,7 @@ function initSignaturePads(){
       return;
     }
     pngFromCanvas(canvas).then(url=>{
-      signatureStore[id]=url;
+      signatureStore[id]=url||null;
       updateSigPreview(id);
       closeModal();
     });
@@ -1694,14 +1679,16 @@ async function embedSignatures(pdf, boxes){
     const png=await fetch(url).then(r=>r.arrayBuffer());
     const img=await pdf.embedPng(png);
     const box=rects[id];
-    const pad=1;
-    const maxW=Math.max(4, box.width-pad*2);
-    const maxH=Math.max(4, box.height-pad*2);
+    const padX=3;
+    const lineGap=Math.max(8, Math.round(box.height*0.22));
+    const topPad=2;
+    const maxW=Math.max(4, box.width-padX*2);
+    const maxH=Math.max(4, box.height-lineGap-topPad);
     const scale=Math.min(maxW/img.width, maxH/img.height);
     const w=img.width*scale, h=img.height*scale;
     page.drawImage(img,{
-      x:box.x+pad+(maxW-w)/2,
-      y:box.y+pad+(maxH-h)/2,
+      x:box.x+padX+(maxW-w)/2,
+      y:box.y+lineGap,
       width:w,
       height:h
     });
@@ -1825,6 +1812,9 @@ for(let d=1;d<=dayBoxes.length;d++){
 }
 form.updateFieldAppearances();
 const sigBoxes=signatureFieldBoxes(form);
+["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
+  try{ form.removeField(form.getTextField(name)); }catch(e){}
+});
 form.flatten();
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
@@ -2338,26 +2328,65 @@ if(typeof window.showPdfPreview==="function") window.showPdfPreview(lastPdfBlob)
 
 <script>
 (function(){
-  let previewUrl=null;
+  let previewDoc=null;
   function closePdfPreview(){
     const modal=$("pdfPreviewModal");
-    const frame=$("pdfPreviewFrame");
     if(modal){ modal.classList.remove("open"); modal.setAttribute("aria-hidden","true"); }
-    if(frame) frame.src="about:blank";
-    if(previewUrl){ URL.revokeObjectURL(previewUrl); previewUrl=null; }
+    if(previewDoc && previewDoc.destroy) try{ previewDoc.destroy(); }catch(e){}
+    previewDoc=null;
+    const canvas=$("pdfPreviewCanvas");
+    if(canvas){ const ctx=canvas.getContext("2d"); ctx && ctx.clearRect(0,0,canvas.width,canvas.height); canvas.width=0; canvas.height=0; }
   }
-  window.showPdfPreview=function(blob){
+  window.showPdfPreview=async function(blob){
     if(!blob) return;
     const modal=$("pdfPreviewModal");
-    const frame=$("pdfPreviewFrame");
-    if(!modal||!frame) return;
-    if(previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl=URL.createObjectURL(blob);
-    frame.src=previewUrl;
+    const canvas=$("pdfPreviewCanvas");
+    const hint=$("pdfPreviewHint");
+    if(!modal||!canvas) return;
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
     const s=$("status");
     if(s) s.textContent="PDF prüfen, dann Speichern.";
+    if(hint) hint.textContent="PDF wird geladen…";
+    try{
+      if(!window.pdfjsLib) throw new Error("pdf.js fehlt");
+      pdfjsLib.GlobalWorkerOptions.workerSrc="./vendor/pdf.worker.min.js";
+      const data=new Uint8Array(await blob.arrayBuffer());
+      if(previewDoc && previewDoc.destroy) try{ previewDoc.destroy(); }catch(e){}
+      const load=(opts)=>pdfjsLib.getDocument(Object.assign({data:data.slice(0)}, opts)).promise;
+      try{
+        previewDoc=await load({});
+      }catch(workerErr){
+        previewDoc=await load({disableWorker:true});
+      }
+      const page=await previewDoc.getPage(1);
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await new Promise(r=>setTimeout(r,40));
+      const stageEl=canvas.parentElement;
+      const stage=stageEl.getBoundingClientRect();
+      const base=page.getViewport({scale:1});
+      const fitH=Math.max(320, stage.height>80?stage.height-12:window.innerHeight*0.78);
+      const fitW=Math.max(220, stage.width>80?stage.width-12:window.innerWidth-24);
+      const cssScale=Math.min(fitW/base.width, fitH/base.height, 2.4);
+      const vp=page.getViewport({scale:Math.max(0.65, cssScale)});
+      const outputScale=Math.min(2, window.devicePixelRatio||1);
+      canvas.width=Math.ceil(vp.width*outputScale);
+      canvas.height=Math.ceil(vp.height*outputScale);
+      canvas.style.width=Math.floor(vp.width)+"px";
+      canvas.style.height=Math.floor(vp.height)+"px";
+      const ctx=canvas.getContext("2d");
+      ctx.fillStyle="#fff";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      const renderTask=page.render({
+        canvasContext:ctx,
+        viewport:vp,
+        transform:outputScale!==1?[outputScale,0,0,outputScale,0,0]:null
+      });
+      await renderTask.promise;
+      if(hint) hint.textContent="Prüfen, dann Speichern.";
+    }catch(e){
+      if(hint) hint.textContent="Vorschau nicht möglich. Speichern öffnet das PDF. "+(e&&e.message?e.message:"");
+    }
   };
   window.saveCurrentPdf=async function(){
     if(!lastPdfBlob){
