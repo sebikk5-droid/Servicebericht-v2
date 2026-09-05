@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-20";
+const CACHE_NAME = "servicebericht-v2-22";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
