@@ -859,6 +859,18 @@ document.getElementById("times").addEventListener("input",function(e){
 document.getElementById("times").addEventListener("change",function(e){
   const el=e.target;
   clearCheckHighlight(el);
+  const box=el.closest("[data-daybox]");
+  if(box){
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    const pauseKey=el.dataset.k||"";
+    if(pauseKey===`PauseRZ${d*2}` && el.dataset.syncing!=="1"){
+      el.dataset.pauseManual="1";
+    }
+    if(pauseKey===`PauseRZ${d*2-1}` || pauseKey===`PauseAZ${d*2-1}`){
+      syncReturnPauseFromDay(box);
+      if(typeof recalcTimes==="function") recalcTimes();
+    }
+  }
   if(!el.matches("select.quarter-time")) return;
 
   const key=el.dataset.k||"";
