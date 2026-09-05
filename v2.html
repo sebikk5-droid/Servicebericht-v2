@@ -1229,6 +1229,7 @@ fetch("companies.json").then(r=>{
 
     const c=selectedCompany();
     if(!c)return;
+    const machineSnap=typeof window.keepMachineSnapshot==="function"?window.keepMachineSnapshot():null;
     if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
     const box=$("customerSearchBox");
     if(box && $("customerSearch"))
@@ -1239,7 +1240,12 @@ fetch("companies.json").then(r=>{
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
-    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+    if(typeof window.refreshCustomerMachines==="function"){
+      Promise.resolve(window.refreshCustomerMachines()).then(()=>{
+        if(machineSnap && typeof window.restoreMachineSnapshot==="function")
+          window.restoreMachineSnapshot(machineSnap);
+      });
+    }
     if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
   };
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
@@ -3820,19 +3826,27 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   window.pullCustomerMachines=pullMachines;
   window.refreshCustomerMachines=async function(){
+    const snap=keepMachineSnapshot();
     await pullMachines();
-    syncComboClears();
+    restoreMachineSnapshot(snap);
   };
+  function keepMachineSnapshot(){
+    const o={};
+    FIELD_IDS.forEach(id=>o[id]=$(id)?.value||"");
+    return o;
+  }
+  function restoreMachineSnapshot(o){
+    if(!o) return;
+    FIELD_IDS.forEach(id=>{ if($(id) && o[id]!=null) $(id).value=o[id]; });
+    syncComboClears();
+  }
+  window.keepMachineSnapshot=keepMachineSnapshot;
+  window.restoreMachineSnapshot=restoreMachineSnapshot;
   function bind(){
     setupCombo(
       $("manufacturer"), $("manufacturerResults"), $("manufacturerBox"), $("manufacturerClear"),
       manufacturerOptions,
       function(){
-        const types=typeOptions();
-        if($("type").value && !types.some(t=>sameType(t,$("type").value))){
-          $("type").value="";
-          $("machineNo").value="";
-        }
         applyIfUniqueNr();
       },
       q=> q ? "Kein Treffer – Name wird übernommen." : "Marke wählen oder neu eintippen."
@@ -3898,7 +3912,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
     });
     $("customerSearch")?.addEventListener("blur",()=>{
-      if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+      const snap=keepMachineSnapshot();
+      Promise.resolve(window.refreshCustomerMachines()).then(()=>restoreMachineSnapshot(snap));
       if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
     });
     syncComboClears();
