@@ -320,25 +320,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f2f2f7;color:#666}
-#emailModal{
-  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
-  align-items:flex-end;justify-content:center;
-}
-#emailModal.is-open{display:flex}
-#emailModal .email-sheet{
-  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
-  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
-  box-shadow:0 -8px 24px rgba(0,0,0,.18);
-}
-#emailModal h3{margin:0 0 6px;font-size:18px}
-#emailModalList{max-height:180px;overflow-y:auto;margin:8px 0;border:1px solid #ddd;border-radius:10px}
-#emailModalList button{display:block;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid #eee;border-radius:0;padding:12px;font-size:15px}
-#emailModalList button.is-on{background:#eef5fb;font-weight:700}
-#emailModal .email-add{display:flex;gap:8px;margin:8px 0}
-#emailModal .email-add input{flex:1}
-#emailModal .email-add button{flex:0 0 auto;background:#163a5c;color:#fff;min-width:44px}
-#emailModal .email-actions{display:flex;gap:8px;margin-top:12px}
-#emailModal .email-actions button{flex:1}
+#customerEmail{padding-right:40px}
+#customerEmailBox .combo-results{z-index:70}
 input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
@@ -385,7 +368,19 @@ input.km-check,input.to-check{
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
-</div></section>
+<div class="full combo-box" id="customerEmailBox">
+  <label for="customerEmail">E-Mail</label>
+  <div class="combo-field">
+    <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail wählen oder neu eintragen">
+    <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
+  </div>
+  <div id="customerEmailResults" class="combo-results"></div>
+</div>
+</div>
+<div class="machine-bar">
+  <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
+</div>
+</section>
 
 <section class="card"><h2>Maschine</h2>
 <div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Zwei gleiche Maschinen unterscheidet die Nummer.</div>
@@ -509,21 +504,6 @@ input.km-check,input.to-check{
 <div id="status"></div>
 </main>
 <div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
-<div id="emailModal" aria-hidden="true">
-  <div class="email-sheet">
-    <h3>E-Mail an den Kunden</h3>
-    <div class="muted" id="emailModalFirma"></div>
-    <div id="emailModalList"></div>
-    <div class="email-add">
-      <input id="emailModalNew" type="email" inputmode="email" placeholder="Neue E-Mail hinzufügen" autocomplete="off">
-      <button type="button" id="emailModalAdd">Hinzufügen</button>
-    </div>
-    <div class="email-actions">
-      <button type="button" class="clear" id="emailModalSkip">Ohne E-Mail</button>
-      <button type="button" class="go" id="emailModalOk">Weiter</button>
-    </div>
-  </div>
-</div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -1235,6 +1215,7 @@ fetch("companies.json").then(r=>{
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
     recalcTimes();
     if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
   };
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
 }).catch(err=>{
@@ -2700,6 +2681,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       liveDraftApplied=true;
       applyForm(data);
       if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+      if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
       return true;
     }
     window.saveLiveDraft=saveLiveDraft;
@@ -2814,6 +2796,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const city=document.getElementById("city");
       if(street) street.value="";
       if(city) city.value="";
+      const email=document.getElementById("customerEmail");
+      if(email) email.value="";
+      const emailBox=document.getElementById("customerEmailBox");
+      if(emailBox) emailBox.classList.remove("has-value");
+      window.selectedCustomerEmail="";
       sync();
       input.focus();
       show();
@@ -3074,66 +3061,110 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     return true;
   }
-  window.pickCustomerEmail=function(){
-    const modal=$("emailModal");
-    if(!modal) return Promise.resolve("");
-    const listEl=$("emailModalList");
-    const firmaEl=$("emailModalFirma");
-    const input=$("emailModalNew");
-    let chosen="";
-    const name=typeof firmaName==="function"?firmaName():"";
-    if(firmaEl) firmaEl.textContent=name || "Kein Kunde gewählt – E-Mail wird nach Firma-Auswahl gespeichert.";
-    async function render(){
-      await pullEmails();
-      const emails=emailsForCustomer();
-      listEl.innerHTML="";
-      if(!emails.length){
-        listEl.innerHTML='<div class="combo-empty">Noch keine E-Mail für diesen Kunden.</div>';
-      }else{
-        emails.forEach(e=>{
-          const b=document.createElement("button");
-          b.type="button";
-          b.textContent=e;
-          if(chosen && e.toLowerCase()===chosen.toLowerCase()) b.classList.add("is-on");
-          b.addEventListener("click",()=>{ chosen=e; render(); });
-          listEl.appendChild(b);
-        });
-        if(!chosen && emails[0]){
-          chosen=emails[0];
-          const first=listEl.querySelector("button");
-          if(first) first.classList.add("is-on");
-        }
-      }
+  function currentEmail(){
+    return String($("customerEmail")?.value||"").trim();
+  }
+  function setEmail(v){
+    const el=$("customerEmail");
+    if(el) el.value=v||"";
+    window.selectedCustomerEmail=String(v||"").trim();
+    const box=$("customerEmailBox");
+    if(box) box.classList.toggle("has-value", String(el?.value||"").trim()!=="");
+  }
+  function bindEmailUi(){
+    const input=$("customerEmail");
+    const results=$("customerEmailResults");
+    const box=$("customerEmailBox");
+    const clearBtn=$("customerEmailClear");
+    if(!input||!results||input.dataset.comboBound==="1") return;
+    input.dataset.comboBound="1";
+    function close(){
+      results.style.display="none";
+      results.innerHTML="";
     }
-    render();
-    if(input) input.value="";
-    modal.classList.add("is-open");
-    modal.setAttribute("aria-hidden","false");
-    return new Promise(resolve=>{
-      const done=val=>{
-        modal.classList.remove("is-open");
-        modal.setAttribute("aria-hidden","true");
-        window.selectedCustomerEmail=val||"";
-        resolve(val||"");
-      };
-      $("emailModalSkip").onclick=()=>done("");
-      $("emailModalOk").onclick=()=>done(chosen);
-      $("emailModalAdd").onclick=async ()=>{
-        const e=String(input?.value||"").trim();
-        if(!await addEmail(e)){
-          const s=$("status");
-          if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
-          return;
-        }
-        chosen=e;
-        if(input) input.value="";
-        render();
-      };
+    function show(){
+      const emails=emailsForCustomer();
+      const q=currentEmail().toLowerCase();
+      const options=q ? emails.filter(e=>e.toLowerCase().includes(q)) : emails;
+      results.innerHTML="";
+      if(!customerKey()){
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent="Zuerst den Kunden wählen.";
+        results.appendChild(empty);
+        results.style.display="block";
+        return;
+      }
+      if(!options.length){
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent=emails.length
+          ? "Kein Treffer – neue E-Mail eintragen und hinzufügen."
+          : "Noch keine E-Mail. Neu eintragen und hinzufügen.";
+        results.appendChild(empty);
+        results.style.display="block";
+        return;
+      }
+      options.forEach(e=>{
+        const pick=document.createElement("button");
+        pick.type="button";
+        pick.className="combo-pick";
+        pick.textContent=e;
+        if(e.toLowerCase()===q) pick.classList.add("is-on");
+        pick.addEventListener("mousedown",ev=>ev.preventDefault());
+        pick.addEventListener("click",()=>{
+          setEmail(e);
+          close();
+        });
+        results.appendChild(pick);
+      });
+      results.style.display="block";
+    }
+    input.addEventListener("focus", show);
+    input.addEventListener("click", show);
+    input.addEventListener("input",()=>{
+      setEmail(input.value);
+      show();
     });
+    clearBtn?.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      setEmail("");
+      input.focus();
+      show();
+    });
+    document.addEventListener("click",e=>{
+      if(box && !box.contains(e.target)) close();
+    });
+    $("emailSave")?.addEventListener("click", async ()=>{
+      const e=currentEmail();
+      if(!await addEmail(e)){
+        const s=$("status");
+        if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
+      }else{
+        setEmail(e);
+      }
+    });
+  }
+  window.refreshCustomerEmails=async function(mode){
+    await pullEmails();
+    bindEmailUi();
+    const emails=emailsForCustomer();
+    const cur=currentEmail();
+    if(mode==="replace") setEmail(emails[0]||"");
+    else if(mode==="fill" && !cur && emails[0]) setEmail(emails[0]);
+    else setEmail(cur);
+  };
+  window.pickCustomerEmail=function(){
+    return Promise.resolve(currentEmail());
   };
   window.pullCustomerEmails=pullEmails;
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",()=>{ pullEmails(); });
-  else pullEmails();
+  function start(){
+    bindEmailUi();
+    pullEmails().then(()=>window.refreshCustomerEmails("fill"));
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
 })();
 </script>
 <script>
@@ -3298,8 +3329,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           return;
         }
         if(!lastPdfBlob) return;
-        if(typeof window.pickCustomerEmail==="function")
-          await window.pickCustomerEmail();
         const ok=await window.deliverLastPdf();
         if(!ok && isIosPdfDevice()){
           btn.dataset.shareReady="1";
@@ -3709,7 +3738,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(findSaved()) persistCurrent();
       });
     });
-    $("customerSearch")?.addEventListener("blur",()=>window.refreshCustomerMachines());
+    $("customerSearch")?.addEventListener("blur",()=>{
+      if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+      if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
+    });
     syncComboClears();
     fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
       if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
