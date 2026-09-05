@@ -338,11 +338,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #emailModal .email-add input{flex:1}
 #emailModal .email-add button{flex:0 0 auto;background:#163a5c;color:#fff;min-width:44px}
 #emailModal .email-actions{display:flex;gap:8px;margin-top:12px}
-.cloud-sync{margin-top:10px;font-size:13px}
-.cloud-sync summary{cursor:pointer;font-weight:650;color:#444}
-.cloud-sync .cloud-row{display:flex;gap:8px;align-items:center;margin-top:8px}
-.cloud-sync input{flex:1;min-height:40px}
-.cloud-sync button{flex:0 0 auto;background:#163a5c;color:#fff;min-width:96px;padding:10px 12px}
+#emailModal .email-actions button{flex:1}
 input.km-check,input.to-check{
   background:#fff4a3 !important;
   box-shadow:inset 0 0 0 1px #d4b000;
@@ -374,15 +370,6 @@ input.km-check,input.to-check{
     <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
   </div>
   <div class="muted">Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
-  <details class="cloud-sync" id="cloudSyncBox">
-    <summary>Cloud / GitHub – E-Mails und Maschinen auf jedem Gerät</summary>
-    <p class="muted">Neue E-Mails und Maschinen werden ins GitHub-Repo geschrieben. Andere iPads laden sie beim Öffnen der Liste. Dazu einmal ein Token mit Recht <code>contents:write</code> für dieses Repo eintragen.</p>
-    <div class="cloud-row">
-      <input id="githubToken" type="password" placeholder="GitHub Token" autocomplete="off">
-      <button type="button" id="githubTokenSave">Speichern</button>
-    </div>
-    <div class="muted" id="githubSyncState"></div>
-  </details>
 </section>
 <section class="card"><h2>Kunde</h2>
 <label for="customerSearch">Firma</label>
@@ -2845,139 +2832,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 <script>
 (function(){
-  const TOKEN_KEY="servicebericht_github_token";
-  const FILES={emails:"customer-emails.json", machines:"customer-machines.json"};
-  function repo(){
-    try{
-      const h=String(location.hostname||"");
-      if(/github\.io$/i.test(h)){
-        const owner=h.split(".")[0];
-        const parts=location.pathname.split("/").filter(Boolean);
-        return {owner, repo:parts[0]||(owner+".github.io"), branch:"main"};
-      }
-    }catch(e){}
-    return {owner:"sebikk5-droid", repo:"Servicebericht-v2", branch:"main"};
-  }
-  function token(){
-    try{ return String(localStorage.getItem(TOKEN_KEY)||"").trim(); }
-    catch(e){ return ""; }
-  }
-  function setToken(t){
-    try{
-      const v=String(t||"").trim();
-      if(v) localStorage.setItem(TOKEN_KEY, v);
-      else localStorage.removeItem(TOKEN_KEY);
-    }catch(e){}
-  }
-  function headers(){
-    const h={"Accept":"application/vnd.github+json"};
-    const t=token();
-    if(t) h.Authorization="Bearer "+t;
-    return h;
-  }
-  function apiFileUrl(path, withRef){
-    const r=repo();
-    const base="https://api.github.com/repos/"+encodeURIComponent(r.owner)+"/"+encodeURIComponent(r.repo)+"/contents/"+path;
-    return withRef ? base+"?ref="+encodeURIComponent(r.branch) : base;
-  }
-  function decodeContent(b64){
-    try{ return decodeURIComponent(escape(atob(String(b64||"").replace(/\n/g,"")))); }
-    catch(e){ return "{}"; }
-  }
-  function encodeContent(text){
-    return btoa(unescape(encodeURIComponent(text)));
-  }
-  function asMap(o){
-    return o && typeof o==="object" && !Array.isArray(o) ? o : {};
-  }
-  async function fetchLocal(path){
-    try{
-      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
-      if(!res.ok) return {obj:{}, sha:""};
-      return {obj:asMap(await res.json()), sha:""};
-    }catch(e){
-      return {obj:{}, sha:""};
-    }
-  }
-  async function pull(kind){
-    const path=FILES[kind];
-    try{
-      const res=await fetch(apiFileUrl(path, true), {headers:headers(), cache:"no-store"});
-      if(res.status===404) return {obj:{}, sha:""};
-      if(!res.ok) return fetchLocal(path);
-      const j=await res.json();
-      let obj={};
-      try{ obj=JSON.parse(decodeContent(j.content)); }catch(e){ obj={}; }
-      return {obj:asMap(obj), sha:j.sha||""};
-    }catch(e){
-      return fetchLocal(path);
-    }
-  }
-  async function put(kind, obj, sha, message){
-    const t=token();
-    if(!t) return {ok:false, reason:"no-token"};
-    const path=FILES[kind];
-    const r=repo();
-    const res=await fetch(apiFileUrl(path, false), {
-      method:"PUT",
-      headers:Object.assign({"Content-Type":"application/json"}, headers()),
-      body:JSON.stringify({
-        message: message||("Aktualisiere "+path),
-        content: encodeContent(JSON.stringify(obj, null, 2)+"\n"),
-        branch: r.branch,
-        sha: sha||undefined
-      })
-    });
-    if(!res.ok){
-      let reason="";
-      try{ reason=(await res.text()).slice(0,200); }catch(e){}
-      return {ok:false, status:res.status, reason};
-    }
-    return {ok:true};
-  }
-  async function push(kind, localMap, message, mergeFn){
-    const remote=await pull(kind);
-    const merged=typeof mergeFn==="function" ? mergeFn(remote.obj, localMap||{}) : Object.assign({}, remote.obj, localMap||{});
-    let result=await put(kind, merged, remote.sha, message);
-    if(!result.ok && (result.status===409 || result.status===422)){
-      const again=await pull(kind);
-      const merged2=typeof mergeFn==="function" ? mergeFn(again.obj, localMap||{}) : Object.assign({}, again.obj, localMap||{});
-      result=await put(kind, merged2, again.sha, message);
-      return {merged:merged2, result};
-    }
-    return {merged, result};
-  }
-  function bindTokenUi(){
-    const input=$("githubToken");
-    const btn=$("githubTokenSave");
-    const state=$("githubSyncState");
-    if(!input||!btn) return;
-    if(token()){
-      input.placeholder="Token gespeichert";
-      if(state) state.textContent="Token ist auf diesem Gerät gespeichert. Andere Geräte laden die Listen aus GitHub.";
-    }else if(state){
-      state.textContent="Ohne Token bleiben neue Einträge nur auf diesem Gerät.";
-    }
-    btn.addEventListener("click",()=>{
-      const v=String(input.value||"").trim();
-      setToken(v);
-      input.value="";
-      if(v){
-        input.placeholder="Token gespeichert";
-        if(state) state.textContent="Token gespeichert. E-Mails und Maschinen gehen nach GitHub.";
-        if(typeof window.syncCloudLists==="function") window.syncCloudLists();
-      }else if(state){
-        state.textContent="Token entfernt.";
-      }
-    });
-  }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", bindTokenUi);
-  else bindTokenUi();
-  window.sbCloud={token, setToken, hasToken:()=>!!token(), pull, push, repo};
-})();
-</script>
-<script>
-(function(){
+  try{ localStorage.removeItem("servicebericht_github_token"); }catch(e){}
   const KEY="servicebericht_customer_emails_v1";
   function loadMap(){
     try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
@@ -3009,22 +2864,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return out;
   }
-  async function pullEmails(){
-    if(!window.sbCloud) return loadMap();
+  async function fetchSharedMap(path){
     try{
-      const remote=await window.sbCloud.pull("emails");
-      const merged=mergeEmailMaps(loadMap(), remote.obj);
+      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
+      if(!res.ok) return {};
+      const o=await res.json();
+      return o && typeof o==="object" && !Array.isArray(o) ? o : {};
+    }catch(e){
+      return {};
+    }
+  }
+  async function pullEmails(){
+    try{
+      const merged=mergeEmailMaps(loadMap(), await fetchSharedMap("customer-emails.json"));
       saveMap(merged);
       return merged;
     }catch(e){
       return loadMap();
     }
-  }
-  async function pushEmails(message){
-    if(!window.sbCloud) return {ok:false, reason:"no-cloud"};
-    const {merged, result}=await window.sbCloud.push("emails", loadMap(), message, mergeEmailMaps);
-    saveMap(merged);
-    return result;
   }
   function emailsForCustomer(){
     const k=customerKey();
@@ -3050,14 +2907,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
     map[k]=list;
     saveMap(map);
-    const pushed=await pushEmails("E-Mail für "+k);
-    if(pushed && pushed.ok){
-      const s=$("status");
-      if(s) s.textContent="E-Mail in GitHub gespeichert – andere Geräte sehen sie.";
-    }else if(window.sbCloud && !window.sbCloud.hasToken()){
-      const s=$("status");
-      if(s) s.textContent="E-Mail nur auf diesem Gerät. Cloud-Token unter Historie eintragen.";
-    }
+    const s=$("status");
+    if(s) s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
     return true;
   }
   window.pickCustomerEmail=function(){
@@ -3549,31 +3400,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return out;
   }
-  async function pullMachines(){
-    if(!window.sbCloud) return loadAll();
+  async function fetchSharedMap(path){
     try{
-      const remote=await window.sbCloud.pull("machines");
-      const merged=mergeMachineMaps(loadAll(), remote.obj);
+      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
+      if(!res.ok) return {};
+      const o=await res.json();
+      return o && typeof o==="object" && !Array.isArray(o) ? o : {};
+    }catch(e){
+      return {};
+    }
+  }
+  async function pullMachines(){
+    try{
+      const merged=mergeMachineMaps(loadAll(), await fetchSharedMap("customer-machines.json"));
       saveAll(merged);
       return merged;
     }catch(e){
       return loadAll();
     }
-  }
-  async function pushMachines(message, removeMatch){
-    if(!window.sbCloud) return {ok:false, reason:"no-cloud"};
-    const mergeFn=removeMatch ? function(remote, local){
-      const merged=mergeMachineMaps(remote, local);
-      const k=removeMatch.k;
-      if(k && Array.isArray(merged[k])){
-        merged[k]=merged[k].filter(m=>!sameMachine(m, removeMatch.rec));
-        if(!merged[k].length) delete merged[k];
-      }
-      return merged;
-    } : mergeMachineMaps;
-    const {merged, result}=await window.sbCloud.push("machines", loadAll(), message, mergeFn);
-    saveAll(merged);
-    return result;
   }
   async function persistCurrent(){
     const k=customerKey();
@@ -3597,12 +3441,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     all[k]=list;
     saveAll(all);
     syncComboClears();
-    const pushed=await pushMachines("Maschine für "+k);
     const s=$("status");
-    if(!s) return;
-    if(pushed && pushed.ok) s.textContent="Maschine in GitHub gespeichert – andere Geräte sehen sie.";
-    else if(window.sbCloud && !window.sbCloud.hasToken()) s.textContent="Maschine nur auf diesem Gerät. Cloud-Token unter Historie eintragen.";
-    else s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+    if(s) s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
   }
   window.pullCustomerMachines=pullMachines;
   window.refreshCustomerMachines=async function(){
@@ -3669,12 +3509,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
       syncComboClears();
-      const pushed=await pushMachines("Maschine gelöscht: "+k, {k, rec});
       const s=$("status");
-      if(!s) return;
-      if(pushed && pushed.ok) s.textContent="Maschine in GitHub gelöscht.";
-      else if(window.sbCloud && !window.sbCloud.hasToken()) s.textContent="Maschine nur auf diesem Gerät gelöscht. Cloud-Token unter Historie eintragen.";
-      else s.textContent="Maschine gelöscht.";
+      if(s) s.textContent="Maschine gelöscht.";
     });
     ["control","nc","plc"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
@@ -3696,7 +3532,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   let syncing=false, lastAt=0;
-  window.syncCloudLists=async function(){
+  async function refreshSharedLists(){
     if(syncing) return;
     const now=Date.now();
     if(now-lastAt<600) return;
@@ -3707,11 +3543,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(typeof window.refreshCustomerMachines==="function") await window.refreshCustomerMachines();
     }catch(e){}
     syncing=false;
-  };
+  }
   document.addEventListener("visibilitychange",()=>{
-    if(!document.hidden) window.syncCloudLists();
+    if(!document.hidden) refreshSharedLists();
   });
-  window.addEventListener("pageshow",()=>window.syncCloudLists());
+  window.addEventListener("pageshow",()=>refreshSharedLists());
 })();
 </script>
 
