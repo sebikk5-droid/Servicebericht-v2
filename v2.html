@@ -29,7 +29,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 #remarks,#parts{
   max-height:min(240px,38vh);
   overflow-y:auto;
-  overscroll-behavior:contain;
+  overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
@@ -4039,6 +4039,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!el) return;
     el.addEventListener("focus",()=>onNotesFocus(el));
     el.addEventListener("input",()=>keepNotesInView(el));
+    el.addEventListener("wheel",e=>{
+      const scroller=main();
+      if(!scroller) return;
+      const dy=e.deltaMode===1 ? e.deltaY*16 : e.deltaMode===2 ? e.deltaY*scroller.clientHeight : e.deltaY;
+      const dx=e.deltaMode===1 ? e.deltaX*16 : e.deltaX;
+      const top=el.scrollTop;
+      const max=Math.max(0, el.scrollHeight-el.clientHeight);
+      const canUp=dy<0 && top>0;
+      const canDown=dy>0 && top<max-1;
+      if(canUp || canDown) return;
+      scroller.scrollTop+=dy;
+      scroller.scrollLeft+=dx;
+      e.preventDefault();
+    }, {passive:false});
   });
   document.addEventListener("focusin",e=>{
     const t=e.target;
