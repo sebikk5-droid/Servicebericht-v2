@@ -14,18 +14,20 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Servicebericht v2.0</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
-header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:4}
+*{box-sizing:border-box}
+html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
+body{display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0}
+header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-top h1{flex:1;min-width:0}
 .credit{font-size:10px;line-height:1.3;color:#999;font-weight:500;text-align:right;white-space:nowrap;padding-top:4px;flex:0 0 auto}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
-main{max-width:760px;margin:auto;padding:12px 14px 110px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d1d1d6;border-radius:11px;background:#fff;color:#111}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:5}
+.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 #status{font-size:13px;color:#555;margin:7px 2px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
@@ -1199,7 +1201,7 @@ function updateSigPreview(id){
 function sizeModalCanvas(){
   const canvas=$("sigModalCanvas");
   const wrap=canvas.parentElement;
-  const dpr=Math.max(1, Math.min(3, window.devicePixelRatio||1));
+  const dpr=Math.max(2, Math.min(3, window.devicePixelRatio||2));
   const r=wrap.getBoundingClientRect();
   const w=Math.max(280, Math.floor(r.width||window.innerWidth));
   const h=Math.max(180, Math.floor(r.height||window.innerHeight*0.55));
@@ -1207,106 +1209,139 @@ function sizeModalCanvas(){
   canvas.style.height=h+"px";
   canvas.width=Math.round(w*dpr);
   canvas.height=Math.round(h*dpr);
-  const ctx=canvas.getContext("2d",{alpha:false});
+  const ctx=canvas.getContext("2d",{alpha:false, desynchronized:true});
   ctx.setTransform(1,0,0,1,0,0);
   ctx.fillStyle="#fff";
   ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.lineCap="round";
   ctx.lineJoin="round";
+  ctx.fillStyle="#111";
   ctx.strokeStyle="#111";
-  ctx.lineWidth=2.4;
   return ctx;
 }
 function initSignaturePads(){
   const modal=$("sigModal");
   const canvas=$("sigModalCanvas");
-  if(!modal||!canvas||modal.dataset.bound==="1") return;
+  const wrap=canvas&&canvas.parentElement;
+  if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
-  let drawing=false, last=null, activeId=null, drawPointer=null, penDown=false;
-  const pos=ev=>{
+  let drawing=false, last=null, activeId=null, stylusOnly=false;
+  const posFrom=ev=>{
     const r=canvas.getBoundingClientRect();
-    const src=ev.touches&&ev.touches[0] ? ev.touches[0] : (ev.changedTouches&&ev.changedTouches[0] ? ev.changedTouches[0] : ev);
-    return {x:src.clientX-r.left, y:src.clientY-r.top};
+    return {x:ev.clientX-r.left, y:ev.clientY-r.top};
   };
-  const widthFor=ev=>{
-    if(ev.pointerType==="pen"){
-      const p=Number.isFinite(ev.pressure)&&ev.pressure>0 ? ev.pressure : 0.5;
-      return 1.1+p*4.2;
+  function forceFrom(ev, touch){
+    const t=touch||null;
+    if(t && typeof t.force==="number" && t.force>0) return Math.min(1, t.force);
+    if(t && typeof t.webkitForce==="number" && t.webkitForce>0)
+      return Math.min(1, t.webkitForce / (t.webkitForceMax||3));
+    if(ev && ev.pointerType==="pen"){
+      const p=Number(ev.pressure);
+      if(Number.isFinite(p) && p>0) return Math.min(1, p===0.5 ? 0.35 : p);
     }
-    return 2.6;
-  };
-  function stroke(ev){
-    if(!drawing||!last) return;
-    const ctx=canvas.getContext("2d");
-    const list=(typeof ev.getCoalescedEvents==="function" && ev.getCoalescedEvents().length)
-      ? ev.getCoalescedEvents() : [ev];
-    ctx.strokeStyle="#111";
-    ctx.lineCap="round";
-    ctx.lineJoin="round";
-    for(const item of list){
-      const p=pos(item);
-      ctx.lineWidth=widthFor(item);
-      ctx.beginPath();
-      ctx.moveTo(last.x,last.y);
-      ctx.lineTo(p.x,p.y);
-      ctx.stroke();
-      last=p;
-    }
+    if(ev && Number.isFinite(ev.pressure) && ev.pressure>0 && ev.pressure<1 && ev.pressure!==0.5)
+      return ev.pressure;
+    return 0.32;
   }
-  function startDraw(ev){
-    if(ev.pointerType==="touch" && penDown) return;
-    if(ev.pointerType==="pen") penDown=true;
-    drawing=true;
-    drawPointer=ev.pointerId;
-    last=pos(ev);
+  function widthFromForce(f){
+    const x=Math.max(0.02, Math.min(1, f));
+    return 0.4 + Math.pow(x, 0.8) * 14;
+  }
+  function stamp(pt){
     const ctx=canvas.getContext("2d");
     ctx.beginPath();
     ctx.fillStyle="#111";
-    ctx.arc(last.x,last.y, Math.max(0.8, widthFor(ev)/2), 0, Math.PI*2);
+    ctx.arc(pt.x, pt.y, pt.w/2, 0, Math.PI*2);
     ctx.fill();
   }
-  function endDraw(ev){
-    if(ev && drawPointer!=null && ev.pointerId!==drawPointer && ev.pointerType!=="touch") return;
-    if(ev && ev.pointerType==="pen") penDown=false;
-    drawing=false; last=null; drawPointer=null;
+  function stampLine(a,b){
+    const dist=Math.hypot(b.x-a.x, b.y-a.y);
+    const steps=Math.max(1, Math.ceil(dist / 0.55));
+    for(let i=1;i<=steps;i++){
+      const t=i/steps;
+      stamp({
+        x:a.x+(b.x-a.x)*t,
+        y:a.y+(b.y-a.y)*t,
+        w:a.w+(b.w-a.w)*t
+      });
+    }
+  }
+  function pointFromPointer(ev){
+    const p=posFrom(ev);
+    p.w=widthFromForce(forceFrom(ev));
+    return p;
+  }
+  function pointFromTouch(t, ev){
+    const r=canvas.getBoundingClientRect();
+    return {
+      x:t.clientX-r.left,
+      y:t.clientY-r.top,
+      w:widthFromForce(forceFrom(ev, t))
+    };
+  }
+  function startAt(pt, isStylus){
+    drawing=true;
+    stylusOnly=!!isStylus;
+    last=pt;
+    stamp(pt);
+  }
+  function moveTo(pt){
+    if(!drawing||!last) return;
+    stampLine(last, pt);
+    last=pt;
+  }
+  function endDraw(){
+    drawing=false;
+    last=null;
+    stylusOnly=false;
   }
   const opts={passive:false, capture:true};
-  canvas.addEventListener("pointerdown",e=>{
+
+  wrap.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="touch" || e.pointerType==="pen") return;
     e.preventDefault();
-    e.stopPropagation();
-    if(typeof canvas.setPointerCapture==="function"){
-      try{ canvas.setPointerCapture(e.pointerId); }catch(_e){}
-    }
-    startDraw(e);
+    try{ canvas.setPointerCapture(e.pointerId); }catch(_e){}
+    const list=(typeof e.getCoalescedEvents==="function" && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+    startAt(pointFromPointer(list[0]||e), false);
   }, opts);
-  canvas.addEventListener("pointermove",e=>{
+  wrap.addEventListener("pointermove",e=>{
+    if(e.pointerType==="touch" || e.pointerType==="pen") return;
     if(!drawing) return;
     e.preventDefault();
-    e.stopPropagation();
-    stroke(e);
+    const list=(typeof e.getCoalescedEvents==="function" && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+    for(const item of list) moveTo(pointFromPointer(item));
   }, opts);
-  canvas.addEventListener("pointerup",e=>{ e.preventDefault(); endDraw(e); }, opts);
-  canvas.addEventListener("pointercancel",e=>{ endDraw(e); }, opts);
-  canvas.addEventListener("touchstart",e=>{
+  wrap.addEventListener("pointerup",e=>{
+    if(e.pointerType==="touch" || e.pointerType==="pen") return;
     e.preventDefault();
-    if(penDown) return;
-    startDraw(e);
+    endDraw();
   }, opts);
-  canvas.addEventListener("touchmove",e=>{
+  wrap.addEventListener("pointercancel",()=>endDraw(), opts);
+
+  wrap.addEventListener("touchstart",e=>{
     e.preventDefault();
-    if(!drawing || penDown) return;
-    stroke(e);
+    const t=e.changedTouches[0];
+    if(!t) return;
+    startAt(pointFromTouch(t,e), t.touchType==="stylus");
   }, opts);
-  canvas.addEventListener("touchend",e=>{ e.preventDefault(); endDraw(e); }, opts);
+  wrap.addEventListener("touchmove",e=>{
+    e.preventDefault();
+    if(!drawing) return;
+    for(let i=0;i<e.changedTouches.length;i++){
+      const t=e.changedTouches[i];
+      if(stylusOnly && t.touchType && t.touchType!=="stylus") continue;
+      moveTo(pointFromTouch(t,e));
+    }
+  }, opts);
+  wrap.addEventListener("touchend",e=>{ e.preventDefault(); endDraw(); }, opts);
+  wrap.addEventListener("touchcancel",()=>endDraw(), opts);
 
   function openModal(id){
     activeId=id;
     $("sigModalTitle").textContent=SIG_TITLES[id]||"Unterschrift";
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
-    document.body.style.overflow="hidden";
-    document.documentElement.style.touchAction="none";
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
         const ctx=sizeModalCanvas();
@@ -1324,10 +1359,8 @@ function initSignaturePads(){
   function closeModal(){
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden","true");
-    document.body.style.overflow="";
-    document.documentElement.style.touchAction="";
     activeId=null;
-    drawing=false; last=null; penDown=false;
+    endDraw();
   }
   document.querySelectorAll("[data-sig-open]").forEach(btn=>{
     btn.addEventListener("click",()=>openModal(btn.getAttribute("data-sig-open")));
