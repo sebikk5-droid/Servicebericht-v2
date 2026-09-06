@@ -35,9 +35,22 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   -webkit-overflow-scrolling:touch;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
+.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
-.bottom button{flex:1 1 0;min-width:0}
+.bottom-actions{display:flex;gap:8px;width:100%}
+.bottom-actions button{flex:1 1 0;min-width:0}
+.pdf-kind{display:flex;gap:8px;width:100%}
+.pdf-kind-opt{
+  flex:1 1 0;min-width:0;margin:0;padding:8px 10px;min-height:38px;
+  display:flex;align-items:center;justify-content:center;gap:0;
+  border:1px solid #c9c9ce;border-radius:11px;background:#f4f4f6;
+  font-size:14px;font-weight:700;color:#1c1c1e;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;user-select:none;position:relative;
+}
+.pdf-kind-opt input{position:absolute;opacity:0;pointer-events:none;width:0;height:0;margin:0}
+.pdf-kind-opt.is-on,.pdf-kind-opt:has(input:checked){
+  background:#163a5c;border-color:#163a5c;color:#fff;
+}
 #status{font-size:13px;color:#555;margin:7px 2px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 @media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
@@ -574,7 +587,16 @@ input.to-check{
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div class="bottom">
+  <div class="pdf-kind" role="radiogroup" aria-label="PDF-Vorlage">
+    <label class="pdf-kind-opt"><input type="radio" name="pdfKind" value="old"> PDF alt</label>
+    <label class="pdf-kind-opt is-on"><input type="radio" name="pdfKind" value="new" checked> PDF neu</label>
+  </div>
+  <div class="bottom-actions">
+    <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
+    <button class="go" id="generate">PDF erstellen & speichern</button>
+  </div>
+</div>
 <div id="tokenModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>GitHub-Token</h3>
@@ -2282,6 +2304,31 @@ function drawPdfTotalsRow(page, font, t, boldFont){
 }
 initSignaturePads();
 
+const PDF_KIND_KEY="servicebericht_pdf_kind_v2";
+function selectedPdfKind(){
+  return document.querySelector('input[name="pdfKind"]:checked')?.value==="old" ? "old" : "new";
+}
+function syncPdfKindUi(){
+  document.querySelectorAll('input[name="pdfKind"]').forEach(el=>{
+    const lab=el.closest(".pdf-kind-opt");
+    if(lab) lab.classList.toggle("is-on", !!el.checked);
+  });
+}
+function initPdfKind(){
+  let kind="new";
+  try{ kind=localStorage.getItem(PDF_KIND_KEY)||"new"; }catch(e){}
+  if(kind!=="old" && kind!=="new") kind="new";
+  document.querySelectorAll('input[name="pdfKind"]').forEach(el=>{
+    el.checked=el.value===kind;
+    el.addEventListener("change",()=>{
+      try{ localStorage.setItem(PDF_KIND_KEY, selectedPdfKind()); }catch(e){}
+      syncPdfKindUi();
+    });
+  });
+  syncPdfKindUi();
+}
+initPdfKind();
+
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
 try{
@@ -2407,11 +2454,13 @@ const sigBoxes=signatureFieldBoxes(form);
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
 form.flatten();
-drawPdfTotalsRow(page, pdfFitFont, {
-  km, travel, work, all,
-  pauseRz:pauseRzSum,
-  pauseAz:pauseAzSum
-}, pdfFitFontBold);
+if(selectedPdfKind()==="new"){
+  drawPdfTotalsRow(page, pdfFitFont, {
+    km, travel, work, all,
+    pauseRz:pauseRzSum,
+    pauseAz:pauseAzSum
+  }, pdfFitFontBold);
+}
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
