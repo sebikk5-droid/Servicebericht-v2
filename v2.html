@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.11">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.12">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.11</title>
+<title>Servicebericht v2.12</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -410,7 +410,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.11</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.12</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -442,7 +442,7 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. × entfernt die Auswahl.</div>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Fehlt der Kunde, Name und Adresse eintragen, dann unten zur GitHub-Liste hinzufügen. × entfernt die Auswahl.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -467,6 +467,7 @@ input.to-check{
 </div>
 </div>
 <div class="machine-bar">
+  <button type="button" id="companySave">Zur GitHub-Kundenliste hinzufügen</button>
   <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
 </div>
 </section>
@@ -1242,6 +1243,69 @@ function addMinutesToTime(t,mins){
   m=((m%1440)+1440)%1440;
   return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
 }
+function companyNameKey(c){
+  return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
+}
+function applyCompanies(list, selectName){
+  companies=Array.isArray(list)?list:[];
+  const sel=$("company");
+  if(!sel) return;
+  const esc=s=>String(s||"").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+  sel.innerHTML='<option value="">— Firma auswählen —</option>'+
+    companies.map((c,i)=>`<option value="${i}">${esc(c.firma||c.name||"Firma "+(i+1))}</option>`).join("");
+  const want=String(selectName||"").trim().toLowerCase();
+  if(!want) return;
+  const i=companies.findIndex(c=>companyNameKey(c)===want);
+  if(i<0) return;
+  sel.value=String(i);
+  if($("customerSearch")) $("customerSearch").value=companies[i].firma||companies[i].name||"";
+  const box=$("customerSearchBox");
+  if(box) box.classList.add("has-value");
+}
+function mergeCompanyRecord(remote, rec){
+  if(remote!=null && !Array.isArray(remote)) return remote;
+  const arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
+  const name=String((rec&&rec.firma)||"").trim();
+  if(!name) return arr;
+  const k=name.toLowerCase();
+  const idx=arr.findIndex(c=>companyNameKey(c)===k);
+  if(idx<0){
+    arr.push({
+      firma:name,
+      tel:String((rec&&rec.tel)||""),
+      email:String((rec&&rec.email)||""),
+      adres:String((rec&&rec.adres)||""),
+      notatki:String((rec&&rec.notatki)||"")
+    });
+  }else{
+    const c=arr[idx];
+    if(rec.tel) c.tel=rec.tel;
+    else if(c.tel==null) c.tel="";
+    if(rec.email) c.email=rec.email;
+    if(rec.adres) c.adres=rec.adres;
+    if(rec.notatki) c.notatki=rec.notatki;
+  }
+  return arr;
+}
+function companyRecordFromForm(){
+  const firma=firmaName();
+  const street=String($("street")?.value||"").trim();
+  const city=String($("city")?.value||"").trim();
+  const adres=[street, city].filter(Boolean).join(", ");
+  const email=String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
+  const km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
+  const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
+  const clock=rtTxt.match(/^(\d+):(\d+)$/);
+  const minutes=clock?(+clock[1])*60+(+clock[2]):0;
+  const kmPart=km?String(km).replace(".",",")+"km":"";
+  const h=Math.round((minutes/60)*100)/100;
+  const hPart=h?String(h).replace(".",","):"";
+  const notatki=kmPart&&hPart?kmPart+", "+hPart:(kmPart||hPart);
+  return {firma, tel:"", email, adres, notatki};
+}
+window.applyCompanies=applyCompanies;
+window.mergeCompanyRecord=mergeCompanyRecord;
+window.companyRecordFromForm=companyRecordFromForm;
 function selectedCompany(){
   const v=$("company")?.value;
   if(v==="" || v==null) return null;
@@ -1378,9 +1442,7 @@ fetch("companies.json").then(r=>{
   if(!r.ok) throw new Error("companies.json HTTP "+r.status);
   return r.json();
 }).then(x=>{
-  companies=Array.isArray(x)?x:[];
-  $("company").innerHTML='<option value="">— Firma auswählen —</option>'+
-    companies.map((c,i)=>`<option value="${i}">${c.firma||c.name||"Firma "+(i+1)}</option>`).join("");
+  applyCompanies(x);
   $("company").onchange=()=>{
     // V27.6.51 FIX: after returning from a PDF, the previous report is kept
     // in sessionStorage for Safari. Choosing another company must invalidate
@@ -3093,7 +3155,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const empty=document.createElement("div");
         empty.className="combo-empty";
         empty.textContent=q
-          ? "Kein Treffer – der eingegebene Name wird ins PDF übernommen."
+          ? "Kein Treffer – Name ins PDF. Unten zur GitHub-Kundenliste hinzufügen."
           : "Keine Kunden in der Liste.";
         results.appendChild(empty);
         openComboResults(results, box);
@@ -3153,7 +3215,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.11";
+  const APP_VERSION="2.12";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3388,6 +3450,48 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     appVersion:()=>APP_VERSION,
     asMap(o){ return o && typeof o==="object" && !Array.isArray(o) ? o : {}; }
   };
+})();
+</script>
+<script>
+(function(){
+  let saveLock=Promise.resolve();
+  $("companySave")?.addEventListener("click", async ()=>{
+    const prev=saveLock;
+    let unlock=()=>{};
+    saveLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    try{
+      const rec=typeof companyRecordFromForm==="function"?companyRecordFromForm():null;
+      const s=$("status");
+      if(!rec || !rec.firma){
+        if(s) s.textContent="Zuerst den Firmennamen eintragen.";
+        return;
+      }
+      if(!window.sbLists){
+        if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
+        return;
+      }
+      const existed=Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase());
+      const {merged, result}=await window.sbLists.pushMerged(
+        "companies",
+        rec,
+        existed ? "Kunde aktualisiert: "+rec.firma : "Neuer Kunde: "+rec.firma,
+        function(remote, local){ return mergeCompanyRecord(remote, local); }
+      );
+      if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
+      if(s){
+        if(result && result.ok){
+          s.textContent=existed
+            ? "Kunde in der GitHub-Liste aktualisiert – andere iPads laden ihn."
+            : "Kunde steht auf der gemeinsamen Liste – andere iPads laden ihn.";
+        }else if(result && result.reason==="no-token"){
+          s.textContent="GitHub-Token fehlt. Oben Token einfügen, dann erneut tippen.";
+        }else{
+          s.textContent="GitHub "+((result&&result.status)||"Fehler")+" – noch einmal tippen.";
+        }
+      }
+    }finally{ unlock(); }
+  });
 })();
 </script>
 <script>
