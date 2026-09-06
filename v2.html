@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.12">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.13">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.12</title>
+<title>Servicebericht v2.13</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -410,7 +410,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.12</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.13</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -427,6 +427,7 @@ input.to-check{
       <button type="button" id="historySave" class="history-file-btn">Speichern</button>
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
+      <button type="button" id="historyPdf" class="history-file-btn" hidden>Letztes PDF</button>
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
     </div>
   </div>
@@ -2429,7 +2430,15 @@ initPdfKind();
 $("status").textContent="PDF wird erstellt…";
 try{
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
-let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
+let leerRes=null;
+try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
+if(!leerRes || !leerRes.ok){
+  if(typeof caches!=="undefined"){
+    leerRes=await caches.match("./Leer.pdf") || await caches.match("Leer.pdf");
+  }
+}
+if(!leerRes) throw new Error("Leer.pdf fehlt (auch offline).");
+let bytes=await leerRes.arrayBuffer(),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
 clearPdfForm(form);
@@ -2568,6 +2577,9 @@ if(selectedPdfKind()==="new"){
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
+if(typeof window.stashGeneratedPdf==="function"){
+  await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
+}
 $("status").textContent="Fertig – das PDF ist vorbereitet.";
 }catch(e){$("status").textContent="Fehler: "+e.message}
 };
@@ -3215,7 +3227,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.12";
+  const APP_VERSION="2.13";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3747,6 +3759,154 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 <script>
 (function(){
+  const DB_NAME="servicebericht_pdf_stash_v2";
+  const META_KEY="servicebericht_pdf_stash_meta_v2";
+  let keepObjectUrl="";
+
+  function openDb(){
+    return new Promise((resolve,reject)=>{
+      const req=indexedDB.open(DB_NAME,1);
+      req.onupgradeneeded=()=>{
+        if(!req.result.objectStoreNames.contains("pdfs")) req.result.createObjectStore("pdfs");
+      };
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error);
+    });
+  }
+  async function copyBlob(blob){
+    const buf=await blob.arrayBuffer();
+    return new Blob([buf],{type:"application/pdf"});
+  }
+  async function idbPut(blob, filename, pending){
+    const db=await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction("pdfs","readwrite");
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(tx.error);
+      tx.objectStore("pdfs").put({filename, savedAt:Date.now(), blob, pending:pending!==false}, "last");
+    });
+    try{ db.close(); }catch(e){}
+  }
+  async function idbGet(){
+    try{
+      const db=await openDb();
+      const rec=await new Promise((resolve,reject)=>{
+        const q=db.transaction("pdfs","readonly").objectStore("pdfs").get("last");
+        q.onsuccess=()=>resolve(q.result||null);
+        q.onerror=()=>reject(q.error);
+      });
+      try{ db.close(); }catch(e){}
+      return rec;
+    }catch(e){ return null; }
+  }
+  async function idbMarkPending(pending){
+    const rec=await idbGet();
+    if(!rec || !rec.blob) return;
+    rec.pending=!!pending;
+    await idbPut(rec.blob, rec.filename||"Servicebericht.pdf", rec.pending);
+  }
+  async function opfsFile(blob, filename){
+    try{
+      if(!navigator.storage || !navigator.storage.getDirectory) return null;
+      const root=await navigator.storage.getDirectory();
+      const dir=await root.getDirectoryHandle("servicebericht-pdfs",{create:true});
+      const fh=await dir.getFileHandle("last.pdf",{create:true});
+      const w=await fh.createWritable();
+      await w.write(blob);
+      await w.close();
+      const disk=await fh.getFile();
+      return new File([disk], filename,{type:"application/pdf", lastModified:Date.now()});
+    }catch(e){ return null; }
+  }
+  function setMeta(filename, pending){
+    try{ localStorage.setItem(META_KEY, JSON.stringify({filename:filename||"Servicebericht.pdf", pending:!!pending, savedAt:Date.now()})); }catch(e){}
+  }
+  function getMeta(){
+    try{ return JSON.parse(localStorage.getItem(META_KEY)||"null"); }catch(e){ return null; }
+  }
+  function markPdfUi(){
+    const hist=document.getElementById("historyPdf");
+    if(hist){
+      hist.hidden=!lastPdfBlob;
+      if(lastPdfBlob) hist.textContent="Letztes PDF";
+    }
+  }
+  window.stashGeneratedPdf=async function(blob, filename){
+    const copy=await copyBlob(blob);
+    lastPdfBlob=copy;
+    const name=filename||"Servicebericht.pdf";
+    setMeta(name, true);
+    try{ await idbPut(copy, name, true); }catch(e){}
+    try{ await opfsFile(copy, name); }catch(e){}
+    markPdfUi();
+  };
+  window.restoreStashedPdf=async function(){
+    const rec=await idbGet();
+    if(!rec || !rec.blob) return false;
+    lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
+    setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false);
+    markPdfUi();
+    if(rec.pending!==false){
+      const s=document.getElementById("status");
+      if(s && !s.textContent) s.textContent="Letztes PDF liegt in der App. „Letztes PDF“ teilt es erneut nach OneDrive.";
+    }
+    return true;
+  };
+  window.pdfShareFile=async function(){
+    if(!lastPdfBlob) await window.restoreStashedPdf();
+    if(!lastPdfBlob) return null;
+    const meta=getMeta();
+    const filename=(typeof window.pdfFileName==="function")
+      ? window.pdfFileName()
+      : (meta && meta.filename) || "Servicebericht.pdf";
+    const copy=await copyBlob(lastPdfBlob);
+    const fromDisk=await opfsFile(copy, filename);
+    if(fromDisk) return fromDisk;
+    return new File([copy], filename,{type:"application/pdf", lastModified:Date.now()});
+  };
+  window.markPdfSharePending=function(pending){
+    const meta=getMeta()||{};
+    setMeta(meta.filename||"Servicebericht.pdf", pending);
+    idbMarkPending(pending).catch(()=>{});
+    markPdfUi();
+  };
+  window.offlinePdfShareHint=function(){
+    if(navigator.onLine===false){
+      return "Ohne Internet: in Dateien → Auf meinem iPad speichern. OneDrive legt oft nur einen Platzhalter und kann die Datei später nicht nachladen. Mit Netz die App öffnen und noch einmal „PDF speichern“.";
+    }
+    return "PDF zum Speichern geöffnet. In OneDrive die Datei aus der App teilen, nicht den geöffneten PDF-Tab.";
+  };
+  window.keepPdfObjectUrl=function(blob){
+    if(keepObjectUrl){ try{ URL.revokeObjectURL(keepObjectUrl); }catch(e){} }
+    keepObjectUrl=URL.createObjectURL(blob);
+    return keepObjectUrl;
+  };
+  window.addEventListener("online",()=>{
+    const meta=getMeta();
+    if(!meta || !meta.pending) return;
+    window.restoreStashedPdf().then(ok=>{
+      if(!ok) return;
+      const s=document.getElementById("status");
+      if(s) s.textContent="Internet ist da. „Letztes PDF“ tippen, um die Datei noch einmal nach OneDrive zu legen. Der Offline-Platzhalter in OneDrive lädt sich nicht nach.";
+      markPdfUi();
+    });
+  });
+  function startStash(){
+    window.restoreStashedPdf();
+    const hist=document.getElementById("historyPdf");
+    if(hist && hist.dataset.bound!=="1"){
+      hist.dataset.bound="1";
+      hist.addEventListener("click",()=>{
+        if(typeof window.deliverLastPdf==="function") window.deliverLastPdf();
+      });
+    }
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", startStash);
+  else startStash();
+})();
+</script>
+<script>
+(function(){
   function setupSaveAsPdf(){
     const btn=document.getElementById("savePdf");
     if(!btn || btn.dataset.saveasBound==="1") return;
@@ -3756,63 +3916,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     // On iPad/Safari the native download/share mechanism is used; Safari
     // decides the destination via its own Files UI.
     btn.addEventListener("click",async function(){
-      if(!lastPdfBlob){
-        const status=document.getElementById("status");
-        if(status) status.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
+      if(typeof window.deliverLastPdf==="function"){
+        await window.deliverLastPdf();
         return;
       }
-
-      const defaultName=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
-
-      try{
-        const file=new File([lastPdfBlob],defaultName,{type:"application/pdf"});
-        const ua=navigator.userAgent||"";
-        const onIos=/iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
-        if(onIos && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-          await navigator.share({files:[file]});
-          const status=document.getElementById("status");
-          if(status) status.textContent="PDF zum Speichern geöffnet.";
-          return;
-        }
-      }catch(e){
-        if(e && e.name==="AbortError") return;
-      }
-
-      try{
-        if(window.showSaveFilePicker){
-          const handle=await window.showSaveFilePicker({
-            suggestedName:defaultName,
-            types:[{
-              description:"PDF-Datei",
-              accept:{"application/pdf":[".pdf"]}
-            }]
-          });
-          const writable=await handle.createWritable();
-          await writable.write(lastPdfBlob);
-          await writable.close();
-          const status=document.getElementById("status");
-          if(status) status.textContent="PDF wurde gespeichert.";
-          return;
-        }
-      }catch(e){
-        if(e && e.name==="AbortError") return;
-      }
-
-      // iPad/iPhone Safari: create a download and let the browser's Files
-      // destination picker handle the location. The filename can be changed
-      // by the user in the Files save sheet.
-      const url=URL.createObjectURL(lastPdfBlob);
-      const a=document.createElement("a");
-      a.href=url;
-      a.download=defaultName;
-      a.style.display="none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function(){URL.revokeObjectURL(url);},5000);
-
       const status=document.getElementById("status");
-      if(status) status.textContent="PDF zum Speichern geöffnet.";
+      if(status) status.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
     });
   }
 
@@ -3835,17 +3944,28 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(s) s.textContent=text;
   }
   window.deliverLastPdf=async function(){
+    if(!lastPdfBlob && typeof window.restoreStashedPdf==="function")
+      await window.restoreStashedPdf();
     if(!lastPdfBlob){
       setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
       return false;
     }
-    const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    let shareFile=null;
+    if(typeof window.pdfShareFile==="function") shareFile=await window.pdfShareFile();
+    if(!shareFile){
+      const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+      shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
+    }
+    const afterShare=function(){
+      const offline=navigator.onLine===false;
+      if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
+      setStatus(typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet.");
+      return true;
+    };
     try{
-      const file=new File([lastPdfBlob],filename,{type:"application/pdf"});
-      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
-        await navigator.share({files:[file]});
-        setStatus("PDF zum Speichern geöffnet.");
-        return true;
+      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
+        await navigator.share({files:[shareFile]});
+        return afterShare();
       }
     }catch(e){
       if(e && e.name==="AbortError") return false;
@@ -3855,34 +3975,40 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{
       if(window.showSaveFilePicker && !isIosPdfDevice()){
         const handle=await window.showSaveFilePicker({
-          suggestedName:filename,
+          suggestedName:shareFile.name||"Servicebericht.pdf",
           types:[{
             description:"PDF-Datei",
             accept:{"application/pdf":[".pdf"]}
           }]
         });
         const writable=await handle.createWritable();
-        await writable.write(lastPdfBlob);
+        await writable.write(shareFile);
         await writable.close();
+        if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(false);
         setStatus("PDF wurde gespeichert.");
         return true;
       }
     }catch(e){
       if(e && e.name==="AbortError") return false;
     }
-    const url=URL.createObjectURL(lastPdfBlob);
+    const url=typeof window.keepPdfObjectUrl==="function"
+      ? window.keepPdfObjectUrl(lastPdfBlob)
+      : URL.createObjectURL(lastPdfBlob);
     const a=document.createElement("a");
     a.href=url;
-    a.download=filename;
+    a.download=shareFile.name||"Servicebericht.pdf";
+    a.rel="noopener";
     a.style.display="none";
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    setStatus("PDF zum Speichern geöffnet.");
-    return true;
+    return afterShare();
   };
   window.saveCurrentPdf=function(){ return window.deliverLastPdf(); };
+  function keepSaveButton(btn){
+    btn.dataset.shareReady="1";
+    btn.textContent="PDF speichern";
+  }
   function installCombined(){
     const btn=document.getElementById("generate");
     if(!btn || btn.dataset.combinedInstalled==="1") return;
@@ -3916,8 +4042,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(!lastPdfBlob) return;
         const ok=await window.deliverLastPdf();
         if(!ok && isIosPdfDevice()){
-          btn.dataset.shareReady="1";
-          btn.textContent="PDF speichern";
+          keepSaveButton(btn);
           setStatus("PDF fertig. Noch einmal „PDF speichern“ tippen.");
         }else if(ok){
           btn.dataset.shareReady="";
