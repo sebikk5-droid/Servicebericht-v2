@@ -701,16 +701,40 @@ function anfahrtClockSpan(d){
 function rueckfahrtClockSpan(d){
   return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
 }
+function setClock(el,t){
+  if(!el) return;
+  const v=t||"";
+  if(v && el.tagName==="SELECT"){
+    let found=false;
+    for(const o of el.options){ if(o.value===v){ found=true; break; } }
+    if(!found){
+      const opt=document.createElement("option");
+      opt.value=v;
+      opt.textContent=v;
+      const n=v.split(":").map(Number);
+      const nv=(n[0]||0)*60+(n[1]||0);
+      let placed=false;
+      for(const o of el.options){
+        if(!o.value) continue;
+        const p=o.value.split(":").map(Number);
+        if((p[0]||0)*60+(p[1]||0)>nv){ el.insertBefore(opt,o); placed=true; break; }
+      }
+      if(!placed) el.appendChild(opt);
+    }
+  }
+  el.value=v;
+}
 function syncReturnArrivalFromDeparture(d){
   const box=dayBoxEl(d);
   if(!box) return;
   const backRow=d*2;
   const b1=box.querySelector(`[data-k="RZstart${backRow}"]`);
   const b2=box.querySelector(`[data-k="RZende${backRow}"]`);
+  if(!b1||!b2) return;
+  if(!b1.value && !b2.value) return;
   const span=rueckfahrtClockSpan(d);
-  if(!b1||!b2||!span) return;
-  if(b1.value) b2.value=addMinutesToTime(b1.value,span);
-  else if(b2.value) b1.value=addMinutesToTime(b2.value,-span);
+  if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
+  else setClock(b1,addMinutesToTime(b2.value,-span));
 }
 function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
@@ -735,8 +759,7 @@ function syncWorkEndToReturnStart(d){
   abreise.value=t;
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
-  const backMin=travelMinutesForDay(d,"back");
-  if(ankunft && backMin) ankunft.value=addMinutesToTime(t,rueckfahrtClockSpan(d));
+  setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -1236,8 +1259,8 @@ function applyCustomerRouteDay1(){
 
     // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
-      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      if(a2.value) setClock(a1,addMinutesToTime(a2.value,-outSpan));
+      else if(a1.value) setClock(a2,addMinutesToTime(a1.value,outSpan));
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1245,8 +1268,8 @@ function applyCustomerRouteDay1(){
     const pauseMin=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
     const rueckfahrtGesamt=backTime+pauseMin;
     if(b1 && b2){
-      if(b2.value) b1.value=addMinutesToTime(b2.value,-rueckfahrtGesamt);
-      else if(b1.value) b2.value=addMinutesToTime(b1.value,rueckfahrtGesamt);
+      if(b2.value) setClock(b1,addMinutesToTime(b2.value,-rueckfahrtGesamt));
+      else if(b1.value) setClock(b2,addMinutesToTime(b1.value,rueckfahrtGesamt));
     }
   }
 
@@ -1285,8 +1308,8 @@ function applyCustomerRouteDay(d){
 
     // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
-      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      if(a2.value) setClock(a1,addMinutesToTime(a2.value,-outSpan));
+      else if(a1.value) setClock(a2,addMinutesToTime(a1.value,outSpan));
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1294,8 +1317,8 @@ function applyCustomerRouteDay(d){
     const pauseMin=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
     const rueckfahrtGesamt=backTime+pauseMin;
     if(b1 && b2){
-      if(b2.value) b1.value=addMinutesToTime(b2.value,-rueckfahrtGesamt);
-      else if(b1.value) b2.value=addMinutesToTime(b1.value,rueckfahrtGesamt);
+      if(b2.value) setClock(b1,addMinutesToTime(b2.value,-rueckfahrtGesamt));
+      else if(b1.value) setClock(b2,addMinutesToTime(b1.value,rueckfahrtGesamt));
     }
   }
 
@@ -1708,14 +1731,14 @@ function bindTimeInputs(){
           const az=field("AZstart",outRow);
           if(az&&a2.value&&az.dataset.manual!=="1")az.value=a2.value;
         }
-        if(row===backRow && b1&&b2&&el.value && backMin){
+        if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          if(el===b1)b2.value=addMinutesToTime(el.value,duration);
-          else b1.value=addMinutesToTime(el.value,-duration);
+          if(el===b1) setClock(b2,addMinutesToTime(el.value,duration));
+          else setClock(b1,addMinutesToTime(el.value,-duration));
         }
       }
 
-      if(key===`PauseRZ${backRow}` && backMin){
+      if(key===`PauseRZ${backRow}`){
         syncReturnArrivalFromDeparture(d);
       }
 
@@ -1726,9 +1749,9 @@ function bindTimeInputs(){
       if(key===`AZende${outRow}`){
         syncWorkEndToReturnStart(d);
       }
-      if(key===`RZstart${backRow}`&&el.value&&backMin){
+      if(key===`RZstart${backRow}`&&el.value){
         const ankunft=field("RZende",backRow);
-        if(ankunft)ankunft.value=addMinutesToTime(el.value,rueckfahrtClockSpan(d));
+        setClock(ankunft,addMinutesToTime(el.value,rueckfahrtClockSpan(d)));
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
