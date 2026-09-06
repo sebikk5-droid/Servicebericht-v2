@@ -21,7 +21,7 @@ header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;b
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
 .header-top h1{flex:none;min-width:0}
-#appVersionLine{margin-top:4px;font-size:12px;line-height:1.35}
+#appPlaceLine{margin-top:4px;font-size:12px;line-height:1.35}
 .credit{font-size:10px;line-height:1.3;color:#999;font-weight:500;text-align:left;white-space:nowrap;padding-top:2px;flex:0 0 auto}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
 main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
@@ -378,11 +378,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   <div class="header-top">
     <div class="header-titles">
       <h1>Servicebericht</h1>
-      <div class="muted" id="appVersionLine">App 57</div>
+      <div class="muted" id="appPlaceLine"></div>
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit">Created by S. Pawlina v2.5</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.5</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2922,7 +2922,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_BUILD="57";
+  const APP_VERSION="2.5";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -2961,8 +2961,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return "Safari";
   }
   function syncTokenUi(){
-    const line=$("appVersionLine");
-    if(line) line.textContent="App "+APP_BUILD+" · "+appPlace();
+    const credit=$("appCredit");
+    if(credit) credit.textContent="Created by S. Pawlina v"+APP_VERSION;
+    const place=$("appPlaceLine");
+    if(place) place.textContent=appPlace();
     const btn=$("tokenStatusBtn");
     if(!btn) return;
     if(token()){
@@ -3152,7 +3154,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   syncTokenUi();
   window.sbLists={
     token, setToken, hasToken:()=>!!token(), ensureToken, openTokenModal, pullFile, pushMerged, repo,
-    appBuild:()=>APP_BUILD,
+    appVersion:()=>APP_VERSION,
     asMap(o){ return o && typeof o==="object" && !Array.isArray(o) ? o : {}; }
   };
 })();
