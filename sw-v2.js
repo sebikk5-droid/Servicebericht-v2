@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-71";
+const CACHE_NAME = "servicebericht-v2-72";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -62,6 +62,9 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   const req = event.request;
+  let host = "";
+  try { host = new URL(req.url).hostname; } catch (e) {}
+  if (host === "api.github.com" || host === "github.com") return;
   if (req.method !== "GET") return;
 
   if (isV2Navigation(req)) {
