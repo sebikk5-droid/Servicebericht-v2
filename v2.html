@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.5">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.6">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.5</title>
+<title>Servicebericht v2.6</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -385,7 +385,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.5</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.6</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -701,6 +701,41 @@ function anfahrtClockSpan(d){
 function rueckfahrtClockSpan(d){
   return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
 }
+function setClock(el,t){
+  if(!el) return;
+  const v=t||"";
+  if(v && el.tagName==="SELECT"){
+    let found=false;
+    for(const o of el.options){ if(o.value===v){ found=true; break; } }
+    if(!found){
+      const opt=document.createElement("option");
+      opt.value=v;
+      opt.textContent=v;
+      const n=v.split(":").map(Number);
+      const nv=(n[0]||0)*60+(n[1]||0);
+      let placed=false;
+      for(const o of el.options){
+        if(!o.value) continue;
+        const p=o.value.split(":").map(Number);
+        if((p[0]||0)*60+(p[1]||0)>nv){ el.insertBefore(opt,o); placed=true; break; }
+      }
+      if(!placed) el.appendChild(opt);
+    }
+  }
+  el.value=v;
+}
+function syncReturnArrivalFromDeparture(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  const backRow=d*2;
+  const b1=box.querySelector(`[data-k="RZstart${backRow}"]`);
+  const b2=box.querySelector(`[data-k="RZende${backRow}"]`);
+  if(!b1||!b2) return;
+  if(!b1.value && !b2.value) return;
+  const span=rueckfahrtClockSpan(d);
+  if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
+  else setClock(b1,addMinutesToTime(b2.value,-span));
+}
 function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
   if(!box) return;
@@ -724,8 +759,7 @@ function syncWorkEndToReturnStart(d){
   abreise.value=t;
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
-  const backMin=travelMinutesForDay(d,"back");
-  if(ankunft && backMin) ankunft.value=addMinutesToTime(t,rueckfahrtClockSpan(d));
+  setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -772,6 +806,7 @@ function syncReturnPauseFromDay(box){
   back.dataset.syncing="1";
   back.value=String(next);
   back.dataset.syncing="";
+  syncReturnArrivalFromDeparture(d);
 }
 function clearCheckHighlight(el){
   if(!el || !el.classList) return;
@@ -1224,8 +1259,8 @@ function applyCustomerRouteDay1(){
 
     // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
-      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      if(a2.value) setClock(a1,addMinutesToTime(a2.value,-outSpan));
+      else if(a1.value) setClock(a2,addMinutesToTime(a1.value,outSpan));
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1233,8 +1268,8 @@ function applyCustomerRouteDay1(){
     const pauseMin=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
     const rueckfahrtGesamt=backTime+pauseMin;
     if(b1 && b2){
-      if(b2.value) b1.value=addMinutesToTime(b2.value,-rueckfahrtGesamt);
-      else if(b1.value) b2.value=addMinutesToTime(b1.value,rueckfahrtGesamt);
+      if(b2.value) setClock(b1,addMinutesToTime(b2.value,-rueckfahrtGesamt));
+      else if(b1.value) setClock(b2,addMinutesToTime(b1.value,rueckfahrtGesamt));
     }
   }
 
@@ -1273,8 +1308,8 @@ function applyCustomerRouteDay(d){
 
     // Anfahrt: Netto + Pause. Ankunft (bis) bleibt, Abfahrt (von) verschiebt sich.
     if(a1 && a2){
-      if(a2.value) a1.value=addMinutesToTime(a2.value,-outSpan);
-      else if(a1.value) a2.value=addMinutesToTime(a1.value,outSpan);
+      if(a2.value) setClock(a1,addMinutesToTime(a2.value,-outSpan));
+      else if(a1.value) setClock(a2,addMinutesToTime(a1.value,outSpan));
     }
 
     // Rückfahrt: Listenzeit/manuelle Zeit + die im Feld Pause Reisezeit
@@ -1282,8 +1317,8 @@ function applyCustomerRouteDay(d){
     const pauseMin=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
     const rueckfahrtGesamt=backTime+pauseMin;
     if(b1 && b2){
-      if(b2.value) b1.value=addMinutesToTime(b2.value,-rueckfahrtGesamt);
-      else if(b1.value) b2.value=addMinutesToTime(b1.value,rueckfahrtGesamt);
+      if(b2.value) setClock(b1,addMinutesToTime(b2.value,-rueckfahrtGesamt));
+      else if(b1.value) setClock(b2,addMinutesToTime(b1.value,rueckfahrtGesamt));
     }
   }
 
@@ -1641,6 +1676,13 @@ function bindTimeInputs(){
         return;
       }
 
+      if(key===`PauseAZ${outRow}`){
+        syncReturnPauseFromDay(box);
+        recalcTimes();
+        if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+        return;
+      }
+
       if(el.dataset.routeOverride==="out" || el.dataset.routeOverride==="back"){
         const isEmpty=String(el.value??"").trim()==="";
         const val=isEmpty ? (el.dataset.routeOverride==="out"?outDrive:backMin) : Math.max(0,parseInt(el.value,10)||0);
@@ -1689,16 +1731,15 @@ function bindTimeInputs(){
           const az=field("AZstart",outRow);
           if(az&&a2.value&&az.dataset.manual!=="1")az.value=a2.value;
         }
-        if(row===backRow && b1&&b2&&el.value && backMin){
+        if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          if(el===b1)b2.value=addMinutesToTime(el.value,duration);
-          else b1.value=addMinutesToTime(el.value,-duration);
+          if(el===b1) setClock(b2,addMinutesToTime(el.value,duration));
+          else setClock(b1,addMinutesToTime(el.value,-duration));
         }
       }
 
-      if(key===`PauseRZ${backRow}` && backMin){
-        const b1=field("RZstart",backRow), b2=field("RZende",backRow);
-        if(b1 && b2 && b1.value) b2.value=addMinutesToTime(b1.value,rueckfahrtClockSpan(d));
+      if(key===`PauseRZ${backRow}`){
+        syncReturnArrivalFromDeparture(d);
       }
 
       if(key===`RZende${outRow}`){
@@ -1708,9 +1749,9 @@ function bindTimeInputs(){
       if(key===`AZende${outRow}`){
         syncWorkEndToReturnStart(d);
       }
-      if(key===`RZstart${backRow}`&&el.value&&backMin){
+      if(key===`RZstart${backRow}`&&el.value){
         const ankunft=field("RZende",backRow);
-        if(ankunft)ankunft.value=addMinutesToTime(el.value,rueckfahrtClockSpan(d));
+        setClock(ankunft,addMinutesToTime(el.value,rueckfahrtClockSpan(d)));
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
@@ -2925,7 +2966,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.5";
+  const APP_VERSION="2.6";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
