@@ -6,13 +6,25 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.20">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.21">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.20</title>
+<title>Servicebericht v2.21</title>
+<script>
+(function(){
+  try{
+    if(sessionStorage.getItem("servicebericht_unlocked_v1")==="1")
+      document.documentElement.classList.add("app-open");
+    else
+      document.documentElement.classList.add("app-locked");
+  }catch(e){
+    document.documentElement.classList.add("app-locked");
+  }
+})();
+</script>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -400,6 +412,35 @@ input.to-check{
 }
 .token-status.is-on{background:#dcefe0;color:#14532d}
 .token-status.is-off{background:#fde8d2;color:#9a3412}
+.credit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px}
+.credit-row .credit{padding-top:0}
+.lock-actions{display:flex;gap:6px;flex:0 0 auto}
+.lock-actions button{
+  flex:0 0 auto;border:0;border-radius:10px;padding:7px 10px;min-height:34px;
+  font-size:12px;font-weight:750;background:#eee;color:#333;cursor:pointer
+}
+html.app-locked header,
+html.app-locked main,
+html.app-locked .bottom,
+html.app-locked #tokenModal,
+html.app-locked #pdfKindModal,
+html.app-locked #sigModal{
+  visibility:hidden !important;pointer-events:none !important
+}
+#appLock{
+  display:none;position:fixed;inset:0;z-index:200;background:#f2f2f7;
+  align-items:center;justify-content:center;padding:18px
+}
+html.app-locked #appLock{display:flex}
+#appLock.is-change{display:flex}
+.app-lock-card{
+  width:min(420px,100%);background:#fff;border-radius:16px;padding:22px 18px;
+  box-shadow:0 1px 3px #00000012
+}
+.app-lock-card h2{margin:0 0 8px;font-size:22px}
+.app-lock-card .app-lock-err{color:#b42318;min-height:18px;margin:8px 0 0;font-size:13px}
+.app-lock-card .app-lock-actions{display:flex;gap:8px;margin-top:14px}
+.app-lock-card .app-lock-actions button{flex:1}
 .blatt-row{
   display:flex;align-items:flex-end;gap:6px;max-width:200px;
 }
@@ -421,7 +462,13 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.20</div>
+  <div class="credit-row">
+    <div class="credit" id="appCredit">Created by S. Pawlina v2.21</div>
+    <div class="lock-actions">
+      <button type="button" id="appPwBtn">Passwort</button>
+      <button type="button" id="appLockBtn">Sperren</button>
+    </div>
+  </div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -627,6 +674,156 @@ input.to-check{
     </div>
   </div>
 </div>
+<div id="appLock" aria-hidden="true">
+  <div class="app-lock-card">
+    <h2 id="appLockTitle">App-Passwort</h2>
+    <p class="muted" id="appLockHint">Die Kundenliste bleibt verborgen, bis das Passwort stimmt.</p>
+    <div id="appLockOpenFields">
+      <label for="appLockInput">Passwort</label>
+      <input id="appLockInput" type="password" autocomplete="current-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div id="appLockChangeFields" hidden>
+      <label for="appLockOld">Aktuelles Passwort</label>
+      <input id="appLockOld" type="password" autocomplete="current-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <label for="appLockNew">Neues Passwort</label>
+      <input id="appLockNew" type="password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <label for="appLockNew2">Neues Passwort wiederholen</label>
+      <input id="appLockNew2" type="password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <p class="muted app-lock-err" id="appLockErr"></p>
+    <div class="app-lock-actions">
+      <button type="button" class="clear" id="appLockCancel" hidden>Abbrechen</button>
+      <button type="button" class="go" id="appLockGo">Öffnen</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const UNLOCK_KEY="servicebericht_unlocked_v1";
+  const HASH_KEY="servicebericht_app_pw_v1";
+  const DEFAULT_HASH="8105266f15c30bbf01825f66e5461516c41435f279f4cb87f34101c274ccbca8";
+  function $(id){ return document.getElementById(id); }
+  const lockEl=$("appLock");
+  const errEl=$("appLockErr");
+  function storedHash(){
+    try{
+      const h=String(localStorage.getItem(HASH_KEY)||"").trim().toLowerCase();
+      if(/^[0-9a-f]{64}$/.test(h)) return h;
+    }catch(e){}
+    return DEFAULT_HASH;
+  }
+  async function sha256hex(s){
+    const bytes=new TextEncoder().encode(String(s||""));
+    if(window.crypto && crypto.subtle){
+      const buf=await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+    throw new Error("hash");
+  }
+  function setErr(msg){ if(errEl) errEl.textContent=msg||""; }
+  function isUnlocked(){
+    try{ return sessionStorage.getItem(UNLOCK_KEY)==="1"; }catch(e){ return false; }
+  }
+  function markUnlocked(){
+    try{ sessionStorage.setItem(UNLOCK_KEY,"1"); }catch(e){}
+    document.documentElement.classList.remove("app-locked");
+    document.documentElement.classList.add("app-open");
+    if(lockEl){
+      lockEl.classList.remove("is-change");
+      lockEl.setAttribute("aria-hidden","true");
+    }
+    window.dispatchEvent(new Event("sb-app-unlock"));
+  }
+  function markLocked(){
+    try{ sessionStorage.removeItem(UNLOCK_KEY); }catch(e){}
+    document.documentElement.classList.add("app-locked");
+    document.documentElement.classList.remove("app-open");
+    window._companiesListStarted=false;
+    try{ if(typeof applyCompanies==="function") applyCompanies([]); }catch(e){}
+    if(lockEl){
+      lockEl.classList.remove("is-change");
+      lockEl.setAttribute("aria-hidden","false");
+    }
+    showOpenMode();
+    const input=$("appLockInput");
+    if(input){ input.value=""; setTimeout(function(){ try{ input.focus(); }catch(e){} }, 120); }
+  }
+  function showOpenMode(){
+    $("appLockTitle").textContent="App-Passwort";
+    $("appLockHint").textContent="Die Kundenliste bleibt verborgen, bis das Passwort stimmt.";
+    $("appLockOpenFields").hidden=false;
+    $("appLockChangeFields").hidden=true;
+    $("appLockCancel").hidden=true;
+    $("appLockGo").textContent="Öffnen";
+    setErr("");
+  }
+  function showChangeMode(){
+    $("appLockTitle").textContent="Passwort ändern";
+    $("appLockHint").textContent="Neues Passwort gilt nur in dieser App auf diesem Gerät.";
+    $("appLockOpenFields").hidden=true;
+    $("appLockChangeFields").hidden=false;
+    $("appLockCancel").hidden=false;
+    $("appLockGo").textContent="Speichern";
+    ["appLockOld","appLockNew","appLockNew2"].forEach(function(id){ const el=$(id); if(el) el.value=""; });
+    setErr("");
+    lockEl.classList.add("is-change");
+    lockEl.setAttribute("aria-hidden","false");
+    setTimeout(function(){ try{ $("appLockOld").focus(); }catch(e){} }, 120);
+  }
+  async function checkPw(raw){
+    const got=await sha256hex(String(raw||""));
+    return got===storedHash();
+  }
+  async function onGo(){
+    setErr("");
+    try{
+      if($("appLockChangeFields").hidden===false){
+        const old=$("appLockOld")?.value||"";
+        const n1=$("appLockNew")?.value||"";
+        const n2=$("appLockNew2")?.value||"";
+        if(!(await checkPw(old))){ setErr("Aktuelles Passwort stimmt nicht."); return; }
+        if(String(n1).length<4){ setErr("Neues Passwort mindestens 4 Zeichen."); return; }
+        if(n1!==n2){ setErr("Neue Passwörter sind nicht gleich."); return; }
+        localStorage.setItem(HASH_KEY, await sha256hex(n1));
+        lockEl.classList.remove("is-change");
+        if(isUnlocked()){
+          lockEl.setAttribute("aria-hidden","true");
+          showOpenMode();
+        }else markUnlocked();
+        const s=$("status");
+        if(s) s.textContent="App-Passwort gespeichert.";
+        return;
+      }
+      const ok=await checkPw($("appLockInput")?.value||"");
+      if(!ok){ setErr("Passwort falsch."); return; }
+      markUnlocked();
+    }catch(e){
+      setErr("Passwort konnte nicht geprüft werden.");
+    }
+  }
+  window.sbAppUnlocked=isUnlocked;
+  $("appLockGo")?.addEventListener("click", onGo);
+  $("appLockCancel")?.addEventListener("click", function(){
+    lockEl.classList.remove("is-change");
+    if(isUnlocked()){
+      lockEl.setAttribute("aria-hidden","true");
+      showOpenMode();
+    }else showOpenMode();
+  });
+  $("appLockBtn")?.addEventListener("click", markLocked);
+  $("appPwBtn")?.addEventListener("click", function(){
+    if(!isUnlocked()){ markLocked(); return; }
+    showChangeMode();
+  });
+  ["appLockInput","appLockOld","appLockNew","appLockNew2"].forEach(function(id){
+    $(id)?.addEventListener("keydown", function(e){
+      if(e.key==="Enter"){ e.preventDefault(); onGo(); }
+    });
+  });
+  if(isUnlocked()) markUnlocked();
+  else markLocked();
+})();
+</script>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
     <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
@@ -1467,7 +1664,10 @@ function applyCustomerRouteDay(d){
   }
   recalcTimes();
 }
-fetch("companies.json").then(r=>{
+window.loadCompaniesList=function(){
+  if(window._companiesListStarted) return;
+  window._companiesListStarted=true;
+  fetch("companies.json").then(r=>{
   if(!r.ok) throw new Error("companies.json HTTP "+r.status);
   return r.json();
 }).then(x=>{
@@ -1500,9 +1700,14 @@ fetch("companies.json").then(r=>{
 }).catch(err=>{
   console.error("companies.json:",err);
   $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
+  window._companiesListStarted=false;
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
 });
+};
+if(typeof window.sbAppUnlocked==="function" && window.sbAppUnlocked())
+  window.loadCompaniesList();
+window.addEventListener("sb-app-unlock", function(){ window.loadCompaniesList(); });
 
 function fieldRectOf(form,n){
   try{
@@ -3205,6 +3410,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }
     function show(){
+      if(typeof window.sbAppUnlocked==="function" && !window.sbAppUnlocked()){
+        results.style.display="none";
+        results.innerHTML="";
+        return;
+      }
       const q=input.value.trim().toLocaleLowerCase("de-DE");
       results.innerHTML="";
       const options=getOptions().filter(o=>{
@@ -3267,7 +3477,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.20";
+  const APP_VERSION="2.21";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
