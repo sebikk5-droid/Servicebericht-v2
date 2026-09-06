@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.23">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.24">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.23</title>
+<title>Servicebericht v2.24</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -364,7 +364,7 @@ input.to-check{
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
 #companySave[hidden]{display:none!important}
-#companySave:not([hidden]){
+#companySave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
 @keyframes companySavePulse{
@@ -432,7 +432,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.23</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.24</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -464,7 +464,7 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Die Liste liegt im privaten GitHub-Repo Servicebericht-listen (nicht auf github.io). Oben Token setzen. Fehlt der Name, pulsiert „Zur Kundenliste hinzufügen“.</div>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Die Liste liegt im privaten GitHub-Repo Servicebericht-listen (nicht auf github.io). Oben Token setzen. Neuer Name: „Zur Kundenliste hinzufügen“. Km/Reisezeit nachtragen: „Kundenliste aktualisieren“.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -1340,11 +1340,34 @@ function knownCompanyName(name){
   if(!k || !Array.isArray(companies)) return false;
   return companies.some(c=>companyNameKey(c)===k);
 }
+function companyRecordByName(name){
+  const k=String(name||"").trim().toLowerCase();
+  if(!k || !Array.isArray(companies)) return null;
+  return companies.find(c=>companyNameKey(c)===k)||null;
+}
+function companyRouteIncomplete(c){
+  const r=typeof parseRoute==="function"?parseRoute(c):{km:0,minutes:0};
+  return !r.km || !r.minutes;
+}
 function syncCompanySaveButton(){
   const btn=$("companySave");
   if(!btn) return;
   const name=String($("customerSearch")?.value||"").trim();
-  btn.hidden=!name || knownCompanyName(name);
+  if(!name){
+    btn.hidden=true;
+    btn.classList.remove("is-pulse");
+    btn.textContent="Zur Kundenliste hinzufügen";
+    return;
+  }
+  btn.hidden=false;
+  const existing=companyRecordByName(name);
+  if(!existing){
+    btn.textContent="Zur Kundenliste hinzufügen";
+    btn.classList.add("is-pulse");
+    return;
+  }
+  btn.textContent="Kundenliste aktualisieren";
+  btn.classList.toggle("is-pulse", companyRouteIncomplete(existing));
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
 function mergeCompanyRecord(remote, rec){
@@ -1368,7 +1391,7 @@ function mergeCompanyRecord(remote, rec){
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
     if(rec.adres) c.adres=rec.adres;
-    if(rec.notatki) c.notatki=rec.notatki;
+    if(rec.notatki!=null) c.notatki=String(rec.notatki);
   }
   return arr;
 }
@@ -3362,7 +3385,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.23";
+  const APP_VERSION="2.24";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3696,7 +3719,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     routeWait=null;
     if(r) r(value);
   }
-  function askRouteDialog(firma){
+  function askRouteDialog(firma, updating){
     const modal=$("routeModal");
     const kmEl=$("routeModalKm");
     const timeEl=$("routeModalTime");
@@ -3705,12 +3728,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const hint=$("routeModalHint");
     if(!modal||!kmEl||!timeEl) return Promise.resolve(null);
     if(title) title.textContent="Anfahrt: "+(firma||"Kunde");
-    if(hint) hint.textContent="Kilometer und Reisezeit einer Strecke. Steht dann in der Kundenliste für Tag 1.";
+    if(hint) hint.textContent=updating
+      ? "Kilometer und Reisezeit ändern. Speichern schreibt sie in die Kundenliste."
+      : "Kilometer und Reisezeit einer Strecke. Steht dann in der Kundenliste für Tag 1.";
     if(err) err.textContent="";
     const kmNow=String(document.querySelector('[data-k="Kilometer1"]')?.value||"").trim();
     const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
     kmEl.value=kmNow && kmNow!=="0" ? kmNow : "";
-        timeEl.value=rtTxt && /^\d+:\d{2}$/.test(rtTxt) && rtTxt!=="00:00" && rtTxt!=="0:00" ? rtTxt : "";
+    timeEl.value=rtTxt && /^\d+:\d{2}$/.test(rtTxt) && rtTxt!=="00:00" && rtTxt!=="0:00" ? rtTxt : "";
+    if((!kmEl.value || !timeEl.value) && typeof companyRecordByName==="function"){
+      const fromList=companyRecordByName(firma);
+      const listR=fromList && typeof parseRoute==="function" ? parseRoute(fromList) : {km:0,minutes:0};
+      if(!kmEl.value && listR.km) kmEl.value=String(listR.km).replace(".",",");
+      if(!timeEl.value && listR.minutes && typeof formatMinutesClock==="function")
+        timeEl.value=formatMinutesClock(listR.minutes);
+    }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
     setTimeout(function(){ try{ kmEl.focus(); }catch(e){} }, 120);
@@ -3766,7 +3798,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(s) s.textContent="Zuerst den Firmennamen eintragen.";
         return;
       }
-      const route=await askRouteDialog(rec.firma);
+      const existed=typeof companyRecordByName==="function"
+        ? !!companyRecordByName(rec.firma)
+        : (Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase()));
+      const route=await askRouteDialog(rec.firma, existed);
       if(!route){
         if(s) s.textContent="Speichern abgebrochen.";
         return;
@@ -3782,7 +3817,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
       if(s) s.textContent="Kunde wird in Servicebericht-listen gespeichert…";
-      const existed=Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase());
       const {merged, result}=await window.sbLists.pushMerged(
         "companies",
         rec,
@@ -3796,7 +3830,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(s) s.textContent=existed
-          ? "Kunde steht in companies.json (privates Repo Servicebericht-listen)."
+          ? "Kundenliste aktualisiert (km, Reisezeit, Adresse) in Servicebericht-listen."
           : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
       }else{
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
