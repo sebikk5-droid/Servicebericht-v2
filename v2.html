@@ -35,22 +35,27 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   -webkit-overflow-scrolling:touch;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6}
+.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
-.bottom-actions{display:flex;gap:8px;width:100%}
-.bottom-actions button{flex:1 1 0;min-width:0}
-.pdf-kind{display:flex;gap:8px;width:100%}
-.pdf-kind-opt{
-  flex:1 1 0;min-width:0;margin:0;padding:8px 10px;min-height:38px;
-  display:flex;align-items:center;justify-content:center;gap:0;
-  border:1px solid #c9c9ce;border-radius:11px;background:#f4f4f6;
-  font-size:14px;font-weight:700;color:#1c1c1e;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;user-select:none;position:relative;
+.bottom button{flex:1 1 0;min-width:0}
+#pdfKindModal{
+  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
 }
-.pdf-kind-opt input{position:absolute;opacity:0;pointer-events:none;width:0;height:0;margin:0}
-.pdf-kind-opt.is-on,.pdf-kind-opt:has(input:checked){
-  background:#163a5c;border-color:#163a5c;color:#fff;
+#pdfKindModal.is-open{display:flex}
+.pdf-kind-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
 }
+.pdf-kind-sheet h3{margin:0 0 14px;font-size:18px;text-align:center}
+.pdf-kind-picks{display:flex;gap:12px;margin:0 0 12px}
+.pdf-kind-num{
+  flex:1;min-height:96px;border:1px solid #c9c9ce;border-radius:16px;
+  background:#f4f4f6;color:#111;font-size:40px;font-weight:800;padding:0;
+}
+.pdf-kind-num.is-on{background:#163a5c;border-color:#163a5c;color:#fff}
+#pdfKindCancel{width:100%}
 #status{font-size:13px;color:#555;margin:7px 2px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 @media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
@@ -587,14 +592,15 @@ input.to-check{
 </section>
 <div id="status"></div>
 </main>
-<div class="bottom">
-  <div class="pdf-kind" role="radiogroup" aria-label="PDF-Vorlage">
-    <label class="pdf-kind-opt"><input type="radio" name="pdfKind" value="old"> PDF alt</label>
-    <label class="pdf-kind-opt is-on"><input type="radio" name="pdfKind" value="new" checked> PDF neu</label>
-  </div>
-  <div class="bottom-actions">
-    <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
-    <button class="go" id="generate">PDF erstellen & speichern</button>
+<div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div id="pdfKindModal" aria-hidden="true">
+  <div class="pdf-kind-sheet">
+    <h3>PDF</h3>
+    <div class="pdf-kind-picks">
+      <button type="button" class="pdf-kind-num" data-pdf-kind="old">1</button>
+      <button type="button" class="pdf-kind-num" data-pdf-kind="new">2</button>
+    </div>
+    <button type="button" class="clear" id="pdfKindCancel">Abbrechen</button>
   </div>
 </div>
 <div id="tokenModal" aria-hidden="true">
@@ -2305,27 +2311,48 @@ function drawPdfTotalsRow(page, font, t, boldFont){
 initSignaturePads();
 
 const PDF_KIND_KEY="servicebericht_pdf_kind_v2";
+let pdfKindChoice="new";
 function selectedPdfKind(){
-  return document.querySelector('input[name="pdfKind"]:checked')?.value==="old" ? "old" : "new";
+  return pdfKindChoice==="old" ? "old" : "new";
 }
-function syncPdfKindUi(){
-  document.querySelectorAll('input[name="pdfKind"]').forEach(el=>{
-    const lab=el.closest(".pdf-kind-opt");
-    if(lab) lab.classList.toggle("is-on", !!el.checked);
+function setPdfKind(kind){
+  pdfKindChoice=kind==="old" ? "old" : "new";
+  try{ localStorage.setItem(PDF_KIND_KEY, pdfKindChoice); }catch(e){}
+  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
+    btn.classList.toggle("is-on", btn.getAttribute("data-pdf-kind")===pdfKindChoice);
   });
+}
+function openPdfKindSheet(){
+  const modal=$("pdfKindModal");
+  if(!modal) return;
+  setPdfKind(selectedPdfKind());
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden","false");
+}
+function closePdfKindSheet(){
+  const modal=$("pdfKindModal");
+  if(!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden","true");
 }
 function initPdfKind(){
   let kind="new";
   try{ kind=localStorage.getItem(PDF_KIND_KEY)||"new"; }catch(e){}
-  if(kind!=="old" && kind!=="new") kind="new";
-  document.querySelectorAll('input[name="pdfKind"]').forEach(el=>{
-    el.checked=el.value===kind;
-    el.addEventListener("change",()=>{
-      try{ localStorage.setItem(PDF_KIND_KEY, selectedPdfKind()); }catch(e){}
-      syncPdfKindUi();
+  setPdfKind(kind);
+  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      setPdfKind(btn.getAttribute("data-pdf-kind"));
+      closePdfKindSheet();
+      const go=$("generate");
+      if(!go) return;
+      go.dataset.awaitKind="1";
+      go.click();
     });
   });
-  syncPdfKindUi();
+  $("pdfKindCancel")?.addEventListener("click", closePdfKindSheet);
+  $("pdfKindModal")?.addEventListener("click",e=>{
+    if(e.target===$("pdfKindModal")) closePdfKindSheet();
+  });
 }
 initPdfKind();
 
@@ -3753,6 +3780,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         });
         return;
       }
+      if(btn.dataset.awaitKind!=="1"){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+        return;
+      }
+      btn.dataset.awaitKind="";
       let tries=0;
       const previousBlob=lastPdfBlob;
       const finish=async ()=>{
