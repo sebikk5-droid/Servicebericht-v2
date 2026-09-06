@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.28">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.29">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.28</title>
+<title>Servicebericht v2.29</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -412,6 +412,10 @@ input.to-check{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
 }
+#emailDelete{
+  flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
+  background:#e5e5ea;color:#111;
+}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -465,7 +469,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.28</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.29</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -526,6 +530,7 @@ input.to-check{
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
   <button type="button" id="emailSave">E-Mail merken</button>
+  <button type="button" id="emailDelete">Löschen</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
@@ -3450,7 +3455,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.28";
+  const APP_VERSION="2.29";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4003,17 +4008,40 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return arr;
   }
-  async function pushEmails(message, email){
+  function stripCompanyEmail(list, firmaKey, email){
+    const arr=Array.isArray(list)?list.map(c=>Object.assign({}, c)):list;
+    if(!Array.isArray(arr)) return list;
+    const k=String(firmaKey||"").trim().toLowerCase();
+    const e=String(email||"").trim().toLowerCase();
+    if(!k || !e) return arr;
+    arr.forEach(c=>{
+      const name=String((c&& (c.firma||c.name))||"").trim().toLowerCase();
+      const match=name===k || (k.length>=6 && name.indexOf(k)===0) || (name.length>=6 && k.indexOf(name)===0);
+      if(!match) return;
+      const have=String(c.email||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
+      c.email=have.filter(x=>x.toLowerCase()!==e).join("; ");
+    });
+    return arr;
+  }
+  async function pushEmails(message, email, remove){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
+    const k=customerKey();
     const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
-      return mergeEmailMaps(window.sbLists.asMap(remote), local||{});
+      const merged=mergeEmailMaps(window.sbLists.asMap(remote), local||{});
+      if(remove && email && k && Array.isArray(merged[k])){
+        merged[k]=merged[k].filter(x=>x.toLowerCase()!==String(email).toLowerCase());
+        if(!merged[k].length) delete merged[k];
+      }
+      return merged;
     });
     if(emailPush && emailPush.merged) saveMap(emailPush.merged);
     let companyPush=null;
     if(email){
-      companyPush=await window.sbLists.pushMerged("companies", {firma:customerKey(), email}, "E-Mail in Firmenliste", function(remote, local){
+      companyPush=await window.sbLists.pushMerged("companies", {firma:k, email}, remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste", function(remote, local){
         if(!Array.isArray(remote)) return remote;
-        return mergeCompanyEmails(remote, local.firma, local.email);
+        return remove
+          ? stripCompanyEmail(remote, local.firma, local.email)
+          : mergeCompanyEmails(remote, local.firma, local.email);
       });
     }
     if(emailPush && emailPush.result && emailPush.result.ok) return emailPush.result;
@@ -4059,6 +4087,32 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(pushed && pushed.ok) s.textContent="E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
       else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+    }
+    return true;
+    }finally{ unlock(); }
+  }
+  async function deleteEmail(email){
+    const prev=addLock;
+    let unlock=()=>{};
+    addLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    try{
+    const k=customerKey();
+    const e=String(email||"").trim();
+    if(!k || !validEmail(e)) return false;
+    await pullEmails();
+    const map=loadMap();
+    const list=Array.isArray(map[k])?map[k]:[];
+    const next=list.filter(x=>x.toLowerCase()!==e.toLowerCase());
+    if(next.length) map[k]=next;
+    else delete map[k];
+    saveMap(map);
+    const pushed=await pushEmails("E-Mail gelöscht: "+k, e, true);
+    const s=$("status");
+    if(s){
+      if(pushed && pushed.ok) s.textContent="E-Mail aus der Kundenliste gelöscht.";
+      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail lokal gelöscht.";
+      else s.textContent="E-Mail lokal gelöscht. GitHub "+((pushed&&(pushed.status||pushed.reason))||"Fehler")+" – noch einmal tippen.";
     }
     return true;
     }finally{ unlock(); }
@@ -4147,6 +4201,25 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }else{
         setEmail(e);
       }
+    });
+    $("emailDelete")?.addEventListener("click", async ()=>{
+      const e=currentEmail();
+      const s=$("status");
+      if(!customerKey()){
+        if(s) s.textContent="Zuerst den Kunden wählen.";
+        return;
+      }
+      if(!validEmail(e)){
+        if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
+        return;
+      }
+      if(!confirm("Diese E-Mail beim Kunden löschen?")) return;
+      if(!await deleteEmail(e)){
+        if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
+        return;
+      }
+      const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==e.toLowerCase());
+      setEmail(rest[0]||"");
     });
   }
   async function persistEmailField(){
