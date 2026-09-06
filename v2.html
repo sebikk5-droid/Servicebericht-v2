@@ -278,8 +278,6 @@ input.to-check{
   touch-action:pan-y;
 }
 .combo-pick:hover,.combo-pick.is-on{background:#eef5fb}
-.combo-pick.is-preferred{font-weight:750}
-.combo-pick.is-preferred::after{content:" · Kunde";color:#666;font-weight:600;font-size:12px}
 .combo-row-del{
   flex:0 0 44px;border:0;background:transparent;color:#888;font-size:20px;font-weight:700;
   cursor:pointer;min-height:44px;padding:0
@@ -558,7 +556,7 @@ input.to-check{
 </div>
 <div class="machine-bar">
   <button type="button" id="machineSave">Zur Maschinenliste des Kunden hinzufügen</button>
-  <span id="machineSaveOk" aria-hidden="true">✓</span>
+  <span id="machineSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
 </section>
@@ -4714,7 +4712,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const q=useFilter ? norm(input.value) : "";
       const source=Array.isArray(overrideOptions) ? overrideOptions : getOptions();
       const options=source.filter(v=> !q || norm(v).includes(q));
-      const preferred=typeof preferredNamesFor==="function" ? preferredNamesFor(input.id) : [];
       results.innerHTML="";
       if(!options.length){
         const empty=document.createElement("div");
@@ -4730,8 +4727,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         pick.setAttribute("role","option");
         pick.textContent=v;
         if(norm(input.value)===norm(v)) pick.classList.add("is-on");
-        const isPref=preferred.some(p=> input.id==="manufacturer" ? sameBrand(p,v) : sameType(p,v));
-        if(isPref) pick.classList.add("is-preferred");
         pick.addEventListener("click",()=>{
           input.value=v;
           syncComboClears();
@@ -4876,7 +4871,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
       else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
-    if(opts && opts.showOk || wasNew) showMachineSaveOk();
+    if((opts && opts.showOk) || wasNew) showMachineSaveOk();
     }finally{ unlock(); }
   }
   window.pullCustomerMachines=pullMachines;
