@@ -789,6 +789,9 @@ function markKmToCheck(box){
   box.querySelectorAll('input[data-k^="Kilometer"]').forEach(el=>{
     el.classList.add("km-check");
   });
+  box.querySelectorAll("input[data-route-override]").forEach(el=>{
+    el.classList.add("km-check");
+  });
 }
 function markExtraDaysKmToCheck(){
   document.querySelectorAll("[data-daybox]").forEach(box=>{
