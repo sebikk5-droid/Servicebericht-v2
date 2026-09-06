@@ -4107,6 +4107,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(next.length) map[k]=next;
     else delete map[k];
     saveMap(map);
+    try{
+      if(typeof companies!=="undefined" && Array.isArray(companies) && typeof applyCompanies==="function"){
+        applyCompanies(stripCompanyEmail(companies, k, e), typeof firmaName==="function"?firmaName():"");
+      }
+    }catch(err){}
     const pushed=await pushEmails("E-Mail gelöscht: "+k, e, true);
     const s=$("status");
     if(s){
