@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.9">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.9</title>
+<title>Servicebericht v2.10</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -392,7 +392,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.9</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.10</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2230,6 +2230,39 @@ async function embedSignatures(pdf, boxes){
     });
   }
 }
+function drawPdfTotalsRow(page, font, t){
+  if(!page || !font || !t) return;
+  if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
+  const black=PDFLib.rgb(0,0,0);
+  const y=111.37, h=21.29;
+  const cells=[
+    {x:326.82, w:40.65, text:""},
+    {x:369.12, w:35.67, text:t.travel ? fmtMinPdf(t.travel) : ""},
+    {x:405.90, w:35.67, text:t.work ? fmtMinPdf(t.work) : ""},
+    {x:442.67, w:34.44, text:t.pauseRz ? fmtMinPdf(t.pauseRz) : ""},
+    {x:478.06, w:34.44, text:t.pauseAz ? fmtMinPdf(t.pauseAz) : ""},
+    {x:513.73, w:51.98, text:t.all ? fmtMinPdf(t.all) : ""}
+  ];
+  const x0=cells[0].x;
+  const x1=cells[cells.length-1].x+cells[cells.length-1].w;
+  page.drawRectangle({x:x0,y,width:x1-x0,height:h,borderWidth:0.85,borderColor:black});
+  for(let i=1;i<cells.length;i++){
+    const x=cells[i].x;
+    page.drawLine({start:{x,y},end:{x,y:y+h},thickness:0.6,color:black});
+  }
+  const size=8;
+  cells.forEach(c=>{
+    if(!c.text) return;
+    const tw=font.widthOfTextAtSize(c.text,size);
+    page.drawText(c.text,{
+      x:c.x+Math.max(1.4,(c.w-tw)/2),
+      y:y+(h-size)/2+0.8,
+      size,
+      font,
+      color:black
+    });
+  });
+}
 initSignaturePads();
 
   $("generate").onclick=async()=>{
@@ -2272,7 +2305,7 @@ setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
 wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
 wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
-let km=0, travel=0, work=0, all=0;
+let km=0, travel=0, work=0, all=0, pauseRzSum=0, pauseAzSum=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
   const box=dayBoxes[d-1];
@@ -2311,6 +2344,8 @@ for(let d=1;d<=dayBoxes.length;d++){
   km+=(parseFloat((kmA||"").replace(",","."))||0);
   km+=(parseFloat((kmB||"").replace(",","."))||0);
   travel+=rt+rr;work+=wt;
+  pauseRzSum+=pauseOut+pauseBack;
+  pauseAzSum+=pauseWork;
   all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
@@ -2354,6 +2389,11 @@ const sigBoxes=signatureFieldBoxes(form);
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
 form.flatten();
+drawPdfTotalsRow(page, pdfFitFont, {
+  km, travel, work, all,
+  pauseRz:pauseRzSum,
+  pauseAz:pauseAzSum
+});
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
@@ -3004,7 +3044,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.9";
+  const APP_VERSION="2.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
