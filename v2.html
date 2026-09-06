@@ -2261,61 +2261,57 @@ async function embedSignatures(pdf, boxes){
 function drawPdfTotalsRow(page, font, t, boldFont){
   if(!page || !font || !t) return;
   if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
-  const black=PDFLib.rgb(0,0,0);
+  const ink=PDFLib.rgb(0.102,0.101,0.095);
   const white=PDFLib.rgb(1,1,1);
-  const y=111.369, h=21.29;
-  const stroke=1;
   const cap=PDFLib.LineCapStyle.Butt;
-  page.drawRectangle({x:246,y:y+0.35,width:78,height:h-0.7,color:white,borderWidth:0});
+  const y=110.551, y2=133.229, h=y2-y;
+  const x0=368.504, xEnd=566.929;
+  const splits=[405.354, 442.205, 477.551, 513.071];
+  const outer=1, inner=0.5;
+  page.drawRectangle({x:246,y:111.369+0.35,width:78,height:21.29-0.7,color:white,borderWidth:0});
+  page.drawRectangle({
+    x:x0+0.35,
+    y:y+0.35,
+    width:xEnd-x0-0.7,
+    height:h-0.7,
+    color:white,
+    borderWidth:0
+  });
+  page.drawLine({start:{x:x0,y},end:{x:xEnd,y},thickness:outer,color:ink,lineCap:cap});
+  page.drawLine({start:{x:xEnd,y},end:{x:xEnd,y:133.339},thickness:outer,color:ink,lineCap:cap});
+  splits.forEach(x=>{
+    page.drawLine({start:{x,y},end:{x,y:y2},thickness:inner,color:ink,lineCap:cap});
+  });
   const labelFont=boldFont||font;
   const label="Gesamt";
   const labelSize=9;
   const labelW=labelFont.widthOfTextAtSize(label,labelSize);
   page.drawText(label,{
     x:326.82-labelW-5.2,
-    y:y+(h-labelSize)/2+0.7,
+    y:111.369+(21.29-labelSize)/2+0.7,
     size:labelSize,
     font:labelFont,
-    color:black
+    color:ink
   });
-  const cells=[
-    {x:369.124, w:35.668, text:t.travel ? fmtMinPdf(t.travel) : ""},
-    {x:405.898, w:35.669, text:t.work ? fmtMinPdf(t.work) : ""},
-    {x:442.673, w:34.441, text:t.pauseRz ? fmtMinPdf(t.pauseRz) : ""},
-    {x:478.063, w:34.441, text:t.pauseAz ? fmtMinPdf(t.pauseAz) : ""},
-    {x:513.732, w:51.982, text:t.all ? fmtMinPdf(t.all) : ""}
+  const cols=[x0].concat(splits).concat([xEnd]);
+  const texts=[
+    t.travel ? fmtMinPdf(t.travel) : "",
+    t.work ? fmtMinPdf(t.work) : "",
+    t.pauseRz ? fmtMinPdf(t.pauseRz) : "",
+    t.pauseAz ? fmtMinPdf(t.pauseAz) : "",
+    t.all ? fmtMinPdf(t.all) : ""
   ];
-  const x0=cells[0].x;
-  const x1=cells[cells.length-1].x+cells[cells.length-1].w;
-  page.drawRectangle({
-    x:x0,
-    y,
-    width:x1-x0,
-    height:h,
-    color:white,
-    borderWidth:stroke,
-    borderColor:black
-  });
-  for(let i=1;i<cells.length;i++){
-    const x=cells[i].x;
-    page.drawLine({
-      start:{x,y:y+stroke/2},
-      end:{x,y:y+h-stroke/2},
-      thickness:stroke,
-      color:black,
-      lineCap:cap
-    });
-  }
   const size=8;
-  cells.forEach(c=>{
-    if(!c.text) return;
-    const tw=font.widthOfTextAtSize(c.text,size);
-    page.drawText(c.text,{
-      x:c.x+Math.max(1.4,(c.w-tw)/2),
-      y:y+(h-size)/2+0.8,
+  texts.forEach((text,i)=>{
+    if(!text) return;
+    const left=cols[i], w=cols[i+1]-left;
+    const tw=font.widthOfTextAtSize(text,size);
+    page.drawText(text,{
+      x:left+Math.max(1.4,(w-tw)/2),
+      y:y+(h-size)/2+0.6,
       size,
       font,
-      color:black
+      color:ink
     });
   });
 }
