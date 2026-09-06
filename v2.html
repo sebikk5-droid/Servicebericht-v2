@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.6">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.7">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.6</title>
+<title>Servicebericht v2.7</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -385,7 +385,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.6</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.7</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -405,7 +405,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
     </div>
   </div>
-  <div class="muted">Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
+  <div class="muted">Einträge als Datum + Kunde. Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
 </section>
 <section class="card"><h2>Kunde</h2>
 <label for="customerSearch">Firma</label>
@@ -2497,11 +2497,36 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(item.report && typeof item.report==="object") return item.report;
     return item;
   }
+  function formatDeDate(iso){
+    const s=String(iso||"").trim();
+    if(!s) return "";
+    const dotted=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(dotted) return dotted[1].padStart(2,"0")+"."+dotted[2].padStart(2,"0")+"."+dotted[3];
+    const p=s.split(/[T ]/)[0].split("-");
+    if(p.length>=3 && /^\d{4}$/.test(p[0])) return p[2].padStart(2,"0")+"."+p[1]+"."+p[0];
+    try{
+      const d=new Date(s);
+      if(!Number.isNaN(d.getTime()))
+        return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();
+    }catch(e){}
+    return "";
+  }
+  function historyDate(item){
+    const data=historyItemData(item)||{};
+    return formatDeDate(data.date || data.day1_date) || formatDeDate(item?.savedAt);
+  }
+  function historyClient(item){
+    const data=historyItemData(item)||{};
+    const typed=String(data.customerSearch||"").trim();
+    if(typed && !typed.startsWith("—")) return typed;
+    const stripped=String(item?.name||"").replace(/^\d{1,2}\.\d{1,2}\.\d{4}\s*[–\-]\s*/,"").trim();
+    if(stripped && stripped!=="Bericht") return stripped;
+    return "Servicebericht";
+  }
   function historyLabel(item){
-    const name=item?.name||"Bericht";
-    let when="";
-    try{ when=item?.savedAt ? new Date(item.savedAt).toLocaleString("de-DE") : ""; }catch(e){}
-    return when ? name+" – "+when : name;
+    const date=historyDate(item);
+    const client=historyClient(item);
+    return date ? date+" – "+client : client;
   }
   let selectedHistory=null;
   function syncComboValue(box, input){
@@ -2523,13 +2548,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const prev=keepValue!=null && keepValue!=="" ? Number(keepValue) : selectedHistory;
     if(prev!=null && list[prev]) setSelectedHistory(prev, list[prev]);
     else if(selectedHistory!=null && list[selectedHistory]) setSelectedHistory(selectedHistory, list[selectedHistory]);
-  }
-  function defaultName(){
-    const typed=(document.getElementById("customerSearch")?.value||"").trim();
-    if(typed && !typed.startsWith("—")) return typed;
-    const company=document.getElementById("company");
-    const name=(company?.selectedOptions?.[0]?.textContent||"").trim();
-    return name && !name.startsWith("—") ? name : "Servicebericht";
   }
   function openHistoryIndex(index){
     const list=loadHistory();
@@ -2575,11 +2593,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
   }
   function reportPayload(item){
-    const pad=n=>String(n).padStart(2,"0");
-    const now=new Date();
-    const dateToday=`${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()}`;
-    const companyName=(item.name||"Bericht").trim().replace(/[\\/:*?"<>|]/g,"_");
-    const filename=`${companyName}_${dateToday}.json`;
+    const datePart=(historyDate(item)||formatDeDate(new Date().toISOString())||"Bericht").replace(/[\\/:*?"<>|]/g,"_");
+    const companyName=historyClient(item).trim().replace(/[\\/:*?"<>|]/g,"_").replace(/\s+/g,"_");
+    const filename=`${datePart}_${companyName}.json`;
     const json=JSON.stringify({
       format:"Servicebericht-Historie",
       version:1,
@@ -2678,7 +2694,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const q=(input?.value||"").trim().toLocaleLowerCase("de-DE");
       return list.map((item,i)=>({item,i})).filter(({item})=>{
         if(!q) return true;
-        return historyLabel(item).toLocaleLowerCase("de-DE").includes(q);
+        const blob=[historyLabel(item), historyDate(item), historyClient(item)].join(" ").toLocaleLowerCase("de-DE");
+        return blob.includes(q);
       });
     }
     input?.addEventListener("focus",()=>showResults(filtered()));
@@ -2711,10 +2728,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
 
     save?.addEventListener("click",async()=>{
+      const savedAt=new Date().toISOString();
+      const data=collectForm();
       const item={
-        name:defaultName(),
-        savedAt:new Date().toISOString(),
-        data:collectForm()
+        name:historyLabel({savedAt, data}),
+        savedAt,
+        data
       };
       try{
         const list=loadHistory();
@@ -2966,7 +2985,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.6";
+  const APP_VERSION="2.7";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
