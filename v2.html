@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.26">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.27">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.26</title>
+<title>Servicebericht v2.27</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -278,6 +278,8 @@ input.to-check{
   touch-action:pan-y;
 }
 .combo-pick:hover,.combo-pick.is-on{background:#eef5fb}
+.combo-pick.is-preferred{font-weight:750}
+.combo-pick.is-preferred::after{content:" · Kunde";color:#666;font-weight:600;font-size:12px}
 .combo-row-del{
   flex:0 0 44px;border:0;background:transparent;color:#888;font-size:20px;font-weight:700;
   cursor:pointer;min-height:44px;padding:0
@@ -442,7 +444,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.26</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.27</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -508,7 +510,7 @@ input.to-check{
 </section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Gespeicherte Maschinen stehen bei jedem Kunden zur Auswahl.</div>
+<div class="muted" style="margin:0 0 8px">Hersteller, dann Typ, dann Nr. Gespeicherte Maschinen erscheinen zuerst nur bei diesem Kunden. Andere Kunden wählen sie weiter aus der Typ-Liste.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -3424,7 +3426,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.26";
+  const APP_VERSION="2.27";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4550,9 +4552,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return norm(a)===norm(b); }
   function manufacturerOptions(){
-    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer));
-    const fromCat=catalog.map(c=>c.name).filter(n=>!fromSaved.some(s=>sameBrand(s,n)));
-    return fromSaved.concat(naturalSort(fromCat));
+    const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
+    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer).filter(n=>n && !mine.some(s=>sameBrand(s,n))));
+    const fromCat=catalog.map(c=>c.name).filter(n=>!mine.concat(fromSaved).some(s=>sameBrand(s,n)));
+    return mine.concat(fromSaved).concat(naturalSort(fromCat));
+  }
+  function preferredTypeOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    if(!norm(mfr)) return [];
+    return naturalSort(listForCustomer().filter(m=>
+      sameBrand(m.manufacturer,mfr) && !!m.type
+    ).map(m=>m.type));
   }
   function savedTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -4566,18 +4576,37 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!norm(mfr)) return [];
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
+    const preferred=preferredTypeOptions();
     const saved=savedTypeOptions();
     const typed=$("type")?.value||"";
-    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed))) ? [typed] : [];
-    return naturalSort(saved.concat(fromCat).concat(extra));
+    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed)) && !preferred.some(t=>sameType(t,typed))) ? [typed] : [];
+    const rest=naturalSort(saved.concat(fromCat).concat(extra).filter(t=>!preferred.some(p=>sameType(p,t))));
+    return preferred.concat(rest);
+  }
+  function preferredNrOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    const typ=$("type")?.value||"";
+    if(!norm(mfr) || !norm(typ)) return [];
+    return naturalSort(listForCustomer().filter(m=>
+      sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
+    ).map(m=>m.machineNo));
   }
   function nrOptions(){
     const mfr=$("manufacturer")?.value||"";
     const typ=$("type")?.value||"";
     if(!norm(mfr) || !norm(typ)) return [];
-    return naturalSort(listAllSaved().filter(m=>
+    const preferred=preferredNrOptions();
+    const all=naturalSort(listAllSaved().filter(m=>
       sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
     ).map(m=>m.machineNo));
+    return preferred.concat(all.filter(n=>!preferred.some(p=>sameType(p,n))));
+  }
+  function preferredNamesFor(inputId){
+    if(inputId==="manufacturer")
+      return naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
+    if(inputId==="type") return preferredTypeOptions();
+    if(inputId==="machineNo") return preferredNrOptions();
+    return [];
   }
   function findSaved(){
     const rec=fromForm();
@@ -4618,11 +4647,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function onManufacturerChosen(){
     clearBelow(["manufacturer"]);
-    offerCombo("type", "typeBox", savedTypeOptions());
+    offerCombo("type", "typeBox", preferredTypeOptions());
   }
   function onTypeChosen(){
     clearBelow(["manufacturer","type"]);
-    offerCombo("machineNo", "machineNoBox", nrOptions());
+    offerCombo("machineNo", "machineNoBox", preferredNrOptions());
   }
   function syncNrEnabled(){
     const hasType=!!norm($("type")?.value||"");
@@ -4670,6 +4699,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const q=useFilter ? norm(input.value) : "";
       const source=Array.isArray(overrideOptions) ? overrideOptions : getOptions();
       const options=source.filter(v=> !q || norm(v).includes(q));
+      const preferred=typeof preferredNamesFor==="function" ? preferredNamesFor(input.id) : [];
       results.innerHTML="";
       if(!options.length){
         const empty=document.createElement("div");
@@ -4685,6 +4715,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         pick.setAttribute("role","option");
         pick.textContent=v;
         if(norm(input.value)===norm(v)) pick.classList.add("is-on");
+        const isPref=preferred.some(p=> input.id==="manufacturer" ? sameBrand(p,v) : sameType(p,v));
+        if(isPref) pick.classList.add("is-preferred");
         pick.addEventListener("click",()=>{
           input.value=v;
           syncComboClears();
