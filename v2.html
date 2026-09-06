@@ -1279,7 +1279,6 @@ function mergeCompanyRecord(remote, rec){
     });
   }else{
     const c=arr[idx];
-    c.firma=name;
     if(rec.tel) c.tel=rec.tel;
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
