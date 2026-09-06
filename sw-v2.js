@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-74";
+const CACHE_NAME = "servicebericht-v2-75";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -20,15 +20,6 @@ function isV2Navigation(req) {
   );
 }
 
-function isSharedData(url) {
-  const path = new URL(url).pathname;
-  return (
-    path.endsWith("/customer-emails.json") ||
-    path.endsWith("/customer-machines.json") ||
-    path.endsWith("/companies.json")
-  );
-}
-
 function isV2Asset(url) {
   const path = new URL(url).pathname;
   return (
@@ -37,7 +28,6 @@ function isV2Asset(url) {
     path.endsWith("/sw-v2.js") ||
     path.endsWith("/manifest-v2.webmanifest") ||
     path.endsWith("/vendor/pdf-lib.min.js") ||
-    path.endsWith("/companies.json") ||
     path.endsWith("/machine-catalog.json") ||
     path.endsWith("/Leer.pdf") ||
     path.endsWith("/favicon.png") ||
@@ -78,11 +68,6 @@ self.addEventListener("fetch", event => {
         })
         .catch(() => caches.match("./v2.html"))
     );
-    return;
-  }
-
-  if (isSharedData(req.url)) {
-    event.respondWith(fetch(req, {cache: "no-store"}).catch(() => caches.match(req)));
     return;
   }
 
