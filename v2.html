@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.8">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.9">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.8</title>
+<title>Servicebericht v2.9</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -204,6 +204,13 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox .day-actions .day-collapse{background:#163a5c;color:#fff}
 .daybox .day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
 .daybox input,.daybox select{background:#fff}
+.daybox input.km-check,
+.daybox input.to-check,
+input.km-check,
+input.to-check{
+  background:#fff3a3;
+  border-color:#e0b400;
+}
 #historySection{padding:10px 12px}
 #historySection h2{margin:0 0 8px;font-size:15px}
 #historySection .history-bar{
@@ -385,7 +392,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.8</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.9</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -782,6 +789,15 @@ function markKmToCheck(box){
   box.querySelectorAll('input[data-k^="Kilometer"]').forEach(el=>{
     el.classList.add("km-check");
   });
+  box.querySelectorAll("input[data-route-override]").forEach(el=>{
+    el.classList.add("km-check");
+  });
+}
+function markExtraDaysKmToCheck(){
+  document.querySelectorAll("[data-daybox]").forEach(box=>{
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    if(d>1) markKmToCheck(box);
+  });
 }
 function markReturnPauseToCheck(box){
   if(!box) return;
@@ -1157,6 +1173,7 @@ document.addEventListener("click",function(e){
     visibleDays=boxes.length;
     syncDayChrome();
     bindTimeInputs();
+    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     recalcTimes();
     if($("addDay"))$("addDay").style.display=visibleDays>=6?"none":"block";
   }
@@ -1352,6 +1369,7 @@ fetch("companies.json").then(r=>{
     if($("city")) $("city").value=a[1]||"";
     applyCustomerRouteDay1();
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
+    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     recalcTimes();
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
     if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
@@ -2481,6 +2499,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
     bindTimeInputs();
     document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
+    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
       const label=el.closest(".choice-opt");
@@ -2985,7 +3004,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.8";
+  const APP_VERSION="2.9";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
