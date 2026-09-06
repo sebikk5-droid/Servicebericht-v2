@@ -378,7 +378,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   <div class="header-top">
     <div class="header-titles">
       <h1>Servicebericht</h1>
-      <div class="muted" id="appVersionLine">App 55</div>
+      <div class="muted" id="appVersionLine">App 56</div>
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
@@ -2222,7 +2222,6 @@ for(let d=1;d<=dayBoxes.length;d++){
   const date=pdfDate(dateIso);
   if(date){
     setFit(form,`Datum${a}`,date,6.5);
-    setFit(form,`Datum${b}`,date,6.5);
   }
   ["RZstart","RZende","AZstart","AZende"].forEach(k=>{ if(filledTime(q(`${k}${a}`).value)) setFit(form,`${k}${a}`,q(`${k}${a}`).value,8); });
   ["RZstart","RZende"].forEach(k=>{ if(filledTime(q(`${k}${b}`).value)) setFit(form,`${k}${b}`,q(`${k}${b}`).value,8); });
