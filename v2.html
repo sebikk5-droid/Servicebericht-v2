@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.5">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.6">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.5</title>
+<title>Servicebericht v2.6</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -385,7 +385,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.5</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.6</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2925,7 +2925,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.5";
+  const APP_VERSION="2.6";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -2966,6 +2966,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function syncTokenUi(){
     const credit=$("appCredit");
     if(credit) credit.textContent="Created by S. Pawlina v"+APP_VERSION;
+    document.title="Servicebericht v"+APP_VERSION;
+    const apple=document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if(apple) apple.setAttribute("content","Servicebericht v"+APP_VERSION);
     const place=$("appPlaceLine");
     if(place) place.textContent=appPlace();
     const btn=$("tokenStatusBtn");
