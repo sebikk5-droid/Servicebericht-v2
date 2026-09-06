@@ -1,9 +1,8 @@
-const CACHE_NAME = "servicebericht-v2-72";
+const CACHE_NAME = "servicebericht-v2-73";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
   "./vendor/pdf-lib.min.js",
-  "./companies.json",
   "./machine-catalog.json",
   "./Leer.pdf",
   "./favicon.png",
