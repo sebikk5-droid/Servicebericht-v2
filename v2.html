@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.5">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.0</title>
+<title>Servicebericht v2.5</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -378,11 +378,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   <div class="header-top">
     <div class="header-titles">
       <h1>Servicebericht</h1>
-      <div class="muted" id="appVersionLine">App 56</div>
+      <div class="muted" id="appVersionLine">App 57</div>
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit">Created by S. Pawlina v2.0</div>
+  <div class="credit">Created by S. Pawlina v2.5</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2922,7 +2922,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_BUILD="56";
+  const APP_BUILD="57";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
