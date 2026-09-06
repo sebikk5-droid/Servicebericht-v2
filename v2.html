@@ -484,7 +484,7 @@ input.to-check{
 </section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Gespeicherte Maschinen gelten nur für den gewählten Kunden.</div>
+<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Gespeicherte Maschinen stehen bei jedem Kunden zur Auswahl.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -4090,6 +4090,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const all=loadAll();
     return Array.isArray(all[k])?all[k]:[];
   }
+  function listAllSaved(){
+    const all=loadAll();
+    const out=[];
+    Object.keys(all||{}).forEach(k=>{
+      if(!Array.isArray(all[k])) return;
+      all[k].forEach(m=>out.push(m));
+    });
+    return collapseList(out);
+  }
   function mergeFields(a,b){
     const rec=cleanRec(a);
     FIELD_IDS.forEach(id=>{
@@ -4190,14 +4199,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return norm(a)===norm(b); }
   function manufacturerOptions(){
-    const fromSaved=naturalSort(listForCustomer().map(m=>m.manufacturer));
+    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer));
     const fromCat=catalog.map(c=>c.name).filter(n=>!fromSaved.some(s=>sameBrand(s,n)));
     return fromSaved.concat(naturalSort(fromCat));
   }
   function savedTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
     if(!norm(mfr)) return [];
-    return naturalSort(listForCustomer().filter(m=>
+    return naturalSort(listAllSaved().filter(m=>
       sameBrand(m.manufacturer,mfr) && !!m.type
     ).map(m=>m.type));
   }
@@ -4215,13 +4224,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const mfr=$("manufacturer")?.value||"";
     const typ=$("type")?.value||"";
     if(!norm(mfr) || !norm(typ)) return [];
-    return naturalSort(listForCustomer().filter(m=>
+    return naturalSort(listAllSaved().filter(m=>
       sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
     ).map(m=>m.machineNo));
   }
   function findSaved(){
     const rec=fromForm();
-    const list=listForCustomer();
+    const list=listAllSaved();
     if(rec.machineNo){
       const hit=list.find(m=>
         sameType(m.machineNo, rec.machineNo) &&
