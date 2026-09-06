@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.15">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.16">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.15</title>
+<title>Servicebericht v2.16</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -411,7 +411,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.15</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.16</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3174,11 +3174,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       close();
       select.dispatchEvent(new Event("change",{bubbles:true}));
     }
+    function clearCustomerContactFields(){
+      const street=document.getElementById("street");
+      const city=document.getElementById("city");
+      if(street) street.value="";
+      if(city) city.value="";
+      const email=document.getElementById("customerEmail");
+      if(email) email.value="";
+      const emailBox=document.getElementById("customerEmailBox");
+      if(emailBox) emailBox.classList.remove("has-value");
+      window.selectedCustomerEmail="";
+    }
     function clearListIfManual(){
       const typed=input.value.trim();
       const current=select.selectedOptions[0];
-      if(current && current.value!=="" && current.textContent.trim()!==typed)
+      if(current && current.value!=="" && current.textContent.trim()!==typed){
         select.value="";
+        clearCustomerContactFields();
+      }
     }
     function show(){
       const q=input.value.trim().toLocaleLowerCase("de-DE");
@@ -3222,15 +3235,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       e.preventDefault();
       input.value="";
       select.value="";
-      const street=document.getElementById("street");
-      const city=document.getElementById("city");
-      if(street) street.value="";
-      if(city) city.value="";
-      const email=document.getElementById("customerEmail");
-      if(email) email.value="";
-      const emailBox=document.getElementById("customerEmailBox");
-      if(emailBox) emailBox.classList.remove("has-value");
-      window.selectedCustomerEmail="";
+      clearCustomerContactFields();
       if(typeof window.clearMachineFields==="function") window.clearMachineFields();
       sync();
       input.focus();
@@ -3251,7 +3256,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.15";
+  const APP_VERSION="2.16";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
