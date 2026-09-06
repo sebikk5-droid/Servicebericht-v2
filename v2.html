@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.26">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.27">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.26</title>
+<title>Servicebericht v2.27</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -387,8 +387,17 @@ input.to-check{
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f2f2f7;color:#666}
-#customerEmail{padding-right:40px}
+#customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
+#customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
 #customerEmailBox .combo-results{z-index:70}
+.email-save-row{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:4px;
+}
+.email-save-row label{margin-top:0}
+#emailSave{
+  flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
+  background:#163a5c;color:#fff;
+}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -442,7 +451,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.26</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.27</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -492,18 +501,20 @@ input.to-check{
     <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
   </div>
 </div>
-<div class="full combo-box" id="customerEmailBox">
-  <label for="customerEmail">E-Mail</label>
-  <div class="combo-field">
-    <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail wählen oder neu eintragen">
-    <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
-  </div>
-  <div id="customerEmailResults" class="combo-results"></div>
 </div>
+<div class="email-save-row">
+  <div class="combo-box" id="customerEmailBox">
+    <label for="customerEmail">E-Mail</label>
+    <div class="combo-field">
+      <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+      <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
+    </div>
+    <div id="customerEmailResults" class="combo-results"></div>
+  </div>
+  <button type="button" id="emailSave">E-Mail merken</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
-  <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
 </div>
 </section>
 
@@ -3424,7 +3435,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.26";
+  const APP_VERSION="2.27";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
