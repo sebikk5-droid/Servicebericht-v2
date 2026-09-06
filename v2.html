@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.14">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.15">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.14</title>
+<title>Servicebericht v2.15</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -411,7 +411,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.14</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.15</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -428,7 +428,6 @@ input.to-check{
       <button type="button" id="historySave" class="history-file-btn">Speichern</button>
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
-      <button type="button" id="historyPdf" class="history-file-btn" hidden>Letztes PDF</button>
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
     </div>
   </div>
@@ -3252,7 +3251,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.14";
+  const APP_VERSION="2.15";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3850,13 +3849,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function getMeta(){
     try{ return JSON.parse(localStorage.getItem(META_KEY)||"null"); }catch(e){ return null; }
   }
-  function markPdfUi(){
-    const hist=document.getElementById("historyPdf");
-    if(hist){
-      hist.hidden=!lastPdfBlob;
-      if(lastPdfBlob) hist.textContent="Letztes PDF";
-    }
-  }
   window.stashGeneratedPdf=async function(blob, filename){
     const copy=await copyBlob(blob);
     lastPdfBlob=copy;
@@ -3864,18 +3856,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     setMeta(name, true);
     try{ await idbPut(copy, name, true); }catch(e){}
     try{ await opfsFile(copy, name); }catch(e){}
-    markPdfUi();
   };
   window.restoreStashedPdf=async function(){
     const rec=await idbGet();
     if(!rec || !rec.blob) return false;
     lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
     setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false);
-    markPdfUi();
-    if(rec.pending!==false){
-      const s=document.getElementById("status");
-      if(s && !s.textContent) s.textContent="Letztes PDF liegt in der App. „Letztes PDF“ teilt es erneut nach OneDrive.";
-    }
     return true;
   };
   window.pdfShareFile=async function(){
@@ -3894,41 +3880,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const meta=getMeta()||{};
     setMeta(meta.filename||"Servicebericht.pdf", pending);
     idbMarkPending(pending).catch(()=>{});
-    markPdfUi();
   };
   window.offlinePdfShareHint=function(){
     if(navigator.onLine===false){
-      return "Ohne Internet: in Dateien → Auf meinem iPad speichern. OneDrive legt oft nur einen Platzhalter und kann die Datei später nicht nachladen. Mit Netz die App öffnen und noch einmal „PDF speichern“.";
+      return "Ohne Internet: in Dateien → Auf meinem iPad speichern. Mit Internet denselben Bericht noch einmal „PDF erstellen & speichern“.";
     }
-    return "PDF zum Speichern geöffnet. In OneDrive die Datei aus der App teilen, nicht den geöffneten PDF-Tab.";
+    return "PDF zum Speichern geöffnet.";
   };
   window.keepPdfObjectUrl=function(blob){
     if(keepObjectUrl){ try{ URL.revokeObjectURL(keepObjectUrl); }catch(e){} }
     keepObjectUrl=URL.createObjectURL(blob);
     return keepObjectUrl;
   };
-  window.addEventListener("online",()=>{
-    const meta=getMeta();
-    if(!meta || !meta.pending) return;
-    window.restoreStashedPdf().then(ok=>{
-      if(!ok) return;
-      const s=document.getElementById("status");
-      if(s) s.textContent="Internet ist da. „Letztes PDF“ tippen, um die Datei noch einmal nach OneDrive zu legen. Der Offline-Platzhalter in OneDrive lädt sich nicht nach.";
-      markPdfUi();
-    });
-  });
-  function startStash(){
-    window.restoreStashedPdf();
-    const hist=document.getElementById("historyPdf");
-    if(hist && hist.dataset.bound!=="1"){
-      hist.dataset.bound="1";
-      hist.addEventListener("click",()=>{
-        if(typeof window.deliverLastPdf==="function") window.deliverLastPdf();
-      });
-    }
-  }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", startStash);
-  else startStash();
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", ()=>window.restoreStashedPdf());
+  else window.restoreStashedPdf();
 })();
 </script>
 <script>
