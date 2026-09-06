@@ -1,0 +1,22 @@
+Servicebericht – dwa repozytoria
+
+1) Aplikacja (może być PUBLIC, wtedy działa github.io):
+   https://sebikk5-droid.github.io/Servicebericht-v2/v2.html
+   Repo: Servicebericht-v2
+
+2) Listy firm / e-mail / maszyny (PRIVATE):
+   Repo: Servicebericht-listen
+   Pliki: companies.json, customer-emails.json, customer-machines.json
+
+Jak założyć listy:
+- GitHub → New repository → nazwa dokładnie Servicebericht-listen → Private
+- Wgraj tam companies.json (kopiuj z tego repo), plus puste {} w
+  customer-emails.json i customer-machines.json
+- Token (Fine-grained) tylko do Servicebericht-listen, uprawnienie
+  Contents: Read and write
+- W apce: GitHub fehlt · Token → wkleić token
+
+Aplikację na github.io trzeba mieć z PUBLICznego repo (albo GitHub Pro).
+Listy NIE są na github.io.
+
+Created by S. Pawlina
