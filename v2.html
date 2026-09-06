@@ -364,9 +364,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .token-status.is-on{background:#dcefe0;color:#14532d}
 .token-status.is-off{background:#fde8d2;color:#9a3412}
-input.km-check,input.to-check{
-  background:#fff4a3 !important;
-  box-shadow:inset 0 0 0 1px #d4b000;
+.blatt-row{
+  display:flex;align-items:flex-end;gap:8px;
+}
+.blatt-row > div{flex:1;min-width:0}
+.blatt-row .blatt-von-word{
+  flex:0 0 auto;font-size:14px;font-weight:700;color:#555;padding-bottom:12px;
 }
 </style>
 </head>
@@ -415,6 +418,17 @@ input.km-check,input.to-check{
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
+<div class="full blatt-row">
+  <div>
+    <label for="blattNr">Blatt</label>
+    <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+  </div>
+  <span class="blatt-von-word">von</span>
+  <div>
+    <label for="blattVon">Blättern</label>
+    <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+  </div>
+</div>
 <div class="full combo-box" id="customerEmailBox">
   <label for="customerEmail">E-Mail</label>
   <div class="combo-field">
@@ -2187,6 +2201,8 @@ function pdfDateFromDay(dayNo){
 setFit(form,"Firma",firmaName(),9);
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
+setFit(form,"Text2", String($("blattNr")?.value||"").trim()||"1", 8);
+setFit(form,"Text3", String($("blattVon")?.value||"").trim()||"1", 8);
 setIf(form,"Hersteller",$("manufacturer").value);setIf(form,"Typ",$("type").value);setIf(form,"Maschinennummer",$("machineNo").value);
 setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value);setIf(form,"PLC Version",$("plc").value);
 setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
@@ -2907,7 +2923,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_BUILD="55";
+  const APP_BUILD="56";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
