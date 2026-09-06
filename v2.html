@@ -3442,15 +3442,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function githubFetch(url, extra){
     extra=extra||{};
+    const ctrl=new AbortController();
+    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, extra.timeoutMs||20000);
     const opt={
       mode:"cors",
       credentials:"omit",
       cache:"no-store",
+      redirect:"follow",
+      signal:ctrl.signal,
       headers: extra.headers||{}
     };
     if(extra.method) opt.method=extra.method;
     if(extra.body!=null) opt.body=extra.body;
-    return fetch(url, opt);
+    return fetch(url, opt).finally(function(){ clearTimeout(to); });
   }
   async function fetchPages(path){
     try{
