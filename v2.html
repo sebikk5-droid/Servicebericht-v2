@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.9">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.9</title>
+<title>Servicebericht v2.10</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -38,6 +38,24 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom button{flex:1 1 0;min-width:0}
+#pdfKindModal{
+  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#pdfKindModal.is-open{display:flex}
+.pdf-kind-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:18px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
+}
+.pdf-kind-sheet h3{margin:0 0 14px;font-size:18px;text-align:center}
+.pdf-kind-picks{display:flex;gap:12px;margin:0 0 12px}
+.pdf-kind-num{
+  flex:1;min-height:96px;border:1px solid #c9c9ce;border-radius:16px;
+  background:#f4f4f6;color:#111;font-size:40px;font-weight:800;padding:0;
+}
+.pdf-kind-num.is-on{background:#163a5c;border-color:#163a5c;color:#fff}
+#pdfKindCancel{width:100%}
 #status{font-size:13px;color:#555;margin:7px 2px}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 @media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
@@ -392,7 +410,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.9</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.10</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -575,6 +593,16 @@ input.to-check{
 <div id="status"></div>
 </main>
 <div class="bottom"><button class="clear" type="button" id="resetForm">Zurücksetzen</button><button class="go" id="generate">PDF erstellen & speichern</button></div>
+<div id="pdfKindModal" aria-hidden="true">
+  <div class="pdf-kind-sheet">
+    <h3>PDF</h3>
+    <div class="pdf-kind-picks">
+      <button type="button" class="pdf-kind-num" data-pdf-kind="old">1</button>
+      <button type="button" class="pdf-kind-num" data-pdf-kind="new">2</button>
+    </div>
+    <button type="button" class="clear" id="pdfKindCancel">Abbrechen</button>
+  </div>
+</div>
 <div id="tokenModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>GitHub-Token</h3>
@@ -2230,7 +2258,110 @@ async function embedSignatures(pdf, boxes){
     });
   }
 }
+function drawPdfTotalsRow(page, font, t, boldFont){
+  if(!page || !font || !t) return;
+  if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
+  const ink=PDFLib.rgb(0.102,0.101,0.095);
+  const white=PDFLib.rgb(1,1,1);
+  const cap=PDFLib.LineCapStyle.Butt;
+  const y=110.551, y2=133.229, h=y2-y;
+  const x0=368.504, xEnd=566.929;
+  const splits=[405.354, 442.205, 477.551, 513.071];
+  const outer=1, inner=0.5;
+  page.drawRectangle({x:246,y:111.369+0.35,width:78,height:21.29-0.7,color:white,borderWidth:0});
+  page.drawRectangle({
+    x:x0+0.35,
+    y:y+0.35,
+    width:xEnd-x0-0.7,
+    height:h-0.7,
+    color:white,
+    borderWidth:0
+  });
+  page.drawLine({start:{x:x0,y},end:{x:xEnd,y},thickness:outer,color:ink,lineCap:cap});
+  page.drawLine({start:{x:xEnd,y},end:{x:xEnd,y:133.339},thickness:outer,color:ink,lineCap:cap});
+  splits.forEach(x=>{
+    page.drawLine({start:{x,y},end:{x,y:y2},thickness:inner,color:ink,lineCap:cap});
+  });
+  const labelFont=boldFont||font;
+  const label="Gesamt";
+  const labelSize=9;
+  const labelW=labelFont.widthOfTextAtSize(label,labelSize);
+  page.drawText(label,{
+    x:326.82-labelW-5.2,
+    y:111.369+(21.29-labelSize)/2+0.7,
+    size:labelSize,
+    font:labelFont,
+    color:ink
+  });
+  const cols=[x0].concat(splits).concat([xEnd]);
+  const texts=[
+    t.travel ? fmtMinPdf(t.travel) : "",
+    t.work ? fmtMinPdf(t.work) : "",
+    t.pauseRz ? fmtMinPdf(t.pauseRz) : "",
+    t.pauseAz ? fmtMinPdf(t.pauseAz) : "",
+    t.all ? fmtMinPdf(t.all) : ""
+  ];
+  const size=8;
+  texts.forEach((text,i)=>{
+    if(!text) return;
+    const left=cols[i], w=cols[i+1]-left;
+    const tw=font.widthOfTextAtSize(text,size);
+    page.drawText(text,{
+      x:left+Math.max(1.4,(w-tw)/2),
+      y:y+(h-size)/2+0.6,
+      size,
+      font,
+      color:ink
+    });
+  });
+}
 initSignaturePads();
+
+const PDF_KIND_KEY="servicebericht_pdf_kind_v2";
+let pdfKindChoice="new";
+function selectedPdfKind(){
+  return pdfKindChoice==="old" ? "old" : "new";
+}
+function setPdfKind(kind){
+  pdfKindChoice=kind==="old" ? "old" : "new";
+  try{ localStorage.setItem(PDF_KIND_KEY, pdfKindChoice); }catch(e){}
+  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
+    btn.classList.toggle("is-on", btn.getAttribute("data-pdf-kind")===pdfKindChoice);
+  });
+}
+function openPdfKindSheet(){
+  const modal=$("pdfKindModal");
+  if(!modal) return;
+  setPdfKind(selectedPdfKind());
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden","false");
+}
+function closePdfKindSheet(){
+  const modal=$("pdfKindModal");
+  if(!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden","true");
+}
+function initPdfKind(){
+  let kind="new";
+  try{ kind=localStorage.getItem(PDF_KIND_KEY)||"new"; }catch(e){}
+  setPdfKind(kind);
+  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      setPdfKind(btn.getAttribute("data-pdf-kind"));
+      closePdfKindSheet();
+      const go=$("generate");
+      if(!go) return;
+      go.dataset.awaitKind="1";
+      go.click();
+    });
+  });
+  $("pdfKindCancel")?.addEventListener("click", closePdfKindSheet);
+  $("pdfKindModal")?.addEventListener("click",e=>{
+    if(e.target===$("pdfKindModal")) closePdfKindSheet();
+  });
+}
+initPdfKind();
 
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
@@ -2238,6 +2369,7 @@ try{
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
 let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
 clearPdfForm(form);
 let c=selectedCompany();
 
@@ -2272,7 +2404,7 @@ setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
 wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
 wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
-let km=0, travel=0, work=0, all=0;
+let km=0, travel=0, work=0, all=0, pauseRzSum=0, pauseAzSum=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
   const box=dayBoxes[d-1];
@@ -2311,6 +2443,8 @@ for(let d=1;d<=dayBoxes.length;d++){
   km+=(parseFloat((kmA||"").replace(",","."))||0);
   km+=(parseFloat((kmB||"").replace(",","."))||0);
   travel+=rt+rr;work+=wt;
+  pauseRzSum+=pauseOut+pauseBack;
+  pauseAzSum+=pauseWork;
   all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
@@ -2347,6 +2481,11 @@ for(let d=1;d<=dayBoxes.length;d++){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
   }
 }
+try{
+  form.getTextField("Kilometer gesamt").acroField.getWidgets().forEach(w=>{
+    w.getOrCreateBorderStyle().setWidth(0);
+  });
+}catch(e){}
 if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
 else form.updateFieldAppearances();
 const sigBoxes=signatureFieldBoxes(form);
@@ -2354,6 +2493,13 @@ const sigBoxes=signatureFieldBoxes(form);
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
 form.flatten();
+if(selectedPdfKind()==="new"){
+  drawPdfTotalsRow(page, pdfFitFont, {
+    km, travel, work, all,
+    pauseRz:pauseRzSum,
+    pauseAz:pauseAzSum
+  }, pdfFitFontBold);
+}
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
@@ -3004,7 +3150,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.9";
+  const APP_VERSION="2.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3646,6 +3792,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         });
         return;
       }
+      if(btn.dataset.awaitKind!=="1"){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+        return;
+      }
+      btn.dataset.awaitKind="";
       let tries=0;
       const previousBlob=lastPdfBlob;
       const finish=async ()=>{
