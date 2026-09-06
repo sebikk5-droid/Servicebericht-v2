@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.10">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.11">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.10</title>
+<title>Servicebericht v2.11</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -410,7 +410,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.10</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.11</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2260,7 +2260,7 @@ async function embedSignatures(pdf, boxes){
 }
 function drawPdfTotalsRow(page, font, t, boldFont){
   if(!page || !font || !t) return;
-  if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
+  if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all || t.overnight)) return;
   const ink=PDFLib.rgb(0.102,0.101,0.095);
   const white=PDFLib.rgb(1,1,1);
   const cap=PDFLib.LineCapStyle.Butt;
@@ -2299,7 +2299,7 @@ function drawPdfTotalsRow(page, font, t, boldFont){
     t.work ? fmtMinPdf(t.work) : "",
     t.pauseRz ? fmtMinPdf(t.pauseRz) : "",
     t.pauseAz ? fmtMinPdf(t.pauseAz) : "",
-    t.all ? fmtMinPdf(t.all) : ""
+    t.overnight ? String(t.overnight) : ""
   ];
   const size=8;
   texts.forEach((text,i)=>{
@@ -2472,9 +2472,11 @@ if(pdfHasContent){
 // approximately 14.2 pt lower. The overnight column is around x=548 pt.
 const page=pdf.getPages()[0];
 const overnightX=548;
+let overnightN=0;
 for(let d=1;d<=dayBoxes.length;d++){
   const cb=document.querySelector(`[data-overnight-day="${d}"]`);
   if(cb && cb.checked){
+    overnightN++;
     const row=(d-1)*2+1;
     const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
     const y=centers[Math.min(row-1,centers.length-1)];
@@ -2497,7 +2499,8 @@ if(selectedPdfKind()==="new"){
   drawPdfTotalsRow(page, pdfFitFont, {
     km, travel, work, all,
     pauseRz:pauseRzSum,
-    pauseAz:pauseAzSum
+    pauseAz:pauseAzSum,
+    overnight:overnightN
   }, pdfFitFontBold);
 }
 await embedSignatures(pdf, sigBoxes);
@@ -3150,7 +3153,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.10";
+  const APP_VERSION="2.11";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
