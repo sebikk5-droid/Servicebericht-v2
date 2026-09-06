@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.35">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.36">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.35</title>
+<title>Servicebericht v2.36</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -471,7 +471,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.35</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.36</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1388,7 +1388,34 @@ function bindCompanySelect(){
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   };
 }
+function selectCompanyByName(name){
+  const sel=$("company");
+  const search=$("customerSearch");
+  const typed=String(name||"").trim();
+  const box=$("customerSearchBox");
+  if(search && typed && !typed.startsWith("—")){
+    search.value=typed;
+    if(box) box.classList.add("has-value");
+  }
+  if(!sel) return false;
+  const want=typed.toLowerCase();
+  if(!want || want.startsWith("—")){
+    sel.value="";
+    return false;
+  }
+  const i=companies.findIndex(c=>companyNameKey(c)===want);
+  if(i<0){
+    sel.value="";
+    return false;
+  }
+  sel.value=String(i);
+  if(search) search.value=companies[i].firma||companies[i].name||typed;
+  if(box && search) box.classList.toggle("has-value", String(search.value||"").trim()!=="");
+  return true;
+}
+window.selectCompanyByName=selectCompanyByName;
 function applyCompanies(list, selectName){
+  const prev=typeof selectedCompany==="function"?selectedCompany():null;
   companies=Array.isArray(list)?list:[];
   const sel=$("company");
   if(!sel){
@@ -1398,16 +1425,8 @@ function applyCompanies(list, selectName){
   const esc=s=>String(s||"").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   sel.innerHTML='<option value="">— Firma auswählen —</option>'+
     companies.map((c,i)=>`<option value="${i}">${esc(c.firma||c.name||"Firma "+(i+1))}</option>`).join("");
-  const want=String(selectName||"").trim().toLowerCase();
-  if(want){
-    const i=companies.findIndex(c=>companyNameKey(c)===want);
-    if(i>=0){
-      sel.value=String(i);
-      if($("customerSearch")) $("customerSearch").value=companies[i].firma||companies[i].name||"";
-      const box=$("customerSearchBox");
-      if(box) box.classList.add("has-value");
-    }
-  }
+  const want=String(selectName||$("customerSearch")?.value||(prev&&(prev.firma||prev.name))||"").trim();
+  if(want) selectCompanyByName(want);
   syncCompanySaveButton();
 }
 function knownCompanyName(name){
@@ -2939,17 +2958,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
       else el.value=data[key] ?? "";
     });
 
-    const company=document.getElementById("company");
+    const searchName=String(data.customerSearch||"").trim();
+    if(typeof selectCompanyByName==="function") selectCompanyByName(searchName);
+    else{
+      const search=document.getElementById("customerSearch");
+      if(search && searchName) search.value=searchName;
+    }
     const search=document.getElementById("customerSearch");
-    if(company && search && company.value!=="" && company.selectedOptions[0])
-      search.value=company.selectedOptions[0].textContent.trim();
     const searchBox=document.getElementById("customerSearchBox");
     if(searchBox && search)
       searchBox.classList.toggle("has-value", String(search?.value||"").trim()!=="");
@@ -3329,10 +3351,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const data=readLiveDraft();
       if(!data) return false;
       if(liveDraftApplied && force){
-        const el=document.getElementById("company");
-        if(el && data.company!=null) el.value=data.company;
-        const search=document.getElementById("customerSearch");
-        if(search && data.customerSearch) search.value=data.customerSearch;
+        const name=String(data.customerSearch||"").trim();
+        if(typeof window.selectCompanyByName==="function") window.selectCompanyByName(name);
+        else{
+          const search=document.getElementById("customerSearch");
+          if(search && name) search.value=name;
+        }
         if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
         return true;
       }
@@ -3557,7 +3581,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.35";
+  const APP_VERSION="2.36";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4260,6 +4284,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const clearBtn=$("customerEmailClear");
     if(!input||!results||input.dataset.comboBound==="1") return;
     input.dataset.comboBound="1";
+    let skipEmailPersist=false;
     function close(){
       results.style.display="none";
       results.innerHTML="";
@@ -4308,7 +4333,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       show();
     });
     input.addEventListener("change",()=>{ persistEmailField(); });
-    input.addEventListener("blur",()=>{ persistEmailField(); });
+    input.addEventListener("blur",()=>{
+      if(skipEmailPersist){ skipEmailPersist=false; return; }
+      persistEmailField();
+    });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -4329,6 +4357,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         setEmail(e);
       }
     });
+    $("emailDelete")?.addEventListener("pointerdown",()=>{ skipEmailPersist=true; });
+    $("emailDelete")?.addEventListener("mousedown",e=>{ e.preventDefault(); skipEmailPersist=true; });
     $("emailDelete")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const s=$("status");
