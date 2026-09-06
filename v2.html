@@ -2263,54 +2263,63 @@ function drawPdfTotalsRow(page, font, t, boldFont){
   if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
   const black=PDFLib.rgb(0,0,0);
   const white=PDFLib.rgb(1,1,1);
-  const y=111.369, h=21.29;
-  const stroke=0.5;
+  const y=111.369, h=21.29, y2=y+h;
+  const outer=1.5;
+  const inner=0.75;
   const cap=PDFLib.LineCapStyle.Butt;
-  const kmRight=367.465;
-  page.drawRectangle({x:246,y:y+0.4,width:78,height:h-0.8,color:white,borderWidth:0});
+  const x0=326.82;
+  const splits=[369.124, 405.898, 442.673, 478.063, 513.732];
+  const xEnd=565.714;
+  page.drawRectangle({x:238,y:y-2,width:xEnd-238+2,height:h+2.7,color:white,borderWidth:0});
+  page.drawRectangle({
+    x:x0,
+    y,
+    width:xEnd-x0,
+    height:h,
+    color:white,
+    borderWidth:outer,
+    borderColor:black
+  });
+  const innerPad=outer/2;
+  splits.forEach(x=>{
+    page.drawLine({
+      start:{x,y:y+innerPad},
+      end:{x,y:y2-innerPad},
+      thickness:inner,
+      color:black,
+      lineCap:cap
+    });
+  });
   const labelFont=boldFont||font;
   const label="Gesamt";
   const labelSize=9;
   const labelW=labelFont.widthOfTextAtSize(label,labelSize);
   page.drawText(label,{
-    x:326.82-labelW-5.2,
+    x:x0-labelW-5.2,
     y:y+(h-labelSize)/2+0.7,
     size:labelSize,
     font:labelFont,
     color:black
   });
+  const kmText=t.km ? String(Math.round(t.km*10)/10).replace(".",",") : "";
   const cells=[
-    {x:369.12, w:35.67, text:t.travel ? fmtMinPdf(t.travel) : ""},
-    {x:405.90, w:35.67, text:t.work ? fmtMinPdf(t.work) : ""},
-    {x:442.67, w:34.44, text:t.pauseRz ? fmtMinPdf(t.pauseRz) : ""},
-    {x:478.06, w:34.44, text:t.pauseAz ? fmtMinPdf(t.pauseAz) : ""},
-    {x:513.73, w:51.98, text:t.all ? fmtMinPdf(t.all) : ""}
+    {x:x0, w:splits[0]-x0, text:kmText, size:9, bold:true},
+    {x:splits[0], w:splits[1]-splits[0], text:t.travel ? fmtMinPdf(t.travel) : ""},
+    {x:splits[1], w:splits[2]-splits[1], text:t.work ? fmtMinPdf(t.work) : ""},
+    {x:splits[2], w:splits[3]-splits[2], text:t.pauseRz ? fmtMinPdf(t.pauseRz) : ""},
+    {x:splits[3], w:splits[4]-splits[3], text:t.pauseAz ? fmtMinPdf(t.pauseAz) : ""},
+    {x:splits[4], w:xEnd-splits[4], text:t.all ? fmtMinPdf(t.all) : ""}
   ];
-  const xEnd=cells[cells.length-1].x+cells[cells.length-1].w;
-  cells.forEach(c=>{
-    page.drawRectangle({
-      x:c.x+stroke,
-      y:y+stroke,
-      width:Math.max(0.5,c.w-stroke),
-      height:Math.max(0.5,h-stroke-1.1),
-      color:white,
-      borderWidth:0
-    });
-  });
-  page.drawLine({start:{x:kmRight,y},end:{x:xEnd,y},thickness:stroke,color:black,lineCap:cap});
-  page.drawLine({start:{x:xEnd,y},end:{x:xEnd,y:y+h},thickness:stroke,color:black,lineCap:cap});
-  cells.forEach(c=>{
-    page.drawLine({start:{x:c.x,y},end:{x:c.x,y:y+h},thickness:stroke,color:black,lineCap:cap});
-  });
-  const size=8;
   cells.forEach(c=>{
     if(!c.text) return;
-    const tw=font.widthOfTextAtSize(c.text,size);
+    const size=c.size||8;
+    const useFont=c.bold ? labelFont : font;
+    const tw=useFont.widthOfTextAtSize(c.text,size);
     page.drawText(c.text,{
       x:c.x+Math.max(1.4,(c.w-tw)/2),
       y:y+(h-size)/2+0.8,
       size,
-      font,
+      font:useFont,
       color:black
     });
   });
