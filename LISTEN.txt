@@ -1,0 +1,22 @@
+Servicebericht – dwa repozytoria
+
+1) Aplikacja PUBLIC (github.io):
+   https://sebikk5-droid.github.io/Servicebericht-v2/v2.html
+   Repo: Servicebericht-v2
+   Tu NIE ma już companies.json / e-maili / maszyn.
+
+2) Listy PRIVATE:
+   Repo: Servicebericht-listen
+   Pliki: companies.json, customer-emails.json, customer-machines.json
+
+NAJPIERW wgraj listy do Servicebericht-listen, dopiero potem scalaj v2.22:
+
+- Otwórz https://sebikk5-droid.github.io/Servicebericht-v2/companies.json
+  Zapisz plik (zanim zniknie z Pages).
+- GitHub → Servicebericht-listen → Add file → Upload files
+  Wgraj: companies.json, customer-emails.json, customer-machines.json
+  (dwa ostatnie możesz zrobić jako plik z treścią { } )
+- Token już masz (Contents: Read and write na obu repo)
+- W apce v2.22: GitHub an · Token
+
+Created by S. Pawlina

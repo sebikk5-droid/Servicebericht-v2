@@ -1,15 +1,15 @@
 Servicebericht – adresy GitHub Pages
 
+Aplikacja (v2):
+  https://sebikk5-droid.github.io/Servicebericht-v2/v2.html
+
+Listy klientów są w prywatnym repo Servicebericht-listen, nie na github.io.
+W apce potrzebny jest Token do tego repo. Szczegóły: LISTEN.txt
+
 v1.0:
   https://sebikk5-droid.github.io/Servicebericht-v2/
 
-v2.0 (ten link, jak v1):
-  https://sebikk5-droid.github.io/Servicebericht-v2/v2.html
-
-albo:
-  https://sebikk5-droid.github.io/Servicebericht-v2/servicebericht-v2.html
-
 Nie otwieraj plików na github.com – tam jest 404.
-Aplikacja działa tylko na github.io.
+Aplikacja działa na github.io.
 
 Created by S. Pawlina

@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.20">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.22">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.20</title>
+<title>Servicebericht v2.22</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -421,7 +421,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.20</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.22</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -453,7 +453,7 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Fehlt der Name in der Liste, pulsiert unten „Zur Kundenliste hinzufügen“. × entfernt die Auswahl.</div>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Die Liste liegt im privaten GitHub-Repo Servicebericht-listen (nicht auf github.io). Oben Token setzen. Fehlt der Name, pulsiert „Zur Kundenliste hinzufügen“.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -618,7 +618,7 @@ input.to-check{
 <div id="tokenModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>GitHub-Token</h3>
-    <p class="muted" id="tokenModalHint">Für Chrome-App, Browser und iPad. Token oder den ganzen Link mit sb_token hier einfügen. Jede App speichert das Token getrennt.</p>
+    <p class="muted" id="tokenModalHint">Token für das private Repo Servicebericht-listen (Contents: Read and write). Nicht für das App-Repo. Chrome, Safari und Home-Bildschirm speichern das Token getrennt.</p>
     <textarea id="tokenModalInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_… oder https://…?sb_token=…"></textarea>
     <div class="email-actions">
       <button type="button" class="clear" id="tokenModalClear">Entfernen</button>
@@ -1257,6 +1257,30 @@ function addMinutesToTime(t,mins){
 function companyNameKey(c){
   return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
 }
+function bindCompanySelect(){
+  const sel=$("company");
+  if(!sel || sel.dataset.boundChange==="1") return;
+  sel.dataset.boundChange="1";
+  sel.onchange=()=>{
+    const c=selectedCompany();
+    if(!c)return;
+    if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
+    const box=$("customerSearchBox");
+    if(box && $("customerSearch"))
+      box.classList.toggle("has-value", String($("customerSearch").value||"").trim()!=="");
+    const a=address(c.adres||c.address||"");
+    if($("street")) $("street").value=a[0]||"";
+    if($("city")) $("city").value=a[1]||"";
+    applyCustomerRouteDay1();
+    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
+    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
+    recalcTimes();
+    if(typeof window.clearMachineFields==="function") window.clearMachineFields();
+    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
+    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+  };
+}
 function applyCompanies(list, selectName){
   companies=Array.isArray(list)?list:[];
   const sel=$("company");
@@ -1467,41 +1491,59 @@ function applyCustomerRouteDay(d){
   }
   recalcTimes();
 }
-fetch("companies.json").then(r=>{
-  if(!r.ok) throw new Error("companies.json HTTP "+r.status);
-  return r.json();
-}).then(x=>{
-  applyCompanies(x);
-  $("company").onchange=()=>{
-    // V27.6.51 FIX: after returning from a PDF, the previous report is kept
-    // in sessionStorage for Safari. Choosing another company must invalidate
-    // that old snapshot, otherwise pageshow can restore the previous company.
-
-    const c=selectedCompany();
-    if(!c)return;
-    if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
-    const box=$("customerSearchBox");
-    if(box && $("customerSearch"))
-      box.classList.toggle("has-value", String($("customerSearch").value||"").trim()!=="");
-    const a=address(c.adres||c.address||"");
-    if($("street")) $("street").value=a[0]||"";
-    if($("city")) $("city").value=a[1]||"";
-    applyCustomerRouteDay1();
-    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
-    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
-    recalcTimes();
-    if(typeof window.clearMachineFields==="function") window.clearMachineFields();
-    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
-    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
-    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-  };
+function finishCompaniesLoad(list){
+  applyCompanies(Array.isArray(list)?list:[]);
+  bindCompanySelect();
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-}).catch(err=>{
-  console.error("companies.json:",err);
-  $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
-  if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
-  if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+}
+window.loadCompaniesFromCloud=async function(){
+  const cacheKey="servicebericht_companies_cache_v1";
+  const s=$("status");
+  function readCache(){
+    try{ const x=JSON.parse(localStorage.getItem(cacheKey)||"null"); return Array.isArray(x)?x:null; }catch(e){ return null; }
+  }
+  function writeCache(list){
+    try{ localStorage.setItem(cacheKey, JSON.stringify(list)); }catch(e){}
+  }
+  if(!window.sbLists){
+    finishCompaniesLoad(readCache()||[]);
+    return;
+  }
+  const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
+  const repoName=dr.repo||"Servicebericht-listen";
+  if(!window.sbLists.hasToken()){
+    const cached=readCache();
+    finishCompaniesLoad(cached||[]);
+    if(s && !(cached&&cached.length))
+      s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
+    return;
+  }
+  try{
+    const got=await window.sbLists.pullFile("companies");
+    if(got && Array.isArray(got.data)){
+      writeCache(got.data);
+      finishCompaniesLoad(got.data);
+      return;
+    }
+    if(got && got.status===404){
+      writeCache([]);
+      finishCompaniesLoad([]);
+      if(s) s.textContent="Repo "+repoName+" ist neu oder ohne companies.json. Hinzufügen legt die Datei an.";
+      return;
+    }
+    const cached=readCache();
+    finishCompaniesLoad(cached||[]);
+    if(s) s.textContent="Kundenliste: "+((got&&(got.status||got.reason))||"Fehler")+" – Token braucht Zugriff auf "+repoName+".";
+  }catch(e){
+    finishCompaniesLoad(readCache()||[]);
+  }
+};
+window.addEventListener("sb-lists-ready", function(){ window.loadCompaniesFromCloud(); });
+window.addEventListener("sb-token-change", function(){
+  window.loadCompaniesFromCloud();
+  if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
+  if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
 });
 
 function fieldRectOf(form,n){
@@ -3267,8 +3309,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.20";
+  const APP_VERSION="2.22";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
+  const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
     try{
       const h=String(location.hostname||"");
@@ -3279,6 +3322,18 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }catch(e){}
     return {owner:"sebikk5-droid", repo:"Servicebericht-v2", branch:"main"};
+  }
+  function dataRepo(){
+    try{
+      const raw=localStorage.getItem("servicebericht_data_repo");
+      if(raw){
+        const c=JSON.parse(raw);
+        if(c && c.owner && c.repo)
+          return {owner:String(c.owner), repo:String(c.repo), branch:String(c.branch||"main")};
+      }
+    }catch(e){}
+    const base=repo();
+    return {owner:base.owner||"sebikk5-droid", repo:DATA_REPO_NAME, branch:"main"};
   }
   function normalizeToken(raw){
     const s=String(raw||"").trim().replace(/^Bearer\s+/i,"");
@@ -3296,6 +3351,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else localStorage.removeItem(TOKEN_KEY);
     }catch(e){}
     syncTokenUi();
+    try{ window.dispatchEvent(new Event("sb-token-change")); }catch(e){}
   }
   function appPlace(){
     const standalone=window.matchMedia("(display-mode: standalone)").matches
@@ -3344,10 +3400,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const hint=$("tokenModalHint");
     const skip=$("tokenModalSkip");
     if(token()){
-      if(hint) hint.textContent="Dieses Gerät hat in dieser App schon ein Token. Neues einfügen ersetzt es. Chrome, Safari und Home-Bildschirm sind getrennt.";
+      if(hint) hint.textContent="Dieses Gerät hat schon ein Token für das Listen-Repo "+dataRepo().repo+". Neues einfügen ersetzt es.";
       if(skip) skip.textContent="Schließen";
     }else{
-      if(hint) hint.textContent="Token oder den ganzen Link mit sb_token hier einfügen. Chrome, Safari und Home-Bildschirm speichern das Token getrennt.";
+      if(hint) hint.textContent="Token für privates Repo "+dataRepo().repo+" (Contents: Read and write). App bleibt auf github.io, Listen nicht.";
       if(skip) skip.textContent="Später";
     }
     modal.classList.add("is-open");
@@ -3421,7 +3477,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return h;
   }
   function apiFileUrl(path, withRef){
-    const r=repo();
+    const r=dataRepo();
     const base="https://api.github.com/repos/"+encodeURIComponent(r.owner)+"/"+encodeURIComponent(r.repo)+"/contents/"+path;
     return withRef ? base+"?ref="+encodeURIComponent(r.branch) : base;
   }
@@ -3482,19 +3538,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{
       const authed=await fromApi(true);
       if(authed.sha || authed.status===404) return authed;
-      if(writePath) return authed;
-      const pub=await fromApi(false);
-      if(pub.sha || pub.status===404) return pub;
-      const pages=await fetchPages(path);
-      pages.status=authed.status;
-      return pages;
+      return authed;
     }catch(e){
-      if(writePath) return {data:null, sha:"", status:0, reason:"network"};
-      try{
-        const pub=await fromApi(false);
-        if(pub.sha || pub.status===404) return pub;
-      }catch(e2){}
-      return fetchPages(path);
+      return {data:null, sha:"", status:0, reason:"network"};
     }
   }
   function sameJson(a,b){
@@ -3512,7 +3558,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const t=token();
     if(!t) return {ok:false, reason:"no-token"};
     const path=FILES[kind]||kind;
-    const r=repo();
+    const r=dataRepo();
     let content="";
     try{ content=encodeContent(JSON.stringify(data, null, 2)+"\n"); }
     catch(e){ return {ok:false, reason:"encode", status:0}; }
@@ -3572,14 +3618,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return {merged:localData, result:last};
     });
   }
-  captureToken();
-  bindTokenUi();
-  syncTokenUi();
   window.sbLists={
-    token, setToken, hasToken:()=>!!token(), ensureToken, openTokenModal, pullFile, pushMerged, repo,
+    token, setToken, hasToken:()=>!!token(), ensureToken, openTokenModal, pullFile, pushMerged, repo, dataRepo,
     appVersion:()=>APP_VERSION,
     asMap(o){ return o && typeof o==="object" && !Array.isArray(o) ? o : {}; }
   };
+  try{ window.dispatchEvent(new Event("sb-lists-ready")); }catch(e){}
+  captureToken();
+  bindTokenUi();
+  syncTokenUi();
 })();
 </script>
 <script>
@@ -3601,7 +3648,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
         return;
       }
-      if(s) s.textContent="Kunde wird auf GitHub gespeichert…";
+      if(s) s.textContent="Kunde wird in Servicebericht-listen gespeichert…";
       const existed=Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase());
       const {merged, result}=await window.sbLists.pushMerged(
         "companies",
@@ -3612,15 +3659,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(result && result.ok){
         if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
         if(s) s.textContent=existed
-          ? "Kunde steht in companies.json auf GitHub."
-          : "Neuer Kunde steht in companies.json auf GitHub.";
+          ? "Kunde steht in companies.json (privates Repo Servicebericht-listen)."
+          : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
       }else{
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
         if(!s) return;
         if(result && result.reason==="no-token")
-          s.textContent="In Chrome fehlt das Token (nicht dasselbe wie auf dem iPad). Oben „GitHub fehlt · Token“.";
+          s.textContent="Token fehlt. Oben „GitHub fehlt · Token“ – Zugriff auf privates Repo Servicebericht-listen.";
         else if(result && (result.status===401 || result.status===403))
-          s.textContent="Token darf companies.json nicht schreiben. Contents: Read and write, dann erneut tippen.";
+          s.textContent="Token darf Servicebericht-listen nicht schreiben. Contents: Read and write nur für dieses Repo.";
+        else if(result && result.status===404)
+          s.textContent="Repo Servicebericht-listen fehlt. Auf GitHub als private anlegen, dann erneut tippen.";
         else if(result && result.reason==="encode")
           s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
         else if(result && result.reason==="network")
@@ -3684,8 +3733,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(window.sbLists){
         const got=await window.sbLists.pullFile("emails");
         remote=window.sbLists.asMap(got.data);
-      }else{
-        remote=await fetchSharedMap("customer-emails.json");
       }
       const merged=mergeEmailMaps(loadMap(), remote);
       saveMap(merged);
@@ -4490,8 +4537,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(window.sbLists){
         const got=await window.sbLists.pullFile("machines");
         remote=window.sbLists.asMap(got.data);
-      }else{
-        remote=await fetchSharedMap("customer-machines.json");
       }
       const merged=mergeMachineMaps(loadAll(), remote);
       saveAll(merged);

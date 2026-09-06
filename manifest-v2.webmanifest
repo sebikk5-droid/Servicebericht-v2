@@ -1,6 +1,6 @@
 {
-  "name": "Servicebericht v2.20",
-  "short_name": "Servicebericht v2.20",
+  "name": "Servicebericht v2.22",
+  "short_name": "Servicebericht v2.22",
   "start_url": "./v2.html",
   "scope": "./",
   "display": "standalone",
