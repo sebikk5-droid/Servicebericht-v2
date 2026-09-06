@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.22">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.23">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.22</title>
+<title>Servicebericht v2.23</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -393,6 +393,17 @@ input.to-check{
 #tokenModal textarea{min-height:88px;width:100%;margin:8px 0}
 #tokenModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #tokenModal .email-actions button{flex:1 1 30%;min-width:90px}
+#routeModal{
+  display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#routeModal.is-open{display:flex}
+#routeModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#routeModal h3{margin:0 0 6px;font-size:18px}
+#routeModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+#routeModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#routeModal .email-actions button{flex:1 1 30%;min-width:90px}
+#routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
 .token-status{
   flex:0 0 auto;border:0;border-radius:10px;padding:8px 10px;min-height:40px;
   font-size:12px;font-weight:750;line-height:1.2;max-width:46%;
@@ -421,7 +432,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.22</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.23</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -624,6 +635,27 @@ input.to-check{
       <button type="button" class="clear" id="tokenModalClear">Entfernen</button>
       <button type="button" class="clear" id="tokenModalSkip">Später</button>
       <button type="button" class="go" id="tokenModalSave">Speichern</button>
+    </div>
+  </div>
+</div>
+<div id="routeModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3 id="routeModalTitle">Anfahrt</h3>
+    <p class="muted" id="routeModalHint">Kilometer und Reisezeit einer Strecke für die Kundenliste.</p>
+    <div class="route-grid">
+      <div>
+        <label for="routeModalKm">Kilometer</label>
+        <input id="routeModalKm" inputmode="decimal" placeholder="z. B. 85" autocomplete="off">
+      </div>
+      <div>
+        <label for="routeModalTime">Reisezeit</label>
+        <input id="routeModalTime" inputmode="decimal" placeholder="1:15 oder 1,25" autocomplete="off">
+      </div>
+    </div>
+    <p class="muted" id="routeModalErr"></p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="routeModalCancel">Abbrechen</button>
+      <button type="button" class="go" id="routeModalSave">Speichern</button>
     </div>
   </div>
 </div>
@@ -1340,21 +1372,42 @@ function mergeCompanyRecord(remote, rec){
   }
   return arr;
 }
-function companyRecordFromForm(){
+function formatRouteNote(km, minutes){
+  const kmN=Number(km)||0;
+  const minN=Math.max(0, Math.round(Number(minutes)||0));
+  const kmPart=kmN?String(kmN).replace(".",",")+"km":"";
+  const h=Math.round((minN/60)*100)/100;
+  const hPart=h?String(h).replace(".",","):"";
+  return kmPart&&hPart?kmPart+", "+hPart:(kmPart||hPart);
+}
+function parseTravelToMinutes(s){
+  const raw=String(s||"").trim();
+  if(!raw) return 0;
+  const clock=raw.match(/^(\d{1,2}):(\d{2})$/);
+  if(clock) return (+clock[1])*60+(+clock[2]);
+  const n=parseFloat(raw.replace(",","."));
+  return Number.isFinite(n)?Math.max(0,Math.round(n*60)):0;
+}
+function formatMinutesClock(min){
+  const m=Math.max(0, Math.round(Number(min)||0));
+  if(!m) return "";
+  return String(Math.floor(m/60))+":"+String(m%60).padStart(2,"0");
+}
+function companyRecordFromForm(route){
   const firma=firmaName();
   const street=String($("street")?.value||"").trim();
   const city=String($("city")?.value||"").trim();
   const adres=[street, city].filter(Boolean).join(", ");
   const email=String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
-  const km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
+  let km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
   const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
   const clock=rtTxt.match(/^(\d+):(\d+)$/);
-  const minutes=clock?(+clock[1])*60+(+clock[2]):0;
-  const kmPart=km?String(km).replace(".",",")+"km":"";
-  const h=Math.round((minutes/60)*100)/100;
-  const hPart=h?String(h).replace(".",","):"";
-  const notatki=kmPart&&hPart?kmPart+", "+hPart:(kmPart||hPart);
-  return {firma, tel:"", email, adres, notatki};
+  let minutes=clock?(+clock[1])*60+(+clock[2]):0;
+  if(route){
+    if(route.km!=null) km=Number(route.km)||0;
+    if(route.minutes!=null) minutes=Number(route.minutes)||0;
+  }
+  return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
 }
 window.applyCompanies=applyCompanies;
 window.mergeCompanyRecord=mergeCompanyRecord;
@@ -3309,7 +3362,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.22";
+  const APP_VERSION="2.23";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3632,6 +3685,75 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   let saveLock=Promise.resolve();
+  let routeWait=null;
+  function closeRouteModal(value){
+    const modal=$("routeModal");
+    if(modal){
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden","true");
+    }
+    const r=routeWait;
+    routeWait=null;
+    if(r) r(value);
+  }
+  function askRouteDialog(firma){
+    const modal=$("routeModal");
+    const kmEl=$("routeModalKm");
+    const timeEl=$("routeModalTime");
+    const err=$("routeModalErr");
+    const title=$("routeModalTitle");
+    const hint=$("routeModalHint");
+    if(!modal||!kmEl||!timeEl) return Promise.resolve(null);
+    if(title) title.textContent="Anfahrt: "+(firma||"Kunde");
+    if(hint) hint.textContent="Kilometer und Reisezeit einer Strecke. Steht dann in der Kundenliste für Tag 1.";
+    if(err) err.textContent="";
+    const kmNow=String(document.querySelector('[data-k="Kilometer1"]')?.value||"").trim();
+    const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
+    kmEl.value=kmNow;
+    timeEl.value=rtTxt && /^\d+:\d{2}$/.test(rtTxt) ? rtTxt : "";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+    setTimeout(function(){ try{ kmEl.focus(); }catch(e){} }, 120);
+    return new Promise(function(resolve){ routeWait=resolve; });
+  }
+  function readRouteFromModal(){
+    const err=$("routeModalErr");
+    const kmRaw=String($("routeModalKm")?.value||"").trim();
+    const timeRaw=String($("routeModalTime")?.value||"").trim();
+    if(!kmRaw || !timeRaw){
+      if(err) err.textContent="Kilometer und Reisezeit eintragen.";
+      return null;
+    }
+    const km=parseFloat(kmRaw.replace(",","."));
+    const minutes=parseTravelToMinutes(timeRaw);
+    if(!Number.isFinite(km) || km<0){
+      if(err) err.textContent="Kilometer prüfen.";
+      return null;
+    }
+    if(!minutes){
+      if(err) err.textContent="Reisezeit als 1:15 oder 1,25 eintragen.";
+      return null;
+    }
+    return {km, minutes};
+  }
+  $("routeModalCancel")?.addEventListener("click",()=>closeRouteModal(null));
+  $("routeModal")?.addEventListener("click",e=>{
+    if(e.target===$("routeModal")) closeRouteModal(null);
+  });
+  $("routeModalSave")?.addEventListener("click",()=>{
+    const route=readRouteFromModal();
+    if(!route) return;
+    closeRouteModal(route);
+  });
+  ["routeModalKm","routeModalTime"].forEach(function(id){
+    $(id)?.addEventListener("keydown",function(e){
+      if(e.key==="Enter"){
+        e.preventDefault();
+        const route=readRouteFromModal();
+        if(route) closeRouteModal(route);
+      }
+    });
+  });
   $("companySave")?.addEventListener("click", async ()=>{
     const prev=saveLock;
     let unlock=()=>{};
@@ -3639,11 +3761,22 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     await prev;
     const s=$("status");
     try{
-      const rec=typeof companyRecordFromForm==="function"?companyRecordFromForm():null;
+      let rec=typeof companyRecordFromForm==="function"?companyRecordFromForm():null;
       if(!rec || !rec.firma){
         if(s) s.textContent="Zuerst den Firmennamen eintragen.";
         return;
       }
+      const route=await askRouteDialog(rec.firma);
+      if(!route){
+        if(s) s.textContent="Speichern abgebrochen.";
+        return;
+      }
+      rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
+      rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
+      const km1=document.querySelector('[data-k="Kilometer1"]');
+      const km2=document.querySelector('[data-k="Kilometer2"]');
+      if(km1) km1.value=route.km;
+      if(km2) km2.value=route.km;
       if(!window.sbLists){
         if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
         return;
@@ -3658,6 +3791,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       );
       if(result && result.ok){
         if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
+        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+        }
         if(s) s.textContent=existed
           ? "Kunde steht in companies.json (privates Repo Servicebericht-listen)."
           : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
