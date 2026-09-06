@@ -401,8 +401,17 @@ input.to-check{
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f2f2f7;color:#666}
-#customerEmail{padding-right:40px}
+#customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
+#customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
 #customerEmailBox .combo-results{z-index:70}
+.email-save-row{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:4px;
+}
+.email-save-row label{margin-top:0}
+#emailSave{
+  flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
+  background:#163a5c;color:#fff;
+}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -506,18 +515,20 @@ input.to-check{
     <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
   </div>
 </div>
-<div class="full combo-box" id="customerEmailBox">
-  <label for="customerEmail">E-Mail</label>
-  <div class="combo-field">
-    <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail wählen oder neu eintragen">
-    <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
-  </div>
-  <div id="customerEmailResults" class="combo-results"></div>
 </div>
+<div class="email-save-row">
+  <div class="combo-box" id="customerEmailBox">
+    <label for="customerEmail">E-Mail</label>
+    <div class="combo-field">
+      <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+      <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
+    </div>
+    <div id="customerEmailResults" class="combo-results"></div>
+  </div>
+  <button type="button" id="emailSave">E-Mail merken</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
-  <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
 </div>
 </section>
 
