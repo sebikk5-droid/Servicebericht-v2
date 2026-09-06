@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.18">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.19">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.18</title>
+<title>Servicebericht v2.19</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -421,7 +421,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.18</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.19</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3267,7 +3267,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.18";
+  const APP_VERSION="2.19";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3303,6 +3303,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       || navigator.standalone===true;
     if(standalone) return "Home-Bildschirm";
     if(/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent||"")) return "Browser";
+    if(/Chrome|Chromium|Edg\//i.test(navigator.userAgent||"")) return "Chrome";
     return "Safari";
   }
   function syncTokenUi(){
@@ -3343,10 +3344,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const hint=$("tokenModalHint");
     const skip=$("tokenModalSkip");
     if(token()){
-      if(hint) hint.textContent="Dieses iPad hat in dieser App schon ein Token. Neues einfügen ersetzt es. Safari und Home-Bildschirm sind getrennt.";
+      if(hint) hint.textContent="Dieses Gerät hat in dieser App schon ein Token. Neues einfügen ersetzt es. Chrome, Safari und Home-Bildschirm sind getrennt.";
       if(skip) skip.textContent="Schließen";
     }else{
-      if(hint) hint.textContent="Token oder den ganzen Link mit sb_token hier einfügen. Nur für diese App (Safari oder Home-Bildschirm).";
+      if(hint) hint.textContent="Token oder den ganzen Link mit sb_token hier einfügen. Chrome, Safari und Home-Bildschirm speichern das Token getrennt.";
       if(skip) skip.textContent="Später";
     }
     modal.classList.add("is-open");
@@ -3396,10 +3397,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{ return String(localStorage.getItem(TOKEN_KEY)||"").trim(); }
     catch(e){ return ""; }
   }
-  function headers(){
+  function headers(withAuth){
     const h={"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"};
-    const t=token();
-    if(t) h.Authorization="Bearer "+t;
+    if(withAuth!==false){
+      const t=token();
+      if(t) h.Authorization="Bearer "+t;
+    }
     return h;
   }
   function apiFileUrl(path, withRef){
@@ -3412,7 +3415,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     catch(e){ return ""; }
   }
   function encodeContent(text){
-    return btoa(unescape(encodeURIComponent(text)));
+    const bytes=new TextEncoder().encode(String(text||""));
+    let bin="";
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk){
+      bin+=String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(bin);
   }
   async function fetchPages(path){
     try{
@@ -3423,17 +3432,32 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return {data:null, sha:""};
     }
   }
+  async function parseContents(res){
+    const j=await res.json();
+    let data=null;
+    try{ data=JSON.parse(decodeContent(j.content)); }catch(e){ data=null; }
+    return {data, sha:j.sha||"", status:res.status};
+  }
   async function pullFile(kind){
     const path=FILES[kind]||kind;
     try{
-      const res=await fetch(apiFileUrl(path, true), {headers:headers(), cache:"no-store"});
-      if(res.status===404) return {data:null, sha:""};
-      if(!res.ok) return fetchPages(path);
-      const j=await res.json();
-      let data=null;
-      try{ data=JSON.parse(decodeContent(j.content)); }catch(e){ data=null; }
-      return {data, sha:j.sha||""};
+      const res=await fetch(apiFileUrl(path, true), {headers:headers(true), cache:"no-store"});
+      if(res.status===404) return {data:null, sha:"", status:404};
+      if(res.ok) return parseContents(res);
+      const pub=await fetch(apiFileUrl(path, true), {headers:headers(false), cache:"no-store"});
+      if(pub.ok){
+        const parsed=await parseContents(pub);
+        parsed.status=res.status;
+        return parsed;
+      }
+      const pages=await fetchPages(path);
+      pages.status=res.status;
+      return pages;
     }catch(e){
+      try{
+        const pub=await fetch(apiFileUrl(path, true), {headers:headers(false), cache:"no-store"});
+        if(pub.ok) return parseContents(pub);
+      }catch(e2){}
       return fetchPages(path);
     }
   }
@@ -3453,25 +3477,32 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!t) return {ok:false, reason:"no-token"};
     const path=FILES[kind]||kind;
     const r=repo();
+    let content="";
+    try{ content=encodeContent(JSON.stringify(data, null, 2)+"\n"); }
+    catch(e){ return {ok:false, reason:"encode", status:0}; }
     const body={
       message: message||("Aktualisiere "+path),
-      content: encodeContent(JSON.stringify(data, null, 2)+"\n"),
+      content,
       branch: r.branch
     };
     if(sha) body.sha=sha;
-    const res=await fetch(apiFileUrl(path, false), {
-      method:"PUT",
-      headers:Object.assign({"Content-Type":"application/json"}, headers()),
-      body:JSON.stringify(body)
-    });
-    if(!res.ok){
-      let reason="";
-      try{ reason=(await res.text()).slice(0,240); }catch(e){}
-      return {ok:false, status:res.status, reason};
+    try{
+      const res=await fetch(apiFileUrl(path, false), {
+        method:"PUT",
+        headers:Object.assign({"Content-Type":"application/json"}, headers(true)),
+        body:JSON.stringify(body)
+      });
+      if(!res.ok){
+        let reason="";
+        try{ reason=(await res.text()).slice(0,240); }catch(e){}
+        return {ok:false, status:res.status, reason};
+      }
+      let shaOut="";
+      try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||""; }catch(e){}
+      return {ok:true, sha:shaOut};
+    }catch(e){
+      return {ok:false, reason:"network", status:0};
     }
-    let shaOut="";
-    try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||""; }catch(e){}
-    return {ok:true, sha:shaOut};
   }
   async function pushMerged(kind, localData, message, mergeFn){
     return enqueueWrite(async ()=>{
@@ -3485,6 +3516,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const merged=mergeFn(remote.data, localData);
         if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
         if(sameJson(merged, remote.data)) return {merged, result:{ok:true, skipped:true}};
+        if(!remote.sha && remote.data!=null){
+          last={ok:false, reason:"no-sha", status:422};
+          await sleep(180*(i+1));
+          continue;
+        }
         const result=await putFile(kind, merged, remote.sha, message);
         if(result.ok) return {merged, result};
         last=result;
@@ -3512,9 +3548,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     let unlock=()=>{};
     saveLock=new Promise(r=>{ unlock=r; });
     await prev;
+    const s=$("status");
     try{
       const rec=typeof companyRecordFromForm==="function"?companyRecordFromForm():null;
-      const s=$("status");
       if(!rec || !rec.firma){
         if(s) s.textContent="Zuerst den Firmennamen eintragen.";
         return;
@@ -3523,6 +3559,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
         return;
       }
+      if(s) s.textContent="Kunde wird auf GitHub gespeichert…";
       const existed=Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase());
       const {merged, result}=await window.sbLists.pushMerged(
         "companies",
@@ -3530,19 +3567,26 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         existed ? "Kunde aktualisiert: "+rec.firma : "Neuer Kunde: "+rec.firma,
         function(remote, local){ return mergeCompanyRecord(remote, local); }
       );
-      if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
-      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-      if(s){
-        if(result && result.ok){
-          s.textContent=existed
-            ? "Kunde in der GitHub-Liste aktualisiert – andere iPads laden ihn."
-            : "Kunde steht auf der gemeinsamen Liste – andere iPads laden ihn.";
-        }else if(result && result.reason==="no-token"){
-          s.textContent="GitHub-Token fehlt. Oben Token einfügen, dann erneut tippen.";
-        }else{
-          s.textContent="GitHub "+((result&&result.status)||"Fehler")+" – noch einmal tippen.";
-        }
+      if(result && result.ok){
+        if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
+        if(s) s.textContent=existed
+          ? "Kunde steht in companies.json auf GitHub."
+          : "Neuer Kunde steht in companies.json auf GitHub.";
+      }else{
+        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+        if(!s) return;
+        if(result && result.reason==="no-token")
+          s.textContent="In Chrome fehlt das Token (nicht dasselbe wie auf dem iPad). Oben „GitHub fehlt · Token“.";
+        else if(result && (result.status===401 || result.status===403))
+          s.textContent="Token darf companies.json nicht schreiben. Contents: Read and write, dann erneut tippen.";
+        else if(result && (result.reason==="no-sha" || result.status===422))
+          s.textContent="GitHub hat die Datei nicht übernommen. Noch einmal „Zur Kundenliste hinzufügen“.";
+        else
+          s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
       }
+    }catch(e){
+      if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
+      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
     }finally{ unlock(); }
   });
 })();
