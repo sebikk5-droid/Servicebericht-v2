@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.20">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.21">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.20</title>
+<title>Servicebericht v2.21</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -210,7 +210,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   cursor:pointer;box-sizing:border-box;font-family:inherit;
   height:40px;min-height:40px;margin:0;line-height:1;white-space:nowrap;
 }
-#historyFileInput{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
+#historyFileInput,#companyImport{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
 .daybox{
   background:#dceaf8;
   border:1px solid #8fb0d2;
@@ -363,6 +363,8 @@ input.to-check{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-bar .history-file-btn,
+.machine-bar button.history-file-btn{flex:1 1 auto;background:#e5e5ea;color:#111}
 #companySave[hidden]{display:none!important}
 #companySave:not([hidden]){
   animation:companySavePulse 1.5s ease-in-out infinite;
@@ -419,9 +421,9 @@ input.to-check{
       <h1>Servicebericht</h1>
       <div class="muted" id="appPlaceLine"></div>
     </div>
-    <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
+    <button type="button" id="tokenStatusBtn" class="token-status is-off" hidden>GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.20</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.21</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -453,7 +455,7 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Fehlt der Name in der Liste, pulsiert unten „Zur Kundenliste hinzufügen“. × entfernt die Auswahl.</div>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste dieses Geräts. Fehlt der Name, pulsiert unten „Zur Kundenliste hinzufügen“. Liste, E-Mails und Maschinen bleiben nur hier – nicht auf GitHub.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -480,6 +482,9 @@ input.to-check{
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
   <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
+  <button type="button" id="companyExport" class="history-file-btn">Liste sichern</button>
+  <label class="history-file-btn" for="companyImport">Liste öffnen</label>
+  <input id="companyImport" type="file" accept=".json,application/json,.txt,text/plain">
 </div>
 </section>
 
@@ -1257,6 +1262,42 @@ function addMinutesToTime(t,mins){
 function companyNameKey(c){
   return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
 }
+const COMPANIES_KEY="servicebericht_companies_v1";
+function loadLocalCompanies(){
+  try{
+    const x=JSON.parse(localStorage.getItem(COMPANIES_KEY)||"null");
+    return Array.isArray(x)?x:null;
+  }catch(e){ return null; }
+}
+function saveLocalCompanies(list){
+  try{ localStorage.setItem(COMPANIES_KEY, JSON.stringify(Array.isArray(list)?list:[])); }catch(e){}
+}
+window.loadLocalCompanies=loadLocalCompanies;
+window.saveLocalCompanies=saveLocalCompanies;
+function bindCompanySelect(){
+  const sel=$("company");
+  if(!sel || sel.dataset.boundChange==="1") return;
+  sel.dataset.boundChange="1";
+  sel.onchange=()=>{
+    const c=selectedCompany();
+    if(!c)return;
+    if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
+    const box=$("customerSearchBox");
+    if(box && $("customerSearch"))
+      box.classList.toggle("has-value", String($("customerSearch").value||"").trim()!=="");
+    const a=address(c.adres||c.address||"");
+    if($("street")) $("street").value=a[0]||"";
+    if($("city")) $("city").value=a[1]||"";
+    applyCustomerRouteDay1();
+    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
+    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
+    recalcTimes();
+    if(typeof window.clearMachineFields==="function") window.clearMachineFields();
+    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
+    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+  };
+}
 function applyCompanies(list, selectName){
   companies=Array.isArray(list)?list:[];
   const sel=$("company");
@@ -1467,42 +1508,31 @@ function applyCustomerRouteDay(d){
   }
   recalcTimes();
 }
-fetch("companies.json").then(r=>{
-  if(!r.ok) throw new Error("companies.json HTTP "+r.status);
-  return r.json();
-}).then(x=>{
-  applyCompanies(x);
-  $("company").onchange=()=>{
-    // V27.6.51 FIX: after returning from a PDF, the previous report is kept
-    // in sessionStorage for Safari. Choosing another company must invalidate
-    // that old snapshot, otherwise pageshow can restore the previous company.
-
-    const c=selectedCompany();
-    if(!c)return;
-    if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
-    const box=$("customerSearchBox");
-    if(box && $("customerSearch"))
-      box.classList.toggle("has-value", String($("customerSearch").value||"").trim()!=="");
-    const a=address(c.adres||c.address||"");
-    if($("street")) $("street").value=a[0]||"";
-    if($("city")) $("city").value=a[1]||"";
-    applyCustomerRouteDay1();
-    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
-    if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
-    recalcTimes();
-    if(typeof window.clearMachineFields==="function") window.clearMachineFields();
-    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
-    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
-    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-  };
+function finishCompaniesLoad(list){
+  applyCompanies(Array.isArray(list)?list:[]);
+  bindCompanySelect();
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-}).catch(err=>{
-  console.error("companies.json:",err);
-  $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
-  if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
-  if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-});
+}
+(async function loadCompaniesOnDevice(){
+  const local=loadLocalCompanies();
+  if(local && local.length){
+    finishCompaniesLoad(local);
+    return;
+  }
+  try{
+    const r=await fetch("companies.json");
+    if(r.ok){
+      const x=await r.json();
+      if(Array.isArray(x) && x.length){
+        saveLocalCompanies(x);
+        finishCompaniesLoad(x);
+        return;
+      }
+    }
+  }catch(e){}
+  finishCompaniesLoad(local||[]);
+})();
 
 function fieldRectOf(form,n){
   try{
@@ -3267,7 +3297,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.20";
+  const APP_VERSION="2.21";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3597,41 +3627,53 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(s) s.textContent="Zuerst den Firmennamen eintragen.";
         return;
       }
-      if(!window.sbLists){
-        if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
-        return;
-      }
-      if(s) s.textContent="Kunde wird auf GitHub gespeichert…";
+      if(s) s.textContent="Kunde wird auf diesem Gerät gespeichert…";
       const existed=Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase());
-      const {merged, result}=await window.sbLists.pushMerged(
-        "companies",
-        rec,
-        existed ? "Kunde aktualisiert: "+rec.firma : "Neuer Kunde: "+rec.firma,
-        function(remote, local){ return mergeCompanyRecord(remote, local); }
-      );
-      if(result && result.ok){
-        if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
-        if(s) s.textContent=existed
-          ? "Kunde steht in companies.json auf GitHub."
-          : "Neuer Kunde steht in companies.json auf GitHub.";
-      }else{
-        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-        if(!s) return;
-        if(result && result.reason==="no-token")
-          s.textContent="In Chrome fehlt das Token (nicht dasselbe wie auf dem iPad). Oben „GitHub fehlt · Token“.";
-        else if(result && (result.status===401 || result.status===403))
-          s.textContent="Token darf companies.json nicht schreiben. Contents: Read and write, dann erneut tippen.";
-        else if(result && result.reason==="encode")
-          s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
-        else if(result && result.reason==="network")
-          s.textContent="Chrome-App erreicht api.github.com nicht. Netz prüfen, Token oben setzen, erneut tippen.";
-        else
-          s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
-      }
+      const merged=mergeCompanyRecord(companies, rec);
+      if(typeof saveLocalCompanies==="function") saveLocalCompanies(merged);
+      if(typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
+      if(s) s.textContent=existed
+        ? "Kunde steht auf diesem Gerät."
+        : "Neuer Kunde steht auf diesem Gerät.";
     }catch(e){
       if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
       if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
     }finally{ unlock(); }
+  });
+  $("companyExport")?.addEventListener("click",()=>{
+    const list=typeof loadLocalCompanies==="function" && loadLocalCompanies();
+    const data=Array.isArray(list)&&list.length?list:(Array.isArray(companies)?companies:[]);
+    const blob=new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="companies.json";
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+    const s=$("status");
+    if(s) s.textContent="Firmenliste als Datei gesichert.";
+  });
+  $("companyImport")?.addEventListener("change", async (e)=>{
+    const f=e.target.files && e.target.files[0];
+    e.target.value="";
+    const s=$("status");
+    if(!f) return;
+    try{
+      const parsed=JSON.parse(await f.text());
+      const arr=Array.isArray(parsed)?parsed:(parsed&&Array.isArray(parsed.companies)?parsed.companies:null);
+      if(!arr) throw new Error("format");
+      let merged=typeof loadLocalCompanies==="function" && loadLocalCompanies();
+      if(!Array.isArray(merged)) merged=Array.isArray(companies)?companies.slice():[];
+      arr.forEach(rec=>{
+        const name=String((rec&&(rec.firma||rec.name))||"").trim();
+        if(!name) return;
+        merged=mergeCompanyRecord(merged, Object.assign({}, rec, {firma:name}));
+      });
+      if(typeof saveLocalCompanies==="function") saveLocalCompanies(merged);
+      if(typeof applyCompanies==="function") applyCompanies(merged);
+      if(s) s.textContent="Firmenliste auf diesem Gerät: "+merged.length+" Kunden.";
+    }catch(err){
+      if(s) s.textContent="Datei ist keine Firmenliste.";
+    }
   });
 })();
 </script>
@@ -3679,20 +3721,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
   }
   async function pullEmails(){
-    try{
-      let remote={};
-      if(window.sbLists){
-        const got=await window.sbLists.pullFile("emails");
-        remote=window.sbLists.asMap(got.data);
-      }else{
-        remote=await fetchSharedMap("customer-emails.json");
+    return loadMap();
+  }
+  async function pushEmails(message, email){
+    if(email && typeof mergeCompanyEmails==="function"){
+      const list=typeof loadLocalCompanies==="function" && loadLocalCompanies();
+      const base=Array.isArray(list)?list:(Array.isArray(companies)?companies:[]);
+      const merged=mergeCompanyEmails(base, customerKey(), email);
+      if(Array.isArray(merged)){
+        if(typeof saveLocalCompanies==="function") saveLocalCompanies(merged);
+        if(typeof applyCompanies==="function") applyCompanies(merged, firmaName());
       }
-      const merged=mergeEmailMaps(loadMap(), remote);
-      saveMap(merged);
-      return merged;
-    }catch(e){
-      return loadMap();
     }
+    return {ok:true};
   }
   function mergeCompanyEmails(list, firmaKey, email){
     const arr=Array.isArray(list)?list.map(c=>Object.assign({}, c)):list;
@@ -3713,23 +3754,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     });
     return arr;
-  }
-  async function pushEmails(message, email){
-    if(!window.sbLists) return {ok:false, reason:"no-cloud"};
-    const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
-      return mergeEmailMaps(window.sbLists.asMap(remote), local||{});
-    });
-    if(emailPush && emailPush.merged) saveMap(emailPush.merged);
-    let companyPush=null;
-    if(email){
-      companyPush=await window.sbLists.pushMerged("companies", {firma:customerKey(), email}, "E-Mail in Firmenliste", function(remote, local){
-        if(!Array.isArray(remote)) return remote;
-        return mergeCompanyEmails(remote, local.firma, local.email);
-      });
-    }
-    if(emailPush && emailPush.result && emailPush.result.ok) return emailPush.result;
-    if(companyPush && companyPush.result && companyPush.result.ok) return companyPush.result;
-    return (emailPush && emailPush.result) || (companyPush && companyPush.result) || {ok:false};
   }
   function emailsForCustomer(){
     const k=customerKey();
@@ -3767,9 +3791,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const pushed=await pushEmails("E-Mail für "+k, e);
     const s=$("status");
     if(s){
-      if(pushed && pushed.ok) s.textContent="E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
-      else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+      if(pushed && pushed.ok) s.textContent="E-Mail steht auf diesem Gerät.";
+      else s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
     }
     return true;
     }finally{ unlock(); }
@@ -4485,33 +4508,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
   }
   async function pullMachines(){
-    try{
-      let remote={};
-      if(window.sbLists){
-        const got=await window.sbLists.pullFile("machines");
-        remote=window.sbLists.asMap(got.data);
-      }else{
-        remote=await fetchSharedMap("customer-machines.json");
-      }
-      const merged=mergeMachineMaps(loadAll(), remote);
-      saveAll(merged);
-      return merged;
-    }catch(e){
-      return loadAll();
-    }
+    return loadAll();
   }
-  async function pushMachines(message, removeMatch){
-    if(!window.sbLists) return {ok:false, reason:"no-cloud"};
-    const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote, local){
-      const merged=mergeMachineMaps(window.sbLists.asMap(remote), local||{});
-      if(removeMatch && removeMatch.k && Array.isArray(merged[removeMatch.k])){
-        merged[removeMatch.k]=merged[removeMatch.k].filter(m=>!sameMachine(m, removeMatch.rec));
-        if(!merged[removeMatch.k].length) delete merged[removeMatch.k];
-      }
-      return merged;
-    });
-    saveAll(merged);
-    return result;
+  async function pushMachines(){
+    return {ok:true};
   }
   let persistLock=Promise.resolve();
   async function persistCurrent(){
@@ -4544,9 +4544,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const pushed=await pushMachines("Maschine für "+k);
     const s=$("status");
     if(s){
-      if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
-      else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+      if(pushed && pushed.ok) s.textContent="Maschine steht auf diesem Gerät.";
+      else s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
     }
     }finally{ unlock(); }
   }
@@ -4616,7 +4615,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const pushed=await pushMachines("Maschine gelöscht: "+k, {k, rec});
       const s=$("status");
       if(s){
-        if(pushed && pushed.ok) s.textContent="Maschine von der gemeinsamen Liste gelöscht.";
+        if(pushed && pushed.ok) s.textContent="Maschine auf diesem Gerät gelöscht.";
         else s.textContent="Maschine gelöscht.";
       }
     });
