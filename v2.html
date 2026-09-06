@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.13">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.14">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.13</title>
+<title>Servicebericht v2.14</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -363,6 +363,7 @@ input.to-check{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+#companySave[hidden]{display:none!important}
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f2f2f7;color:#666}
@@ -410,7 +411,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.13</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.14</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -443,7 +444,7 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Fehlt der Kunde, Name und Adresse eintragen, dann unten zur GitHub-Liste hinzufügen. × entfernt die Auswahl.</div>
+<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Fehlt der Name in der Liste, erscheint unten der GitHub-Button. × entfernt die Auswahl.</div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
@@ -468,7 +469,7 @@ input.to-check{
 </div>
 </div>
 <div class="machine-bar">
-  <button type="button" id="companySave">Zur GitHub-Kundenliste hinzufügen</button>
+  <button type="button" id="companySave" hidden>Zur GitHub-Kundenliste hinzufügen</button>
   <button type="button" id="emailSave">Zur E-Mail-Liste des Kunden hinzufügen</button>
 </div>
 </section>
@@ -1250,19 +1251,37 @@ function companyNameKey(c){
 function applyCompanies(list, selectName){
   companies=Array.isArray(list)?list:[];
   const sel=$("company");
-  if(!sel) return;
+  if(!sel){
+    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+    return;
+  }
   const esc=s=>String(s||"").replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
   sel.innerHTML='<option value="">— Firma auswählen —</option>'+
     companies.map((c,i)=>`<option value="${i}">${esc(c.firma||c.name||"Firma "+(i+1))}</option>`).join("");
   const want=String(selectName||"").trim().toLowerCase();
-  if(!want) return;
-  const i=companies.findIndex(c=>companyNameKey(c)===want);
-  if(i<0) return;
-  sel.value=String(i);
-  if($("customerSearch")) $("customerSearch").value=companies[i].firma||companies[i].name||"";
-  const box=$("customerSearchBox");
-  if(box) box.classList.add("has-value");
+  if(want){
+    const i=companies.findIndex(c=>companyNameKey(c)===want);
+    if(i>=0){
+      sel.value=String(i);
+      if($("customerSearch")) $("customerSearch").value=companies[i].firma||companies[i].name||"";
+      const box=$("customerSearchBox");
+      if(box) box.classList.add("has-value");
+    }
+  }
+  syncCompanySaveButton();
 }
+function knownCompanyName(name){
+  const k=String(name||"").trim().toLowerCase();
+  if(!k || !Array.isArray(companies)) return false;
+  return companies.some(c=>companyNameKey(c)===k);
+}
+function syncCompanySaveButton(){
+  const btn=$("companySave");
+  if(!btn) return;
+  const name=String($("customerSearch")?.value||"").trim();
+  btn.hidden=!name || knownCompanyName(name);
+}
+window.syncCompanySaveButton=syncCompanySaveButton;
 function mergeCompanyRecord(remote, rec){
   if(remote!=null && !Array.isArray(remote)) return remote;
   const arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
@@ -1465,12 +1484,15 @@ fetch("companies.json").then(r=>{
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
     if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
     if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
+    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   };
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
+  if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
 }).catch(err=>{
   console.error("companies.json:",err);
   $("company").innerHTML='<option value="">Fehler beim Laden der Firmen</option>';
   if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
+  if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
 });
 
 function fieldRectOf(form,n){
@@ -2730,6 +2752,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     if(typeof syncIoToMaschine==="function") syncIoToMaschine();
     if(typeof window.importSignatureData==="function") window.importSignatureData(data);
+    if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -3082,6 +3105,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(el && data.company!=null) el.value=data.company;
         const search=document.getElementById("customerSearch");
         if(search && data.customerSearch) search.value=data.customerSearch;
+        if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
         return true;
       }
       if(liveDraftApplied) return false;
@@ -3135,6 +3159,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 
     function sync(){
       if(box) box.classList.toggle("has-value", String(input.value||"").trim()!=="");
+      if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
     }
     function getOptions(){
       return Array.from(select.options).filter(o=>o.value!=="" && !o.disabled);
@@ -3227,7 +3252,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.13";
+  const APP_VERSION="2.14";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3491,6 +3516,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         function(remote, local){ return mergeCompanyRecord(remote, local); }
       );
       if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
+      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
       if(s){
         if(result && result.ok){
           s.textContent=existed
