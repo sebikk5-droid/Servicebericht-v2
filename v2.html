@@ -4358,19 +4358,23 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     });
     $("emailDelete")?.addEventListener("pointerdown",()=>{ skipEmailPersist=true; });
-    $("emailDelete")?.addEventListener("mousedown",e=>{ e.preventDefault(); skipEmailPersist=true; });
     $("emailDelete")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const s=$("status");
       if(!customerKey()){
+        skipEmailPersist=false;
         if(s) s.textContent="Zuerst den Kunden wählen.";
         return;
       }
       if(!validEmail(e)){
+        skipEmailPersist=false;
         if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
         return;
       }
-      if(!confirm("Diese E-Mail beim Kunden löschen?")) return;
+      if(!confirm("Diese E-Mail beim Kunden löschen?")){
+        skipEmailPersist=false;
+        return;
+      }
       if(!await deleteEmail(e)){
         if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
         return;
