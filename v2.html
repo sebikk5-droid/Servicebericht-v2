@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.25">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.26">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.25</title>
+<title>Servicebericht v2.26</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -442,7 +442,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.25</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.26</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -474,7 +474,6 @@ input.to-check{
   <div id="customerSearchResults" class="combo-results"></div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
-<div class="muted" style="margin:-4px 0 10px">Tippen öffnet die Kundenliste. Die Liste liegt im privaten GitHub-Repo Servicebericht-listen. Oben Token setzen. Neuer Name: „Zur Kundenliste hinzufügen“. Gespeicherter Kunde: km und Reisezeit mit „km / Reisezeit ändern“.</div>
 <div id="customerRouteBar" class="customer-route-bar" hidden>
   <p id="customerRouteLabel">In der Liste: noch ohne km / Reisezeit</p>
   <button type="button" id="companyRouteEdit">km / Reisezeit ändern</button>
@@ -3425,7 +3424,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.25";
+  const APP_VERSION="2.26";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
