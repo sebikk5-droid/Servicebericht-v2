@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.27">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.28">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.27</title>
+<title>Servicebericht v2.28</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -363,6 +363,20 @@ input.to-check{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+#machineSaveOk{
+  flex:0 0 auto;display:none;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:50%;background:#16a34a;color:#fff;
+  font-size:20px;font-weight:800;line-height:1;
+}
+#machineSaveOk.is-on{display:inline-flex;animation:machineSaveOkPop .35s ease-out}
+@keyframes machineSaveOkPop{
+  0%{transform:scale(.6);opacity:0}
+  70%{transform:scale(1.12);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+@media (prefers-reduced-motion:reduce){
+  #machineSaveOk.is-on{animation:none}
+}
 #companySave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companySave.is-pulse,#companyRouteEdit.is-pulse{
@@ -451,7 +465,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.27</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.28</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -519,7 +533,7 @@ input.to-check{
 </section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller wählen, dann den Typ dieser Marke, dann die Nr. Gespeicherte Maschinen stehen bei jedem Kunden zur Auswahl.</div>
+<div class="muted" style="margin:0 0 8px">Hersteller, dann Typ, dann Nr. Gespeicherte Maschinen erscheinen zuerst nur bei diesem Kunden. Andere Kunden wählen sie weiter aus der Typ-Liste.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -553,6 +567,7 @@ input.to-check{
 </div>
 <div class="machine-bar">
   <button type="button" id="machineSave">Zur Maschinenliste des Kunden hinzufügen</button>
+  <span id="machineSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
 </section>
@@ -3435,7 +3450,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.27";
+  const APP_VERSION="2.28";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4561,9 +4576,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return norm(a)===norm(b); }
   function manufacturerOptions(){
-    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer));
-    const fromCat=catalog.map(c=>c.name).filter(n=>!fromSaved.some(s=>sameBrand(s,n)));
-    return fromSaved.concat(naturalSort(fromCat));
+    const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
+    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer).filter(n=>n && !mine.some(s=>sameBrand(s,n))));
+    const fromCat=catalog.map(c=>c.name).filter(n=>!mine.concat(fromSaved).some(s=>sameBrand(s,n)));
+    return mine.concat(fromSaved).concat(naturalSort(fromCat));
+  }
+  function preferredTypeOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    if(!norm(mfr)) return [];
+    return naturalSort(listForCustomer().filter(m=>
+      sameBrand(m.manufacturer,mfr) && !!m.type
+    ).map(m=>m.type));
   }
   function savedTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -4577,18 +4600,37 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!norm(mfr)) return [];
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
+    const preferred=preferredTypeOptions();
     const saved=savedTypeOptions();
     const typed=$("type")?.value||"";
-    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed))) ? [typed] : [];
-    return naturalSort(saved.concat(fromCat).concat(extra));
+    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed)) && !preferred.some(t=>sameType(t,typed))) ? [typed] : [];
+    const rest=naturalSort(saved.concat(fromCat).concat(extra).filter(t=>!preferred.some(p=>sameType(p,t))));
+    return preferred.concat(rest);
+  }
+  function preferredNrOptions(){
+    const mfr=$("manufacturer")?.value||"";
+    const typ=$("type")?.value||"";
+    if(!norm(mfr) || !norm(typ)) return [];
+    return naturalSort(listForCustomer().filter(m=>
+      sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
+    ).map(m=>m.machineNo));
   }
   function nrOptions(){
     const mfr=$("manufacturer")?.value||"";
     const typ=$("type")?.value||"";
     if(!norm(mfr) || !norm(typ)) return [];
-    return naturalSort(listAllSaved().filter(m=>
+    const preferred=preferredNrOptions();
+    const all=naturalSort(listAllSaved().filter(m=>
       sameBrand(m.manufacturer,mfr) && sameType(m.type,typ) && !!m.machineNo
     ).map(m=>m.machineNo));
+    return preferred.concat(all.filter(n=>!preferred.some(p=>sameType(p,n))));
+  }
+  function preferredNamesFor(inputId){
+    if(inputId==="manufacturer")
+      return naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
+    if(inputId==="type") return preferredTypeOptions();
+    if(inputId==="machineNo") return preferredNrOptions();
+    return [];
   }
   function findSaved(){
     const rec=fromForm();
@@ -4629,11 +4671,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function onManufacturerChosen(){
     clearBelow(["manufacturer"]);
-    offerCombo("type", "typeBox", savedTypeOptions());
+    offerCombo("type", "typeBox", preferredTypeOptions());
   }
   function onTypeChosen(){
     clearBelow(["manufacturer","type"]);
-    offerCombo("machineNo", "machineNoBox", nrOptions());
+    offerCombo("machineNo", "machineNoBox", preferredNrOptions());
   }
   function syncNrEnabled(){
     const hasType=!!norm($("type")?.value||"");
@@ -4786,7 +4828,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return result;
   }
   let persistLock=Promise.resolve();
-  async function persistCurrent(){
+  let saveOkTimer=0;
+  function hideMachineSaveOk(){
+    const ok=$("machineSaveOk");
+    if(!ok) return;
+    ok.classList.remove("is-on");
+    ok.setAttribute("aria-hidden","true");
+  }
+  function showMachineSaveOk(){
+    const ok=$("machineSaveOk");
+    if(!ok) return;
+    ok.classList.remove("is-on");
+    void ok.offsetWidth;
+    ok.classList.add("is-on");
+    ok.setAttribute("aria-hidden","false");
+    clearTimeout(saveOkTimer);
+    saveOkTimer=setTimeout(hideMachineSaveOk, 4000);
+  }
+  async function persistCurrent(opts){
     const prev=persistLock;
     let unlock=()=>{};
     persistLock=new Promise(r=>{ unlock=r; });
@@ -4796,18 +4855,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!k){
       const s=$("status");
       if(s) s.textContent="Zuerst den Kunden / die Firma wählen.";
+      hideMachineSaveOk();
       return;
     }
     const rec=fromForm();
     if(isEmpty(rec)){
       const s=$("status");
       if(s) s.textContent="Maschine hat noch keine Daten.";
+      hideMachineSaveOk();
       return;
     }
     await pullMachines();
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
     let idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
+    const wasNew=idx<0;
     if(idx>=0) list[idx]=overlayForm(list[idx], rec);
     else list.push(cleanRec(rec));
     all[k]=list;
@@ -4820,14 +4882,16 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
       else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
+    if((opts && opts.showOk) || wasNew) showMachineSaveOk();
     }finally{ unlock(); }
   }
   window.pullCustomerMachines=pullMachines;
+  window.clearMachineFields=clearMachineFields;
   function clearMachineFields(){
     FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
     syncComboClears();
+    hideMachineSaveOk();
   }
-  window.clearMachineFields=clearMachineFields;
   window.refreshCustomerMachines=async function(){
     await pullMachines();
     syncComboClears();
@@ -4866,7 +4930,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return q ? "Neue Nummer wird übernommen." : "Nr. dieser Maschine wählen. Zwei gleiche Typen haben unterschiedliche Nr.";
       }
     );
-    $("machineSave")?.addEventListener("click", persistCurrent);
+    $("machineSave")?.addEventListener("click",()=>persistCurrent({showOk:true}));
     $("machineDelete")?.addEventListener("click", async ()=>{
       const k=customerKey();
       const rec=fromForm();
@@ -4877,6 +4941,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
         syncComboClears();
+        hideMachineSaveOk();
         return;
       }
       if(!confirm("Diese Maschine beim Kunden löschen?")) return;
@@ -4885,6 +4950,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
       syncComboClears();
+      hideMachineSaveOk();
       const pushed=await pushMachines("Maschine gelöscht: "+k, {k, rec});
       const s=$("status");
       if(s){
