@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.17">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.18">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.17</title>
+<title>Servicebericht v2.18</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -361,7 +361,7 @@ input.to-check{
 .sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
-.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}
+.machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
 #companySave[hidden]{display:none!important}
 #companySave:not([hidden]){
@@ -421,7 +421,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.17</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.18</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3201,6 +3201,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(current && current.value!=="" && current.textContent.trim()!==typed){
         select.value="";
         clearCustomerContactFields();
+        if(typeof window.clearMachineFields==="function") window.clearMachineFields();
       }
     }
     function show(){
@@ -3266,7 +3267,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.17";
+  const APP_VERSION="2.18";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -4205,8 +4206,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!norm(mfr)) return [];
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
+    const saved=savedTypeOptions();
     const typed=$("type")?.value||"";
-    return naturalSort(fromCat.concat(savedTypeOptions()).concat(typed?[typed]:[]));
+    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed))) ? [typed] : [];
+    return naturalSort(saved.concat(fromCat).concat(extra));
   }
   function nrOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -4523,10 +4526,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     let persistTimer=0;
     ["control","nc","plc","machineNo"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
-        if(!customerKey() || isEmpty(fromForm())) return;
+        const k=customerKey();
+        if(!k || isEmpty(fromForm())) return;
         if(!findSaved() && !norm($("type")?.value||"")) return;
         clearTimeout(persistTimer);
-        persistTimer=setTimeout(()=>persistCurrent(), 400);
+        persistTimer=setTimeout(()=>{
+          if(customerKey()!==k) return;
+          persistCurrent();
+        }, 400);
       });
     });
     $("customerSearch")?.addEventListener("blur",()=>{
