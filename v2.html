@@ -2230,11 +2230,24 @@ async function embedSignatures(pdf, boxes){
     });
   }
 }
-function drawPdfTotalsRow(page, font, t){
+function drawPdfTotalsRow(page, font, t, boldFont){
   if(!page || !font || !t) return;
   if(!(t.km || t.travel || t.work || t.pauseRz || t.pauseAz || t.all)) return;
   const black=PDFLib.rgb(0,0,0);
+  const white=PDFLib.rgb(1,1,1);
   const y=111.37, h=21.29;
+  page.drawRectangle({x:246,y:y+0.35,width:80,height:h-0.7,color:white,borderWidth:0});
+  const labelFont=boldFont||font;
+  const label="Gesamt";
+  const labelSize=9;
+  const labelW=labelFont.widthOfTextAtSize(label,labelSize);
+  page.drawText(label,{
+    x:326.82-labelW-5.2,
+    y:y+(h-labelSize)/2+0.7,
+    size:labelSize,
+    font:labelFont,
+    color:black
+  });
   const cells=[
     {x:326.82, w:40.65, text:""},
     {x:369.12, w:35.67, text:t.travel ? fmtMinPdf(t.travel) : ""},
@@ -2243,15 +2256,11 @@ function drawPdfTotalsRow(page, font, t){
     {x:478.06, w:34.44, text:t.pauseAz ? fmtMinPdf(t.pauseAz) : ""},
     {x:513.73, w:51.98, text:t.all ? fmtMinPdf(t.all) : ""}
   ];
-  const x0=cells[0].x;
-  const x1=cells[cells.length-1].x+cells[cells.length-1].w;
-  page.drawRectangle({x:x0,y,width:x1-x0,height:h,borderWidth:0.85,borderColor:black});
-  for(let i=1;i<cells.length;i++){
-    const x=cells[i].x;
-    page.drawLine({start:{x,y},end:{x,y:y+h},thickness:0.6,color:black});
-  }
   const size=8;
-  cells.forEach(c=>{
+  cells.forEach((c,i)=>{
+    const box={x:c.x,y,width:c.w,height:h,borderWidth:1.85,borderColor:black};
+    if(i>0) box.color=white;
+    page.drawRectangle(box);
     if(!c.text) return;
     const tw=font.widthOfTextAtSize(c.text,size);
     page.drawText(c.text,{
@@ -2271,6 +2280,7 @@ try{
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
 let bytes=await fetch("Leer.pdf").then(r=>r.arrayBuffer()),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
 clearPdfForm(form);
 let c=selectedCompany();
 
@@ -2393,7 +2403,7 @@ drawPdfTotalsRow(page, pdfFitFont, {
   km, travel, work, all,
   pauseRz:pauseRzSum,
   pauseAz:pauseAzSum
-});
+}, pdfFitFontBold);
 await embedSignatures(pdf, sigBoxes);
 let out=await pdf.save();
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
