@@ -203,19 +203,19 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
 .history-file-btn,button.history-file-btn{
-  flex:1 1 0;
+  flex:0 1 auto;
   min-width:0;
-  border:0;border-radius:8px;padding:0 10px;font-size:13px;font-weight:700;
+  border:0;border-radius:7px;padding:0 8px;font-size:11px;font-weight:700;
   background:#e5e5ea;color:#111;display:inline-flex;align-items:center;justify-content:center;
   cursor:pointer;box-sizing:border-box;font-family:inherit;
-  height:40px;min-height:40px;margin:0;line-height:1;white-space:nowrap;
+  height:28px;min-height:28px;margin:0;line-height:1;white-space:nowrap;
 }
 #historySave.history-file-btn{background:#163a5c;color:#fff}
 #historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
 #historyActionOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
-  width:36px;height:36px;border-radius:50%;color:#fff;
-  font-size:20px;font-weight:800;line-height:1;
+  width:28px;height:28px;border-radius:50%;color:#fff;
+  font-size:15px;font-weight:800;line-height:1;
 }
 #historyActionOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
 #historyActionOk.is-ok{background:#16a34a}
@@ -253,11 +253,11 @@ input.to-check{
 #historySection .history-search-box{flex:1 1 200px;min-width:0;position:relative}
 #historySection .history-actions{
   display:flex;
-  flex:1 1 220px;
+  flex:0 1 auto;
   align-items:center;
-  gap:6px;
+  gap:5px;
   position:relative;
-  min-height:40px;
+  min-height:28px;
 }
 #historySection #historySearch{
   width:100%;
@@ -304,7 +304,6 @@ input.to-check{
 #customerSearch{padding-right:40px}
 #tech{padding-right:40px}
 #techBox .combo-results{z-index:70}
-#historySection .muted{margin-top:6px;font-size:11px}
 .day-title{display:flex;align-items:center;gap:6px;min-width:0}
 .daybox input.daydate[type="date"]{
   width:auto !important;
@@ -505,7 +504,6 @@ input.to-check{
       <span id="historyActionOk" aria-hidden="true"></span>
     </div>
   </div>
-  <div class="muted">Einträge als Datum + Kunde. Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
 </section>
 <section class="card"><h2>Kunde</h2>
 <label for="customerSearch">Firma</label>
@@ -595,11 +593,9 @@ input.to-check{
 
 <section class="card"><h2>Bemerkungen</h2>
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
-<div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
 <textarea id="parts" placeholder="- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
-<div class="muted">Zu langer Text wird ganzzeilig nach unten umbrochen. Die Schrift bleibt lesbar.</div>
 </section>
 
 <section class="card"><h2>Reise- und Arbeitszeit</h2>
