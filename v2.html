@@ -365,11 +365,14 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .token-status.is-on{background:#dcefe0;color:#14532d}
 .token-status.is-off{background:#fde8d2;color:#9a3412}
 .blatt-row{
-  display:flex;align-items:flex-end;gap:8px;
+  display:flex;align-items:flex-end;gap:6px;max-width:200px;
 }
-.blatt-row > div{flex:1;min-width:0}
+.blatt-row > div{flex:0 0 64px;width:64px}
+.blatt-row input{
+  width:64px;min-height:40px;padding:8px 4px;text-align:center;font-variant-numeric:tabular-nums;
+}
 .blatt-row .blatt-von-word{
-  flex:0 0 auto;font-size:14px;font-weight:700;color:#555;padding-bottom:12px;
+  flex:0 0 auto;font-size:13px;font-weight:700;color:#555;padding-bottom:11px;
 }
 </style>
 </head>
@@ -418,7 +421,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
-<div class="full blatt-row">
+<div class="blatt-row">
   <div>
     <label for="blattNr">Blatt</label>
     <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
