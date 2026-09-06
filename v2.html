@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.19">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.20">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.19</title>
+<title>Servicebericht v2.20</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -421,7 +421,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.19</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.20</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -618,7 +618,7 @@ input.to-check{
 <div id="tokenModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>GitHub-Token</h3>
-    <p class="muted" id="tokenModalHint">Für die App auf dem Homescreen. Token oder den ganzen Link mit sb_token hier einfügen.</p>
+    <p class="muted" id="tokenModalHint">Für Chrome-App, Browser und iPad. Token oder den ganzen Link mit sb_token hier einfügen. Jede App speichert das Token getrennt.</p>
     <textarea id="tokenModalInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_… oder https://…?sb_token=…"></textarea>
     <div class="email-actions">
       <button type="button" class="clear" id="tokenModalClear">Entfernen</button>
@@ -3267,7 +3267,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.19";
+  const APP_VERSION="2.20";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   function repo(){
     try{
@@ -3367,6 +3367,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       setToken(v);
       closeTokenModal(true);
     });
+    $("tokenModalInput")?.addEventListener("paste",e=>{
+      let text="";
+      try{ text=(e.clipboardData||window.clipboardData).getData("text")||""; }catch(err){}
+      if(!text) return;
+      e.preventDefault();
+      const input=$("tokenModalInput");
+      if(input) input.value=normalizeToken(text);
+    });
+    $("tokenModalInput")?.addEventListener("input",()=>{
+      const input=$("tokenModalInput");
+      if(!input) return;
+      const v=normalizeToken(input.value||"");
+      if(v && v!==input.value && /sb_token=|github_pat_|ghp_/.test(input.value))
+        input.value=v;
+    });
     $("tokenModalClear")?.addEventListener("click",()=>{
       setToken("");
       closeTokenModal(false);
@@ -3415,13 +3430,31 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     catch(e){ return ""; }
   }
   function encodeContent(text){
-    const bytes=new TextEncoder().encode(String(text||""));
-    let bin="";
-    const chunk=0x8000;
-    for(let i=0;i<bytes.length;i+=chunk){
-      bin+=String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    const s=String(text||"");
+    try{
+      return btoa(unescape(encodeURIComponent(s)));
+    }catch(e){
+      const bytes=new TextEncoder().encode(s);
+      let bin="";
+      for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+      return btoa(bin);
     }
-    return btoa(bin);
+  }
+  function githubFetch(url, extra){
+    extra=extra||{};
+    const ctrl=new AbortController();
+    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, extra.timeoutMs||20000);
+    const opt={
+      mode:"cors",
+      credentials:"omit",
+      cache:"no-store",
+      redirect:"follow",
+      signal:ctrl.signal,
+      headers: extra.headers||{}
+    };
+    if(extra.method) opt.method=extra.method;
+    if(extra.body!=null) opt.body=extra.body;
+    return fetch(url, opt).finally(function(){ clearTimeout(to); });
   }
   async function fetchPages(path){
     try{
@@ -3438,25 +3471,28 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{ data=JSON.parse(decodeContent(j.content)); }catch(e){ data=null; }
     return {data, sha:j.sha||"", status:res.status};
   }
-  async function pullFile(kind){
+  async function pullFile(kind, writePath){
     const path=FILES[kind]||kind;
-    try{
-      const res=await fetch(apiFileUrl(path, true), {headers:headers(true), cache:"no-store"});
+    async function fromApi(withAuth){
+      const res=await githubFetch(apiFileUrl(path, true), {headers:headers(withAuth)});
       if(res.status===404) return {data:null, sha:"", status:404};
       if(res.ok) return parseContents(res);
-      const pub=await fetch(apiFileUrl(path, true), {headers:headers(false), cache:"no-store"});
-      if(pub.ok){
-        const parsed=await parseContents(pub);
-        parsed.status=res.status;
-        return parsed;
-      }
+      return {data:null, sha:"", status:res.status, reason:"http"};
+    }
+    try{
+      const authed=await fromApi(true);
+      if(authed.sha || authed.status===404) return authed;
+      if(writePath) return authed;
+      const pub=await fromApi(false);
+      if(pub.sha || pub.status===404) return pub;
       const pages=await fetchPages(path);
-      pages.status=res.status;
+      pages.status=authed.status;
       return pages;
     }catch(e){
+      if(writePath) return {data:null, sha:"", status:0, reason:"network"};
       try{
-        const pub=await fetch(apiFileUrl(path, true), {headers:headers(false), cache:"no-store"});
-        if(pub.ok) return parseContents(pub);
+        const pub=await fromApi(false);
+        if(pub.sha || pub.status===404) return pub;
       }catch(e2){}
       return fetchPages(path);
     }
@@ -3487,7 +3523,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     };
     if(sha) body.sha=sha;
     try{
-      const res=await fetch(apiFileUrl(path, false), {
+      const res=await githubFetch(apiFileUrl(path, false), {
         method:"PUT",
         headers:Object.assign({"Content-Type":"application/json"}, headers(true)),
         body:JSON.stringify(body)
@@ -3512,12 +3548,18 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
       let last={ok:false, reason:"retry"};
       for(let i=0;i<6;i++){
-        const remote=await pullFile(kind);
+        const remote=await pullFile(kind, true);
+        if(remote && remote.reason==="network" && !remote.sha){
+          return {merged:localData, result:{ok:false, reason:"network", status:0}};
+        }
+        if(remote && (remote.status===401 || remote.status===403)){
+          return {merged:localData, result:{ok:false, status:remote.status, reason:"http"}};
+        }
         const merged=mergeFn(remote.data, localData);
         if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
-        if(sameJson(merged, remote.data)) return {merged, result:{ok:true, skipped:true}};
-        if(!remote.sha && remote.data!=null){
-          last={ok:false, reason:"no-sha", status:422};
+        if(sameJson(merged, remote.data) && remote.sha) return {merged, result:{ok:true, skipped:true}};
+        if(!remote.sha && remote.status!==404){
+          last={ok:false, reason:"no-sha", status:remote.status||422};
           await sleep(180*(i+1));
           continue;
         }
@@ -3579,8 +3621,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           s.textContent="In Chrome fehlt das Token (nicht dasselbe wie auf dem iPad). Oben „GitHub fehlt · Token“.";
         else if(result && (result.status===401 || result.status===403))
           s.textContent="Token darf companies.json nicht schreiben. Contents: Read and write, dann erneut tippen.";
-        else if(result && (result.reason==="no-sha" || result.status===422))
-          s.textContent="GitHub hat die Datei nicht übernommen. Noch einmal „Zur Kundenliste hinzufügen“.";
+        else if(result && result.reason==="encode")
+          s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
+        else if(result && result.reason==="network")
+          s.textContent="Chrome-App erreicht api.github.com nicht. Netz prüfen, Token oben setzen, erneut tippen.";
         else
           s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
       }
