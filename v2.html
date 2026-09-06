@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.34">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.35">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.34</title>
+<title>Servicebericht v2.35</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -471,7 +471,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.34</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.35</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -639,7 +639,7 @@ input.to-check{
   <div class="combo-box" id="techBox">
     <label for="tech">Techniker</label>
     <div class="combo-field">
-      <input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Techniker wählen">
+      <input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Wählen oder eintragen">
       <button type="button" class="combo-clear" id="techClear" aria-label="Techniker löschen">×</button>
     </div>
     <div id="techResults" class="combo-results"></div>
@@ -3502,16 +3502,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.style.display="none";
       results.innerHTML="";
     }
-    function show(){
+    function show(forceAll){
       const q=norm(input.value);
-      const options=TECHS.filter(n=> !q || norm(n).startsWith(q));
+      const options=forceAll && !q
+        ? TECHS.slice()
+        : TECHS.filter(n=> !q || norm(n).startsWith(q) || norm(n).includes(q));
       results.innerHTML="";
       if(!options.length){
-        const empty=document.createElement("div");
-        empty.className="combo-empty";
-        empty.textContent=q ? "Kein Treffer – Name wird übernommen." : "Techniker wählen.";
-        results.appendChild(empty);
-        openComboResults(results, box);
+        close();
         return;
       }
       options.forEach(n=>{
@@ -3530,9 +3528,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
       openComboResults(results, box);
     }
-    input.addEventListener("focus", show);
-    input.addEventListener("click", show);
-    input.addEventListener("input",()=>{ sync(); show(); });
+    input.addEventListener("focus",()=>show(true));
+    input.addEventListener("click",()=>show(true));
+    input.addEventListener("input",()=>{
+      sync();
+      const q=norm(input.value);
+      const hits=TECHS.filter(n=> !q || norm(n).startsWith(q) || norm(n).includes(q));
+      if(hits.length) show(false);
+      else close();
+    });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -3553,7 +3557,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.34";
+  const APP_VERSION="2.35";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
