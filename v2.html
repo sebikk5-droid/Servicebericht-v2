@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.29">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.34">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.29</title>
+<title>Servicebericht v2.34</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -289,6 +289,8 @@ input.to-check{
   clip:rect(0,0,0,0);white-space:nowrap;border:0
 }
 #customerSearch{padding-right:40px}
+#tech{padding-right:40px}
+#techBox .combo-results{z-index:70}
 #historySection .muted{margin-top:6px;font-size:11px}
 .day-title{display:flex;align-items:center;gap:6px;min-width:0}
 .daybox input.daydate[type="date"]{
@@ -363,19 +365,19 @@ input.to-check{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
-#machineSaveOk{
+#machineSaveOk,#emailSaveOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
   width:36px;height:36px;border-radius:50%;background:#16a34a;color:#fff;
   font-size:20px;font-weight:800;line-height:1;
 }
-#machineSaveOk.is-on{display:inline-flex;animation:machineSaveOkPop .35s ease-out}
-@keyframes machineSaveOkPop{
+#machineSaveOk.is-on,#emailSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+@keyframes saveOkPop{
   0%{transform:scale(.6);opacity:0}
   70%{transform:scale(1.12);opacity:1}
   100%{transform:scale(1);opacity:1}
 }
 @media (prefers-reduced-motion:reduce){
-  #machineSaveOk.is-on{animation:none}
+  #machineSaveOk.is-on,#emailSaveOk.is-on{animation:none}
 }
 #companySave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
@@ -469,7 +471,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.29</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.34</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -530,6 +532,7 @@ input.to-check{
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
   <button type="button" id="emailSave">E-Mail merken</button>
+  <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="emailDelete">Löschen</button>
 </div>
 <div class="machine-bar">
@@ -538,7 +541,6 @@ input.to-check{
 </section>
 
 <section class="card"><h2>Maschine</h2>
-<div class="muted" style="margin:0 0 8px">Hersteller, dann Typ, dann Nr. Gespeicherte Maschinen erscheinen zuerst nur bei diesem Kunden. Andere Kunden wählen sie weiter aus der Typ-Liste.</div>
 <div class="grid">
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
@@ -594,7 +596,7 @@ input.to-check{
 <div><label>Kilometer gesamt</label><input id="kmTotal" readonly></div>
 <div><label>Gesamtzeit</label><input id="allTotal" readonly></div>
 </div>
-<div class="muted">Jeden Tag werden zwei Zeilen im Bericht verwendet: 1. Anfahrt + Arbeit, 2. Rückfahrt. Pausen werden automatisch abgezogen.</div></section>
+</section>
 
 <section id="choices" class="card">
   <h2>Auswahl</h2>
@@ -634,7 +636,14 @@ input.to-check{
 
 <section class="card"><h2>Unterschrift</h2>
 <div class="grid">
-  <div><label>Techniker</label><input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
+  <div class="combo-box" id="techBox">
+    <label for="tech">Techniker</label>
+    <div class="combo-field">
+      <input id="tech" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Techniker wählen">
+      <button type="button" class="combo-clear" id="techClear" aria-label="Techniker löschen">×</button>
+    </div>
+    <div id="techResults" class="combo-results"></div>
+  </div>
   <div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
   <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div>
 </div>
@@ -1057,6 +1066,28 @@ function syncTag1ToEinsatzdatum(){
   const tag1=document.querySelector('[data-daybox="1"] .daydate');
   if(tag1?.value && $("date")) $("date").value=tag1.value;
 }
+function applyTodayEinsatzdatum(){
+  const today=isoDateLocal(new Date());
+  const oldMain=String($("date")?.value||"").trim();
+  if($("date")) $("date").value=today;
+  if($("signdate")) $("signdate").value=today;
+  document.querySelectorAll(".daydate").forEach(el=>{
+    const d=Number(el.dataset.day||0);
+    if(d<=1){
+      el.value=today;
+      return;
+    }
+    if(oldMain && el.value){
+      const old=new Date(oldMain+"T00:00:00");
+      const cur=new Date(el.value+"T00:00:00");
+      const diff=Math.round((cur.getTime()-old.getTime())/86400000);
+      el.value=isoAddDays(today, Number.isFinite(diff)?diff:(d-1));
+    }else{
+      el.value=isoAddDays(today, Math.max(0,d-1));
+    }
+  });
+}
+window.applyTodayEinsatzdatum=applyTodayEinsatzdatum;
 $("date")?.addEventListener("change",syncDayDatesFromMainDate);
 
 $("times").innerHTML=dayTemplate(1)+`
@@ -3308,6 +3339,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(liveDraftApplied) return false;
       liveDraftApplied=true;
       applyForm(data);
+      if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
       if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
       if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
       return true;
@@ -3397,7 +3429,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.innerHTML="";
       const options=getOptions().filter(o=>{
         if(!q) return true;
-        return o.textContent.trim().toLocaleLowerCase("de-DE").includes(q);
+        return o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q);
       });
       if(!options.length){
         const empty=document.createElement("div");
@@ -3454,8 +3486,74 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 <script>
 (function(){
+  const TECHS=["S. Pawlina","A. Gortatowski","M. Gortatowski","H. Schuber","R. Roßbach"];
+  function setupTechPicker(){
+    const input=$("tech");
+    const results=$("techResults");
+    const box=$("techBox");
+    const clearBtn=$("techClear");
+    if(!input||!results||input.dataset.comboBound==="1") return;
+    input.dataset.comboBound="1";
+    function norm(s){ return String(s||"").trim().toLocaleLowerCase("de-DE"); }
+    function sync(){
+      if(box) box.classList.toggle("has-value", String(input.value||"").trim()!=="");
+    }
+    function close(){
+      results.style.display="none";
+      results.innerHTML="";
+    }
+    function show(){
+      const q=norm(input.value);
+      const options=TECHS.filter(n=> !q || norm(n).startsWith(q));
+      results.innerHTML="";
+      if(!options.length){
+        const empty=document.createElement("div");
+        empty.className="combo-empty";
+        empty.textContent=q ? "Kein Treffer – Name wird übernommen." : "Techniker wählen.";
+        results.appendChild(empty);
+        openComboResults(results, box);
+        return;
+      }
+      options.forEach(n=>{
+        const pick=document.createElement("div");
+        pick.className="combo-pick";
+        pick.setAttribute("role","option");
+        pick.textContent=n;
+        if(norm(input.value)===norm(n)) pick.classList.add("is-on");
+        pick.addEventListener("click",()=>{
+          input.value=n;
+          sync();
+          close();
+          input.dispatchEvent(new Event("change",{bubbles:true}));
+        });
+        results.appendChild(pick);
+      });
+      openComboResults(results, box);
+    }
+    input.addEventListener("focus", show);
+    input.addEventListener("click", show);
+    input.addEventListener("input",()=>{ sync(); show(); });
+    clearBtn?.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      input.value="";
+      sync();
+      input.focus();
+      show();
+    });
+    document.addEventListener("click",e=>{
+      if(box && !box.contains(e.target)) close();
+    });
+    sync();
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", setupTechPicker);
+  else setupTechPicker();
+})();
+</script>
+<script>
+(function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.29";
+  const APP_VERSION="2.34";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4066,7 +4164,24 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim());
   }
   let addLock=Promise.resolve();
-  async function addEmail(email){
+  let emailOkTimer=0;
+  function hideEmailSaveOk(){
+    const ok=$("emailSaveOk");
+    if(!ok) return;
+    ok.classList.remove("is-on");
+    ok.setAttribute("aria-hidden","true");
+  }
+  function showEmailSaveOk(){
+    const ok=$("emailSaveOk");
+    if(!ok) return;
+    ok.classList.remove("is-on");
+    void ok.offsetWidth;
+    ok.classList.add("is-on");
+    ok.setAttribute("aria-hidden","false");
+    clearTimeout(emailOkTimer);
+    emailOkTimer=setTimeout(hideEmailSaveOk, 4000);
+  }
+  async function addEmail(email, opts){
     const prev=addLock;
     let unlock=()=>{};
     addLock=new Promise(r=>{ unlock=r; });
@@ -4078,7 +4193,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     await pullEmails();
     const map=loadMap();
     const list=Array.isArray(map[k])?map[k]:[];
-    if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
+    const wasNew=!list.some(x=>x.toLowerCase()===e.toLowerCase());
+    if(wasNew) list.push(e);
     map[k]=list;
     saveMap(map);
     const pushed=await pushEmails("E-Mail für "+k, e);
@@ -4088,6 +4204,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
+    if((opts && opts.showOk) || wasNew) showEmailSaveOk();
     return true;
     }finally{ unlock(); }
   }
@@ -4192,6 +4309,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       e.preventDefault();
       e.stopPropagation();
       setEmail("");
+      hideEmailSaveOk();
       input.focus();
       show();
     });
@@ -4200,7 +4318,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     $("emailSave")?.addEventListener("click", async ()=>{
       const e=currentEmail();
-      if(!await addEmail(e)){
+      if(!await addEmail(e, {showOk:true})){
         const s=$("status");
         if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
       }else{
