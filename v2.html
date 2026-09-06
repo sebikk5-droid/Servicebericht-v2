@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.36">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.37">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.36</title>
+<title>Servicebericht v2.37</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -210,6 +210,19 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   cursor:pointer;box-sizing:border-box;font-family:inherit;
   height:40px;min-height:40px;margin:0;line-height:1;white-space:nowrap;
 }
+#historySave.history-file-btn{background:#163a5c;color:#fff}
+#historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
+#historyActionOk{
+  flex:0 0 auto;display:none;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:50%;color:#fff;
+  font-size:20px;font-weight:800;line-height:1;
+}
+#historyActionOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+#historyActionOk.is-ok{background:#16a34a}
+#historyActionOk.is-del{background:#dc2626}
+@media (prefers-reduced-motion:reduce){
+  #historyActionOk.is-on{animation:none}
+}
 #historyFileInput{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none}
 .daybox{
   background:#dceaf8;
@@ -240,11 +253,11 @@ input.to-check{
 #historySection .history-search-box{flex:1 1 200px;min-width:0;position:relative}
 #historySection .history-actions{
   display:flex;
-  flex:0 1 auto;
-  align-items:stretch;
+  flex:1 1 220px;
+  align-items:center;
   gap:6px;
   position:relative;
-  height:40px;
+  min-height:40px;
 }
 #historySection #historySearch{
   width:100%;
@@ -471,7 +484,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.36</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.37</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -489,6 +502,7 @@ input.to-check{
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
+      <span id="historyActionOk" aria-hidden="true"></span>
     </div>
   </div>
   <div class="muted">Einträge als Datum + Kunde. Tippen öffnet die Liste. × leert das Suchfeld, der Bericht bleibt in der Historie.</div>
@@ -3172,6 +3186,29 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const results=document.getElementById("historySearchResults");
     const combo=document.getElementById("historyCombo");
     const clearBtn=document.getElementById("historyClear");
+    const actionOk=document.getElementById("historyActionOk");
+    let actionOkTimer=0;
+    function hideHistoryActionOk(){
+      if(!actionOk) return;
+      actionOk.classList.remove("is-on","is-ok","is-del");
+      actionOk.textContent="";
+      actionOk.removeAttribute("title");
+      actionOk.setAttribute("aria-hidden","true");
+    }
+    function showHistoryActionOk(kind){
+      if(!actionOk) return;
+      hideHistoryActionOk();
+      const isDel=kind==="del";
+      actionOk.textContent=isDel?"×":"✓";
+      actionOk.classList.add(isDel?"is-del":"is-ok");
+      actionOk.setAttribute("title", isDel?"Gelöscht":"Gespeichert");
+      actionOk.setAttribute("aria-label", isDel?"Gelöscht":"Gespeichert");
+      void actionOk.offsetWidth;
+      actionOk.classList.add("is-on");
+      actionOk.setAttribute("aria-hidden","false");
+      clearTimeout(actionOkTimer);
+      actionOkTimer=setTimeout(hideHistoryActionOk, 4000);
+    }
 
     function closeResults(){
       if(!results) return;
@@ -3255,6 +3292,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         list.unshift(item);
         saveHistory(list);
         setSelectedHistory(0, item);
+        showHistoryActionOk("ok");
       }catch(e){
         alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
         return;
@@ -3300,6 +3338,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       saveHistory(list);
       setSelectedHistory(null, null);
       closeResults();
+      showHistoryActionOk("del");
       $("status").textContent="Bericht gelöscht.";
     });
 
@@ -3581,7 +3620,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.36";
+  const APP_VERSION="2.37";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
