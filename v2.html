@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.60">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.61">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.60</title>
+  <title>Servicebericht v2.61</title>
 <script>
-window.SB_APP_VERSION="2.60";
+window.SB_APP_VERSION="2.61";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -568,6 +568,7 @@ input.to-check{
 }
 .token-status.is-on{background:#dcefe0;color:#14532d}
 .token-status.is-off{background:#fde8d2;color:#9a3412}
+.token-status.is-offline{background:#f3efe3;color:#7a5c12}
 .blatt-row{
   display:flex;align-items:flex-end;gap:6px;max-width:200px;
 }
@@ -589,7 +590,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.60</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.61</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3922,7 +3923,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.60";
+  const APP_VERSION=window.SB_APP_VERSION||"2.61";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3993,15 +3994,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(place) place.textContent=appPlace();
     const btn=$("tokenStatusBtn");
     if(!btn) return;
-    if(token()){
-      btn.classList.add("is-on");
-      btn.classList.remove("is-off");
-      btn.textContent="GitHub an · Token";
-    }else{
-      btn.classList.add("is-off");
-      btn.classList.remove("is-on");
-      btn.textContent="GitHub fehlt · Token";
-    }
+    const online=navigator.onLine!==false;
+    const has=!!token();
+    btn.classList.toggle("is-on", has && online);
+    btn.classList.toggle("is-off", !has);
+    btn.classList.toggle("is-offline", has && !online);
+    if(has && online) btn.textContent="GitHub online · Token";
+    else if(has && !online) btn.textContent="GitHub offline · Token";
+    else if(!online) btn.textContent="GitHub fehlt · offline";
+    else btn.textContent="GitHub fehlt · Token";
   }
   let tokenModalWait=null;
   function closeTokenModal(ok){
@@ -4070,6 +4071,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       closeTokenModal(false);
     });
     $("tokenStatusBtn")?.addEventListener("click",()=>{ openTokenModal(); });
+    window.addEventListener("online", syncTokenUi);
+    window.addEventListener("offline", syncTokenUi);
   }
   function captureToken(){
     try{
