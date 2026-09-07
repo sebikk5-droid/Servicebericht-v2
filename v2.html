@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.62">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.63">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.62</title>
+  <title>Servicebericht v2.63</title>
 <script>
-window.SB_APP_VERSION="2.62";
+window.SB_APP_VERSION="2.63";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -131,11 +131,11 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6}
+.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 -6px 16px #0000000d}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
-.bottom-actions{display:flex;gap:8px}
+.bottom-actions{display:flex;gap:8px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0}
-.email-copy-row{display:flex;align-items:center;gap:8px}
+.email-copy-row{display:flex;align-items:center;gap:8px;order:2}
 .email-copy-val{
   flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:14px;font-weight:600;line-height:1.3;padding:10px 12px;border-radius:11px;background:#e8e8ed;color:#111;
@@ -143,11 +143,15 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .email-copy-val.is-empty{color:#888;font-weight:500}
 .email-copy-val.has-mail{cursor:pointer}
 .email-copy-btn{
-  flex:0 0 auto;width:auto;padding:10px 14px;min-height:40px;font-size:13px;line-height:1.2;
+  flex:0 0 auto;width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
 }
+.email-copy-btn svg{width:22px;height:22px;display:block}
+.email-copy-btn .email-copy-ok{display:none}
 .email-copy-btn:disabled{opacity:.4;background:#8a8a90}
 .email-copy-btn.is-copied{background:#14532d}
+.email-copy-btn.is-copied .email-copy-icon{display:none}
+.email-copy-btn.is-copied .email-copy-ok{display:block}
 #pdfKindModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -603,7 +607,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.62</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.63</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -804,13 +808,16 @@ input.to-check{
 <div id="status"></div>
 </main>
 <div class="bottom">
-  <div class="email-copy-row" id="emailCopyRow">
-    <div class="email-copy-val is-empty" id="emailCopyVal" role="status">Keine E-Mail</div>
-    <button type="button" class="email-copy-btn" id="emailCopyBtn" disabled aria-label="E-Mail kopieren">Kopieren</button>
-  </div>
   <div class="bottom-actions">
     <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
     <button class="go" id="generate">PDF erstellen & speichern</button>
+  </div>
+  <div class="email-copy-row" id="emailCopyRow">
+    <div class="email-copy-val is-empty" id="emailCopyVal" role="status">Keine E-Mail</div>
+    <button type="button" class="email-copy-btn" id="emailCopyBtn" disabled aria-label="E-Mail kopieren" title="Kopieren">
+      <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <svg class="email-copy-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 </div>
 <div id="pdfKindModal" aria-hidden="true">
@@ -3948,7 +3955,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.62";
+  const APP_VERSION=window.SB_APP_VERSION||"2.63";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4751,8 +4758,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(btn){
       btn.disabled=!email;
       if(!email){
-        btn.textContent="Kopieren";
         btn.classList.remove("is-copied");
+        btn.setAttribute("aria-label","E-Mail kopieren");
       }
     }
   }
@@ -4785,12 +4792,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const s=$("status");
     if(ok){
       if(btn){
-        btn.textContent="Kopiert";
         btn.classList.add("is-copied");
+        btn.setAttribute("aria-label","E-Mail kopiert");
         clearTimeout(btn._copyTimer);
         btn._copyTimer=setTimeout(()=>{
-          btn.textContent="Kopieren";
           btn.classList.remove("is-copied");
+          btn.setAttribute("aria-label","E-Mail kopieren");
         }, 1400);
       }
       if(s) s.textContent="E-Mail kopiert.";
