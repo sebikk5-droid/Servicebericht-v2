@@ -3234,7 +3234,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     Object.keys(data).forEach(key=>{
       if(!key.startsWith("__manual_") || !data[key]) return;
-      const el=findField(key.slice(10));
+      const el=findField(key.slice("__manual_".length));
       if(el) el.dataset.manual="1";
     });
 
