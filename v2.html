@@ -5094,7 +5094,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{
       const o=JSON.parse(localStorage.getItem(KEY)||"{}");
       const map=o&&typeof o==="object"&&!Array.isArray(o)?o:{};
-      return applyMachineTombs(map);
+      const cleaned=applyMachineTombs(map);
+      Object.keys(cleaned).forEach(k=>{
+        if(Array.isArray(cleaned[k])) cleaned[k]=collapseList(cleaned[k]);
+      });
+      return cleaned;
     }
     catch(e){ return {}; }
   }
@@ -5118,7 +5122,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return rec;
   }
   function canCollapse(a,b){
-    return sameMachine(a,b);
+    if(sameMachine(a,b)) return true;
+    if(!norm(a.machineNo) && !norm(b.machineNo)
+      && sameBrand(a.manufacturer, b.manufacturer) && sameType(a.type, b.type))
+      return true;
+    return false;
   }
   function collapseList(list){
     const out=[];
@@ -5129,7 +5137,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(i>=0) out[i]=mergeFields(out[i], rec);
       else out.push(rec);
     });
-    return out;
+    return out.filter(m=>{
+      if(norm(m.machineNo)) return true;
+      return !out.some(x=>norm(x.machineNo)
+        && sameBrand(x.manufacturer, m.manufacturer)
+        && sameType(x.type, m.type));
+    });
   }
   function fromForm(){
     const m={};
@@ -5536,7 +5549,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(idx>=0) list[idx]=rec;
       else list.push(rec);
     }
-    all[k]=list;
+    all[k]=collapseList(list);
     saveAll(all);
     if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
     clearMachineTomb(k, rec);
