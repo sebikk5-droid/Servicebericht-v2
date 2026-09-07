@@ -5396,8 +5396,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }
     const oldRec=mode==="overwrite" && loadedSaved ? cleanRec(loadedSaved) : null;
-    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
-    clearMachineTomb(k, rec);
     const prev=persistLock;
     let unlock=()=>{};
     persistLock=new Promise(r=>{ unlock=r; });
@@ -5432,6 +5430,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     all[k]=list;
     saveAll(all);
+    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
+    clearMachineTomb(k, rec);
     loadedSaved=rec;
     syncComboClears();
     syncMachineSaveUi();
