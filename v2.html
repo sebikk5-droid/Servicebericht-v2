@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.52">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.53">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.52</title>
+<title>Servicebericht v2.53</title>
 <script>
 try{
   if(navigator.serviceWorker){
@@ -547,7 +547,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.52</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.53</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1897,23 +1897,25 @@ function applyCustomerRouteDay(d){
   }
   recalcTimes();
 }
-function finishCompaniesLoad(list){
+function finishCompaniesLoad(list, opts){
   applyCompanies(Array.isArray(list)?list:[]);
   bindCompanySelect();
-  if(typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
+  if(!(opts && opts.skipDraft) && typeof window.restoreLiveDraft==="function") window.restoreLiveDraft(true);
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
 }
-window.loadCompaniesFromCloud=async function(){
+window.loadCompaniesFromCloud=async function(opts){
+  opts=opts||{};
+  const skipDraft=!!opts.skipDraft;
   const s=$("status");
   const cached=readCompaniesCache();
   if(!window.sbLists){
-    finishCompaniesLoad(cached||[]);
+    finishCompaniesLoad(cached||[], {skipDraft});
     return;
   }
   const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
   const repoName=dr.repo||"Servicebericht-listen";
   if(!window.sbLists.hasToken()){
-    finishCompaniesLoad(cached||[]);
+    finishCompaniesLoad(cached||[], {skipDraft});
     if(s && !(cached&&cached.length))
       s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
     else if(s && cached && cached.length)
@@ -1925,7 +1927,7 @@ window.loadCompaniesFromCloud=async function(){
     const pending=readCompaniesPending();
     if(got && Array.isArray(got.data)){
       const list=pending.length ? mergePendingCompanies(got.data, cached||[], pending) : got.data;
-      finishCompaniesLoad(list);
+      finishCompaniesLoad(list, {skipDraft});
       if(pending.length && window.sbLists.hasToken()){
         window.sbLists.pushMerged(
           "companies",
@@ -1935,7 +1937,7 @@ window.loadCompaniesFromCloud=async function(){
         ).then(function(out){
           if(out && out.result && out.result.ok){
             clearCompaniesPending();
-            if(Array.isArray(out.merged)) finishCompaniesLoad(out.merged);
+            if(Array.isArray(out.merged)) finishCompaniesLoad(out.merged, {skipDraft:true});
           }
         }).catch(function(){});
       }
@@ -1943,15 +1945,15 @@ window.loadCompaniesFromCloud=async function(){
     }
     if(got && got.status===404){
       if(cached && cached.length){
-        finishCompaniesLoad(cached);
+        finishCompaniesLoad(cached, {skipDraft});
         if(s) s.textContent="Kundenliste vom Gerät. GitHub-Datei fehlt noch – mit Netz speichern legt sie an.";
         return;
       }
-      finishCompaniesLoad([]);
+      finishCompaniesLoad([], {skipDraft});
       if(s) s.textContent="Repo "+repoName+" ist neu oder ohne companies.json. Hinzufügen legt die Datei an.";
       return;
     }
-    finishCompaniesLoad(cached||[]);
+    finishCompaniesLoad(cached||[], {skipDraft});
     if(!s) return;
     if(got && got.reason==="network"){
       s.textContent=(cached&&cached.length)
@@ -1961,16 +1963,39 @@ window.loadCompaniesFromCloud=async function(){
       s.textContent="Kundenliste: "+((got&&(got.status||got.reason))||"Fehler")+" – Token braucht Zugriff auf "+repoName+".";
     }
   }catch(e){
-    finishCompaniesLoad(readCompaniesCache()||[]);
+    finishCompaniesLoad(readCompaniesCache()||[], {skipDraft});
     if(s && readCompaniesCache() && readCompaniesCache().length)
       s.textContent="Kundenliste vom Gerät (ohne Internet).";
   }
 };
 window.addEventListener("sb-lists-ready", function(){ window.loadCompaniesFromCloud(); });
 window.addEventListener("sb-token-change", function(){
-  window.loadCompaniesFromCloud();
-  if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
-  if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
+  if(window.sbTokenSyncTimer) clearTimeout(window.sbTokenSyncTimer);
+  window.sbTokenSyncTimer=setTimeout(function(){
+    if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken())
+      return;
+    window.sbListsSyncing=true;
+    const s=$("status");
+    if(s) s.textContent="Listen werden im Hintergrund geladen…";
+    Promise.resolve()
+      .then(function(){ return window.loadCompaniesFromCloud({skipDraft:true}); })
+      .then(function(){ return new Promise(function(r){ setTimeout(r, 0); }); })
+      .then(function(){
+        if(typeof window.refreshCustomerEmails==="function")
+          return window.refreshCustomerEmails("fill");
+      })
+      .then(function(){ return new Promise(function(r){ setTimeout(r, 0); }); })
+      .then(function(){
+        if(typeof window.refreshCustomerMachines==="function")
+          return window.refreshCustomerMachines();
+      })
+      .then(function(){
+        if(s && s.textContent==="Listen werden im Hintergrund geladen…")
+          s.textContent="Listen vom GitHub geladen.";
+      })
+      .catch(function(){})
+      .then(function(){ window.sbListsSyncing=false; });
+  }, 280);
 });
 
 function fieldRectOf(form,n){
@@ -3874,7 +3899,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.52";
+  const APP_VERSION="2.53";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3909,13 +3934,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     return s;
   }
-  function setToken(t){
+  function setToken(t, silent){
     try{
       const v=normalizeToken(t);
       if(v) localStorage.setItem(TOKEN_KEY, v);
       else localStorage.removeItem(TOKEN_KEY);
     }catch(e){}
     syncTokenUi();
+    if(silent) return;
     try{ window.dispatchEvent(new Event("sb-token-change")); }catch(e){}
   }
   function appPlace(){
@@ -3985,8 +4011,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     $("tokenModalSave")?.addEventListener("click",()=>{
       const v=normalizeToken($("tokenModalInput")?.value||"");
       if(!v){ $("tokenModalInput")?.focus(); return; }
-      setToken(v);
+      setToken(v, true);
       closeTokenModal(true);
+      setTimeout(function(){
+        try{ window.dispatchEvent(new Event("sb-token-change")); }catch(e){}
+      }, 280);
     });
     $("tokenModalInput")?.addEventListener("paste",e=>{
       let text="";
@@ -5672,7 +5701,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 (function(){
   let syncing=false, lastAt=0;
   async function refreshSharedLists(){
-    if(syncing) return;
+    if(syncing || window.sbListsSyncing) return;
     if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
       return;
     const now=Date.now();
