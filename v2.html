@@ -26,9 +26,9 @@ header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;b
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
 main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
-input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #e0d2a4;border-radius:11px;background:#fff7dc;color:#111}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d0d0d6;border-radius:11px;background:#e8e8ed;color:#111}
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
-input:read-only,textarea:read-only,input[readonly],textarea[readonly]{background:#eef0f3;border-color:#d5d5da;color:#444}
+input:read-only,textarea:read-only,input[readonly],textarea[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
 #remarks,#parts{
   max-height:min(240px,38vh);
@@ -236,8 +236,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox .day-actions button{background:#fff}
 .daybox .day-actions .day-collapse{background:#163a5c;color:#fff}
 .daybox .day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
-.daybox input,.daybox select{background:#fff7dc;border-color:#e0d2a4}
-.daybox input:read-only,.daybox input[readonly]{background:#eef0f3;border-color:#d5d5da;color:#444}
+.daybox input,.daybox select{background:#e8e8ed;border-color:#d0d0d6}
+.daybox input:read-only,.daybox input[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 .daybox input.km-check,
 .daybox input.to-check,
 input.km-check,
@@ -417,7 +417,7 @@ input.to-check{
 }
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
-.machine-combo.is-disabled input{background:#eef0f3;color:#666;border-color:#d5d5da}
+.machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
 #customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
 #customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
 #customerEmailBox .combo-results{z-index:70}
@@ -3072,6 +3072,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     bindTimeInputs();
     document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
+    document.querySelectorAll("[data-daybox]").forEach(box=>{
+      if(typeof markReturnPauseToCheck==="function") markReturnPauseToCheck(box);
+    });
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
       const label=el.closest(".choice-opt");
