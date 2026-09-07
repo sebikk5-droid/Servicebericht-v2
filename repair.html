@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Servicebericht neu laden</title>
+</head>
+<body style="font-family:-apple-system,sans-serif;padding:24px;max-width:420px">
+<p>Cache wird geleert…</p>
+<script>
+(async function(){
+  try{
+    if(navigator.serviceWorker){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if(window.caches){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  location.replace("./v2.html?fresh=1");
+})();
+</script>
+</body>
+</html>
