@@ -37,19 +37,22 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   -webkit-overflow-scrolling:touch;
 }
 .parts-box{position:relative}
-.parts-box #parts{display:block;padding-bottom:48px}
+.parts-box #parts{display:block;padding-bottom:34px}
 .parts-plus{
-  position:absolute;right:10px;bottom:10px;z-index:3;
-  flex:none;width:36px;height:36px;min-height:36px;padding:0;margin:0;
+  position:absolute;right:6px;bottom:6px;z-index:3;
+  flex:none;width:28px;height:28px;min-height:28px;padding:0;margin:0;
   border:0;border-radius:50%;
   background:#163a5c;color:#fff;
-  font-size:26px;font-weight:600;line-height:1;
+  font-size:20px;font-weight:600;line-height:1;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 1px 4px rgba(0,0,0,.18);
+  box-shadow:0 1px 3px rgba(0,0,0,.16);
   cursor:pointer;
 }
 .parts-plus:active{transform:scale(.96)}
-.parts-box .combo-pick{font-size:15px;font-weight:600}
+#partsResults.combo-results{border-radius:6px}
+#partsResults .combo-pick{
+  font-size:13px;font-weight:600;min-height:32px;padding:5px 10px;line-height:1.25;
+}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
@@ -811,23 +814,30 @@ const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null;
 function layoutComboResults(results, box){
   if(!results||!box) return;
   const r=box.getBoundingClientRect();
-  const gap=4;
+  const parts=results.id==="partsResults";
+  const gap=parts?2:4;
   const spaceBelow=window.innerHeight-r.bottom-gap;
   const spaceAbove=r.top-gap;
-  const maxH=results.id==="partsResults"?340:260;
+  const maxH=parts?168:260;
   results.style.position="fixed";
-  results.style.left=Math.max(8, r.left)+"px";
-  results.style.width=Math.max(80, r.width)+"px";
+  if(parts){
+    const w=Math.min(r.width, 268);
+    results.style.width=w+"px";
+    results.style.left=Math.max(8, r.right-w)+"px";
+  }else{
+    results.style.left=Math.max(8, r.left)+"px";
+    results.style.width=Math.max(80, r.width)+"px";
+  }
   results.style.right="auto";
   results.style.zIndex="80";
   if(spaceBelow>=140 || spaceBelow>=spaceAbove){
     results.style.top=(r.bottom+gap)+"px";
     results.style.bottom="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(96, spaceBelow))+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceBelow))+"px";
   }else{
     results.style.bottom=(window.innerHeight-r.top+gap)+"px";
     results.style.top="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(96, spaceAbove))+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceAbove))+"px";
   }
 }
 function openComboResults(results, box){
