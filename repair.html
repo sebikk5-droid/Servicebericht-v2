@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
 <title>Servicebericht neu laden</title>
 </head>
-<body style="font-family:-apple-system,sans-serif;padding:24px;max-width:420px">
-<p>Cache wird geleert…</p>
+<body style="font-family:-apple-system,sans-serif;padding:24px;max-width:420px;line-height:1.4">
+<p id="msg">Cache wird geleert…</p>
+<p><a id="go" href="./v2.html" style="display:none;font-weight:700">App öffnen</a></p>
 <script>
 (async function(){
+  const msg=document.getElementById("msg");
+  const go=document.getElementById("go");
   try{
     if(navigator.serviceWorker){
       const regs=await navigator.serviceWorker.getRegistrations();
@@ -19,7 +23,13 @@
       await Promise.all(keys.map(k=>caches.delete(k)));
     }
   }catch(e){}
-  location.replace("./v2.html?fresh=1");
+  const url="./v2.html?t="+Date.now();
+  if(go){
+    go.href=url;
+    go.style.display="inline";
+  }
+  if(msg) msg.textContent="Fertig. App wird geöffnet…";
+  setTimeout(function(){ location.replace(url); }, 400);
 })();
 </script>
 </body>
