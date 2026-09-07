@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.74">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.75">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.74</title>
+  <title>Servicebericht v2.75</title>
 <script>
-window.SB_APP_VERSION="2.74";
+window.SB_APP_VERSION="2.75";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.74</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.75</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1861,6 +1861,13 @@ function bindCompanySelect(){
       if(typeof window.pullCustomerEmails==="function")
         window.pullCustomerEmails().then(()=>window.refreshCustomerEmails()).catch(()=>{});
     }
+    function showCustomerMachines(){
+      if(typeof window.offerCustomerMachineCombos==="function")
+        window.offerCustomerMachineCombos();
+    }
+    if(typeof window.refreshCustomerMachines==="function"){
+      Promise.resolve(window.refreshCustomerMachines()).then(showCustomerMachines).catch(showCustomerMachines);
+    }else showCustomerMachines();
   };
 }
 function selectCompanyByName(name){
@@ -4200,7 +4207,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.74";
+  const APP_VERSION=window.SB_APP_VERSION||"2.75";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5819,9 +5826,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean)
       .filter(s=>!featured.some(n=>norm(s)===norm(n))));
     const fromCat=catalog.map(c=>c.name).filter(n=>
-      !mine.some(s=>sameBrand(s,n)) && !featured.some(s=>norm(s)===norm(n))
+      !mine.some(s=>norm(s)===norm(n)) && !featured.some(s=>norm(s)===norm(n))
     );
-    return featured.concat(mine, naturalSort(fromCat));
+    return mine.concat(featured, naturalSort(fromCat));
   }
   function preferredTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -6350,6 +6357,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   window.refreshCustomerMachines=async function(){
     await pullMachines();
     syncComboClears();
+    try{
+      [["manufacturer","manufacturerResults"],["type","typeResults"],["machineNo","machineNoResults"]].forEach(([id, rid])=>{
+        if(comboApi[id] && comboApi[id].show && $(rid)?.style.display==="block")
+          comboApi[id].show(true);
+      });
+    }catch(e){}
+  };
+  window.offerCustomerMachineCombos=function(){
+    const brands=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
+    if(!brands.length) return;
+    offerCombo("manufacturer", "manufacturerBox", brands);
   };
   function bind(){
     setupCombo(
