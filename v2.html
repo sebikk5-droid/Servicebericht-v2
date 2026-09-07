@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.54">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.55">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.54</title>
+<title>Servicebericht v2.55</title>
 <script>
 try{
   if(navigator.serviceWorker){
@@ -547,7 +547,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.54</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.55</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1591,8 +1591,6 @@ function bindCompanySelect(){
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     recalcTimes();
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
-    if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
-    if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
     if(typeof window.clearSignatures==="function") window.clearSignatures();
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   };
@@ -1914,14 +1912,19 @@ window.loadCompaniesFromCloud=async function(opts){
   }
   const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
   const repoName=dr.repo||"Servicebericht-listen";
-  finishCompaniesLoad(cached||[], {skipDraft: skipDraft || !!window.sbLists.hasToken()});
-  if(!window.sbLists.hasToken()){
-    if(s && !(cached&&cached.length))
-      s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
-    else if(s && cached && cached.length)
-      s.textContent="Kundenliste vom Gerät. Token setzen, dann wird GitHub abgeglichen.";
+  finishCompaniesLoad(cached||[], {skipDraft: skipDraft || !opts.cloud});
+  if(!opts.cloud){
+    if(!window.sbLists.hasToken()){
+      if(s && !(cached&&cached.length))
+        s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
+      else if(s && cached && cached.length)
+        s.textContent="Kundenliste vom Gerät. Token setzen, dann wird GitHub abgeglichen.";
+    }
     return;
   }
+  if(!window.sbLists.hasToken()) return;
+  if(window.sbCompaniesCloudBusy) return;
+  window.sbCompaniesCloudBusy=true;
   try{
     const got=await window.sbLists.pullFile("companies");
     const pending=readCompaniesPending();
@@ -1960,6 +1963,8 @@ window.loadCompaniesFromCloud=async function(opts){
   }catch(e){
     if(s && cached && cached.length)
       s.textContent="Kundenliste vom Gerät (ohne Internet).";
+  }finally{
+    window.sbCompaniesCloudBusy=false;
   }
 };
 window.addEventListener("sb-lists-ready", function(){ window.loadCompaniesFromCloud(); });
@@ -3650,8 +3655,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       liveDraftApplied=true;
       applyForm(data);
       if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
-      if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
-      if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
       return true;
     }
     window.saveLiveDraft=saveLiveDraft;
@@ -3775,7 +3778,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       sync();
       show();
     });
-    input.addEventListener("focus",function(){ show(); });
+    input.addEventListener("focus",function(){
+      show();
+      if(typeof window.loadCompaniesFromCloud==="function")
+        window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true});
+    });
     input.addEventListener("click",function(){ show(); });
     clearBtn?.addEventListener("click",function(e){
       e.preventDefault();
@@ -3873,7 +3880,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.54";
+  const APP_VERSION="2.55";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4099,14 +4106,46 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return {data:null, sha:""};
     }
   }
+  const PARSE_WORKER_SRC='self.onmessage=function(e){try{var j=JSON.parse(new TextDecoder("utf-8").decode(e.data));if(!j||!j.content){self.postMessage({data:null,sha:(j&&j.sha)||""});return;}var raw=String(j.content).replace(/\\n/g,"");var bin=atob(raw);var n=bin.length;var bytes=new Uint8Array(n);for(var i=0;i<n;i++)bytes[i]=bin.charCodeAt(i);var text=new TextDecoder("utf-8").decode(bytes);self.postMessage({data:JSON.parse(text),sha:j.sha||""});}catch(err){self.postMessage({data:null,sha:""});}};';
+  function parseGithubFileInWorker(buf, status){
+    return new Promise(function(resolve){
+      let done=false;
+      const finish=function(out){
+        if(done) return;
+        done=true;
+        resolve(out);
+      };
+      try{
+        const blob=new Blob([PARSE_WORKER_SRC],{type:"text/javascript"});
+        const url=URL.createObjectURL(blob);
+        const w=new Worker(url);
+        const t=setTimeout(function(){
+          try{ w.terminate(); }catch(e){}
+          try{ URL.revokeObjectURL(url); }catch(e){}
+          finish({data:null, sha:"", status:status, reason:"parse-timeout"});
+        }, 12000);
+        w.onmessage=function(ev){
+          clearTimeout(t);
+          try{ w.terminate(); }catch(e){}
+          try{ URL.revokeObjectURL(url); }catch(e){}
+          const m=ev.data||{};
+          finish({data:m.data, sha:m.sha||"", status:status});
+        };
+        w.onerror=function(){
+          clearTimeout(t);
+          try{ w.terminate(); }catch(e){}
+          try{ URL.revokeObjectURL(url); }catch(e){}
+          finish({data:null, sha:"", status:status, reason:"parse"});
+        };
+        w.postMessage(buf, [buf]);
+      }catch(e){
+        finish({data:null, sha:"", status:status, reason:"parse"});
+      }
+    });
+  }
   async function parseContents(res){
-    const j=await res.json();
-    await new Promise(function(r){ setTimeout(r, 0); });
-    let data=null;
-    try{
-      if(j && j.content) data=JSON.parse(decodeContent(j.content));
-    }catch(e){ data=null; }
-    return {data, sha:j.sha||"", status:res.status};
+    const buf=await res.arrayBuffer();
+    return parseGithubFileInWorker(buf, res.status);
   }
   async function pullFile(kind, writePath){
     if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
@@ -4653,7 +4692,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
       openComboResults(results, box);
     }
-    input.addEventListener("focus", show);
+    input.addEventListener("focus", ()=>{
+      show();
+      if(!input.dataset.cloudOnce){
+        input.dataset.cloudOnce="1";
+        pullEmails().then(()=>show()).catch(()=>{});
+      }
+    });
     input.addEventListener("click", show);
     input.addEventListener("input",()=>{
       setEmail(input.value);
@@ -4715,8 +4760,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!customerKey() || !validEmail(e)) return;
     await addEmail(e);
   }
-  window.refreshCustomerEmails=async function(mode){
-    await pullEmails();
+  window.refreshCustomerEmails=async function(mode, opts){
+    if(opts && opts.cloud) await pullEmails();
     bindEmailUi();
     const emails=emailsForCustomer();
     const cur=currentEmail();
@@ -4730,7 +4775,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   window.pullCustomerEmails=pullEmails;
   function start(){
     bindEmailUi();
-    pullEmails().then(()=>window.refreshCustomerEmails("fill"));
+    window.refreshCustomerEmails("fill");
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", start);
   else start();
@@ -5303,7 +5348,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
       openComboResults(results, box);
     }
-    input.addEventListener("focus", ()=>show(true));
+    input.addEventListener("focus", ()=>{
+      show(true);
+      if(!window.sbMachinesCloudOnce && typeof window.refreshCustomerMachines==="function"){
+        window.sbMachinesCloudOnce=1;
+        window.refreshCustomerMachines();
+      }
+    });
     input.addEventListener("click", ()=>show(true));
     input.addEventListener("input",()=>{
       syncComboClears();
@@ -5669,16 +5720,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
     });
     $("control")?.addEventListener("change",()=>syncMachineSaveUi());
-    $("customerSearch")?.addEventListener("blur",()=>{
-      if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
-      if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
-    });
     syncComboClears();
     fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
       if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
       syncComboClears();
     }).catch(()=>{});
-    pullMachines().then(()=>syncComboClears()).catch(()=>{});
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
   else bind();
@@ -5686,21 +5732,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 <script>
 (function(){
-  let syncing=false, lastAt=0;
-  async function refreshSharedLists(){
-    if(syncing || window.sbListsSyncing) return;
-    if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
-      return;
-    const now=Date.now();
-    if(now-lastAt<2500) return;
-    lastAt=now;
-    syncing=true;
-    try{
-      if(typeof window.pullCustomerEmails==="function") await window.pullCustomerEmails();
-      if(typeof window.refreshCustomerMachines==="function") await window.refreshCustomerMachines();
-    }catch(e){}
-    syncing=false;
-  }
+  function refreshSharedLists(){}
   document.addEventListener("visibilitychange",()=>{
     if(!document.hidden) refreshSharedLists();
   });
