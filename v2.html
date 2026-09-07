@@ -58,6 +58,7 @@ window.SB_APP_VERSION="2.60";
       });
     }
   }catch(e){}
+  window.SB_CHECK_LIVE=checkLive;
   checkLive();
   document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
   window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });

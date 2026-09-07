@@ -18,8 +18,7 @@ self.addEventListener("fetch", event => {
   let path = "";
   try { path = new URL(req.url).pathname; } catch (e) { return; }
   const isHtml = req.mode === "navigate" || /\/v2\.html$/i.test(path);
-  const isManifest = /\/manifest-v2\.webmanifest$/i.test(path);
-  if (!isHtml && !isManifest) return;
+  if (!isHtml) return;
   event.respondWith(
     fetch(req, { cache: "no-store" }).then(res => {
       if (res && res.ok && isHtml) {
