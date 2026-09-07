@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.67">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.68">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.67</title>
+  <title>Servicebericht v2.68</title>
 <script>
-window.SB_APP_VERSION="2.67";
+window.SB_APP_VERSION="2.68";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -641,7 +641,20 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #machineSaveModal h3{margin:0 0 6px;font-size:18px}
 #machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
-.machine-check-hint{grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73}
+.machine-check-hint{
+  grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73;
+  transform-origin:left center;
+}
+.machine-check-hint.is-alert{color:#b42318;font-weight:650}
+.machine-check-hint.is-pulse{animation:machineCheckPulse 1.05s ease-out 1}
+@keyframes machineCheckPulse{
+  0%,100%{transform:scale(1);opacity:1}
+  30%{transform:scale(1.045);opacity:.55}
+  62%{transform:scale(1.02);opacity:1}
+}
+@media (prefers-reduced-motion:reduce){
+  .machine-check-hint.is-pulse{animation:none}
+}
 .token-status{
   flex:0 0 auto;border:0;border-radius:10px;padding:8px 10px;min-height:40px;
   font-size:12px;font-weight:750;line-height:1.2;max-width:46%;
@@ -670,7 +683,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.67</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.68</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4110,7 +4123,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.67";
+  const APP_VERSION=window.SB_APP_VERSION||"2.68";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5588,6 +5601,23 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     syncComboClears();
   }
+  function pulseMachineCheckHint(on){
+    const el=document.querySelector(".machine-check-hint");
+    if(!el) return;
+    el.classList.remove("is-pulse");
+    if(!on){
+      el.classList.remove("is-alert");
+      return;
+    }
+    el.classList.add("is-alert");
+    void el.offsetWidth;
+    el.classList.add("is-pulse");
+    const done=()=>{
+      el.classList.remove("is-pulse");
+      el.removeEventListener("animationend", done);
+    };
+    el.addEventListener("animationend", done);
+  }
   function isEmpty(m){
     return !m.manufacturer && !m.type && !m.machineNo && !m.control && !m.nc && !m.plc;
   }
@@ -6170,6 +6200,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function clearMachineFields(){
     FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
     loadedSaved=null;
+    pulseMachineCheckHint(false);
     syncComboClears();
     syncMachineSaveUi();
     hideMachineSaveOk();
@@ -6206,9 +6237,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(saved){
           applyMachine(saved, true);
           loadedSaved=cleanRec(saved);
+          pulseMachineCheckHint(true);
         }else{
           ["control","nc","plc"].forEach(id=>{ if($(id)) $(id).value=""; });
           loadedSaved=null;
+          pulseMachineCheckHint(false);
         }
         syncComboClears();
         syncMachineSaveUi();
@@ -6243,6 +6276,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
         loadedSaved=null;
+        pulseMachineCheckHint(false);
         syncComboClears();
         syncMachineSaveUi();
         hideMachineSaveOk();
@@ -6257,6 +6291,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
       loadedSaved=null;
+      pulseMachineCheckHint(false);
       syncComboClears();
       syncMachineSaveUi();
       hideMachineSaveOk();
@@ -6277,6 +6312,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     ["manufacturer","type","nc","plc","machineNo"].forEach(id=>{
       $(id)?.addEventListener("change",()=>syncMachineSaveUi());
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
+    });
+    $("machineNo")?.addEventListener("input",()=>{
+      if(!loadedSaved || !sameNr($("machineNo")?.value||"", loadedSaved.machineNo))
+        pulseMachineCheckHint(false);
     });
     $("control")?.addEventListener("change",()=>syncMachineSaveUi());
     syncComboClears();
