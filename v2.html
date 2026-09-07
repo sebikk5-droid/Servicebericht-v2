@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.48">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.49">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.48</title>
+<title>Servicebericht v2.49</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +538,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.48</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.49</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1189,11 +1189,77 @@ initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
 markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
-$("resetForm")?.addEventListener("click",()=>{
-  if(!confirm("Formular wirklich zurücksetzen?\nHistorie bleibt erhalten.")) return;
+function resetOpenForm(){
+  ["tokenModal","machineSaveModal","routeModal","sigModal"].forEach(id=>{
+    const m=$(id);
+    if(!m) return;
+    m.classList.remove("is-open");
+    m.setAttribute("aria-hidden","true");
+  });
   if(typeof window.beginFormReset==="function") window.beginFormReset();
   else if(typeof window.clearLiveDraft==="function") window.clearLiveDraft();
-  location.reload();
+  if(typeof window.clearSignatures==="function") window.clearSignatures();
+  if(typeof window.clearMachineFields==="function") window.clearMachineFields();
+  document.querySelectorAll("[data-daybox]").forEach(box=>{
+    if(box.getAttribute("data-daybox")!=="1") box.remove();
+  });
+  visibleDays=1;
+  const addBtn=$("addDay");
+  if(addBtn) addBtn.style.display="";
+  const d1=document.querySelector('[data-daybox="1"]');
+  if(d1){
+    d1.insertAdjacentHTML("beforebegin", dayTemplate(1));
+    d1.remove();
+    initQuarterTimeSelects($("times"));
+    const fresh=document.querySelector('[data-daybox="1"]');
+    if(fresh) fresh.setAttribute("data-day-active","1");
+  }
+  const keep={historyFileInput:1};
+  document.querySelectorAll("input, textarea, select").forEach(el=>{
+    if(keep[el.id]) return;
+    if(el.closest && el.closest("#times")) return;
+    if(el.id==="company"){ el.value=""; return; }
+    if(el.type==="checkbox" || el.type==="radio"){
+      el.checked=false;
+      const label=el.closest(".choice-opt");
+      if(label) label.classList.remove("is-on");
+      return;
+    }
+    if(el.type==="file" || el.type==="hidden") return;
+    if(el.readOnly && (el.id==="travelTotal" || el.id==="workTotal" || el.id==="kmTotal" || el.id==="allTotal")){
+      el.value="";
+      return;
+    }
+    el.value="";
+  });
+  if($("blattNr")) $("blattNr").value="1";
+  if($("blattVon")) $("blattVon").value="1";
+  const hs=$("historySearch");
+  if(hs){
+    hs.value="";
+    hs.dataset.index="";
+  }
+  ["customerSearchBox","customerEmailBox","manufacturerBox","typeBox","machineNoBox","techBox","historyCombo"].forEach(id=>{
+    const b=$(id);
+    if(b) b.classList.remove("has-value");
+  });
+  lastPdfBlob=null;
+  if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
+  markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
+  if(typeof bindTimeInputs==="function") bindTimeInputs();
+  if(typeof syncDayChrome==="function") syncDayChrome();
+  if(typeof recalcTimes==="function") recalcTimes();
+  if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+  if(typeof window.finishFormReset==="function") window.finishFormReset();
+  const s=$("status");
+  if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
+  const scroller=document.querySelector("main");
+  if(scroller) scroller.scrollTop=0;
+}
+window.resetOpenForm=resetOpenForm;
+$("resetForm")?.addEventListener("click",()=>{
+  if(!confirm("Formular wirklich zurücksetzen?\nHistorie bleibt erhalten.")) return;
+  resetOpenForm();
 });
 $("times").addEventListener("change",e=>{
   if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
@@ -3572,11 +3638,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       liveDraftApplied=true;
       clearFormPersistence();
     };
+    window.finishFormReset=function(){
+      consumeResetFlag();
+    };
     document.addEventListener("input",()=>{
+      if(resetting()) return;
       clearTimeout(saveTimer);
-      saveTimer=setTimeout(saveLiveDraft, 250);
+      saveTimer=setTimeout(saveLiveDraft, 700);
     }, true);
-    document.addEventListener("change",()=>saveLiveDraft(), true);
+    document.addEventListener("change",()=>{ if(!resetting()) saveLiveDraft(); }, true);
     window.addEventListener("pagehide", saveLiveDraft);
     document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveLiveDraft(); });
     window.addEventListener("pageshow",ev=>{
@@ -3776,7 +3846,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.48";
+  const APP_VERSION="2.49";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3966,7 +4036,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function githubFetch(url, extra){
     extra=extra||{};
     const ctrl=new AbortController();
-    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, extra.timeoutMs||20000);
+    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, extra.timeoutMs||8000);
     const opt={
       mode:"cors",
       credentials:"omit",
@@ -3995,6 +4065,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return {data, sha:j.sha||"", status:res.status};
   }
   async function pullFile(kind, writePath){
+    if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
     const path=FILES[kind]||kind;
     async function fromApi(withAuth){
       const res=await githubFetch(apiFileUrl(path, true), {headers:headers(withAuth)});
@@ -4312,6 +4383,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pullEmails(){
     try{
+      if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
+        return loadMap();
       let remote={};
       if(window.sbLists){
         const got=await window.sbLists.pullFile("emails");
@@ -5241,6 +5314,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pullMachines(){
     try{
+      if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
+        return loadAll();
       let remote={};
       if(window.sbLists){
         const got=await window.sbLists.pullFile("machines");
@@ -5555,12 +5630,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
     });
     syncComboClears();
-    Promise.all([
-      fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
-        if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
-      }).catch(()=>{}),
-      pullMachines()
-    ]).then(()=>syncComboClears());
+    fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+      if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
+      syncComboClears();
+    }).catch(()=>{});
+    pullMachines().then(()=>syncComboClears()).catch(()=>{});
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
   else bind();
@@ -5571,8 +5645,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   let syncing=false, lastAt=0;
   async function refreshSharedLists(){
     if(syncing) return;
+    if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
+      return;
     const now=Date.now();
-    if(now-lastAt<600) return;
+    if(now-lastAt<2500) return;
     lastAt=now;
     syncing=true;
     try{
