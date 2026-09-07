@@ -4953,14 +4953,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     return rec;
   }
-  function overlayForm(saved, rec){
-    const out=cleanRec(saved);
-    FIELD_IDS.forEach(id=>{
-      const v=String((rec&&rec[id])||"").trim();
-      if(v) out[id]=v;
-    });
-    return out;
-  }
   function canCollapse(a,b){
     return sameMachine(a,b);
   }
