@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.46">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.47">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.46</title>
+<title>Servicebericht v2.47</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +538,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.46</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.47</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3776,7 +3776,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.46";
+  const APP_VERSION="2.47";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4962,10 +4962,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return out;
   }
   function canCollapse(a,b){
-    if(!a||!b) return false;
-    if(!sameBrand(a.manufacturer, b.manufacturer) || !sameType(a.type, b.type)) return false;
-    if(sameType(a.machineNo, b.machineNo)) return true;
-    return !norm(a.machineNo) || !norm(b.machineNo);
+    return sameMachine(a,b);
   }
   function collapseList(list){
     const out=[];
@@ -4988,9 +4985,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     FIELD_IDS.forEach(id=>{
       if(skipIdentity && (id==="manufacturer" || id==="type" || id==="machineNo")) return;
       if(!$(id)) return;
-      const next=String(m[id]||"").trim();
-      if(!next && String($(id).value||"").trim()) return;
-      $(id).value=next;
+      $(id).value=String(m[id]||"").trim();
     });
     syncComboClears();
   }
@@ -5088,22 +5083,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function findSaved(){
     const rec=fromForm();
-    const list=listForCustomer();
-    if(rec.machineNo){
-      const hit=list.find(m=>
-        sameType(m.machineNo, rec.machineNo) &&
-        (!norm(rec.type) || sameType(m.type, rec.type)) &&
-        (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer))
-      );
-      if(hit) return hit;
-    }
-    const matches=list.filter(m=>
-      (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer)) &&
-      (!norm(rec.type) || sameType(m.type, rec.type))
-    );
-    if(matches.length===1) return matches[0];
-    const incomplete=matches.filter(m=>!norm(m.machineNo));
-    return incomplete.length===1 ? incomplete[0] : null;
+    if(!norm(rec.machineNo)) return null;
+    return listForCustomer().find(m=>
+      sameType(m.machineNo, rec.machineNo) &&
+      (!norm(rec.type) || sameType(m.type, rec.type)) &&
+      (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer))
+    )||null;
   }
   const comboApi={};
   function clearBelow(keep){
@@ -5236,6 +5221,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameMachine(a,b){
     if(!a||!b) return false;
+    if(!norm(a.machineNo) || !norm(b.machineNo)) return false;
     return sameBrand(a.manufacturer, b.manufacturer) &&
       sameType(a.type, b.type) &&
       sameType(a.machineNo, b.machineNo);
@@ -5321,8 +5307,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function findLoadedIndex(list){
     if(!loadedSaved) return -1;
     const exact=list.findIndex(m=>sameMachine(m, loadedSaved));
-    if(exact>=0) return exact;
-    return list.findIndex(m=>canCollapse(m, loadedSaved));
+    return exact;
   }
   function syncMachineSaveUi(){
     const btn=$("machineSave");
@@ -5423,9 +5408,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       list.length=0;
       kept.forEach(m=>list.push(m));
     }else{
-      let idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
+      let idx=list.findIndex(m=>sameMachine(m, rec));
       wasNew=idx<0;
-      if(idx>=0) list[idx]=overlayForm(list[idx], rec);
+      if(idx>=0) list[idx]=rec;
       else list.push(rec);
     }
     all[k]=list;
@@ -5488,10 +5473,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(saved){
           applyMachine(saved, true);
           const form=cleanRec(fromForm());
-          loadedSaved=listForCustomer().some(m=>sameMachine(m, saved) || canCollapse(m, saved) || sameMachine(m, form) || canCollapse(m, form))
+          loadedSaved=listForCustomer().some(m=>sameMachine(m, saved) || sameMachine(m, form))
             ? form
             : null;
         }else{
+          ["control","nc","plc"].forEach(id=>{ if($(id)) $(id).value=""; });
           loadedSaved=null;
         }
         syncComboClears();
@@ -5525,7 +5511,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       await pullMachines();
       const all=loadAll();
       const list=Array.isArray(all[k])?all[k]:[];
-      const idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
+      const idx=list.findIndex(m=>sameMachine(m, rec));
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
         loadedSaved=null;
