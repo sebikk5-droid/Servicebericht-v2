@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.37">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.38">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.37</title>
+<title>Servicebericht v2.38</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -483,7 +483,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.37</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.38</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1374,6 +1374,48 @@ function addMinutesToTime(t,mins){
 function companyNameKey(c){
   return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
 }
+const COMPANIES_CACHE_KEY="servicebericht_companies_cache_v1";
+const COMPANIES_PENDING_KEY="servicebericht_companies_pending_v1";
+function readCompaniesCache(){
+  try{ const x=JSON.parse(localStorage.getItem(COMPANIES_CACHE_KEY)||"null"); return Array.isArray(x)?x:null; }
+  catch(e){ return null; }
+}
+function writeCompaniesCache(list){
+  try{ localStorage.setItem(COMPANIES_CACHE_KEY, JSON.stringify(Array.isArray(list)?list:[])); }catch(e){}
+}
+function readCompaniesPending(){
+  try{
+    const x=JSON.parse(localStorage.getItem(COMPANIES_PENDING_KEY)||"[]");
+    return Array.isArray(x)?x.map(s=>String(s||"").trim().toLowerCase()).filter(Boolean):[];
+  }catch(e){ return []; }
+}
+function markCompanyPending(name){
+  const k=String(name||"").trim().toLowerCase();
+  if(!k) return;
+  const list=readCompaniesPending();
+  if(!list.includes(k)) list.push(k);
+  try{ localStorage.setItem(COMPANIES_PENDING_KEY, JSON.stringify(list)); }catch(e){}
+}
+function clearCompaniesPending(){
+  try{ localStorage.removeItem(COMPANIES_PENDING_KEY); }catch(e){}
+}
+function unmarkCompanyPending(name){
+  const k=String(name||"").trim().toLowerCase();
+  const left=readCompaniesPending().filter(x=>x!==k);
+  if(!left.length) clearCompaniesPending();
+  else try{ localStorage.setItem(COMPANIES_PENDING_KEY, JSON.stringify(left)); }catch(e){}
+}
+function mergePendingCompanies(remote, localList, pendingKeys){
+  let arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
+  const keys=Array.isArray(pendingKeys)?pendingKeys:[];
+  if(!keys.length) return arr;
+  const cache=Array.isArray(localList)?localList:[];
+  keys.forEach(k=>{
+    const rec=cache.find(c=>companyNameKey(c)===k);
+    if(rec) arr=mergeCompanyRecord(arr, rec);
+  });
+  return arr;
+}
 function bindCompanySelect(){
   const sel=$("company");
   if(!sel || sel.dataset.boundChange==="1") return;
@@ -1427,6 +1469,7 @@ window.selectCompanyByName=selectCompanyByName;
 function applyCompanies(list, selectName){
   const prev=typeof selectedCompany==="function"?selectedCompany():null;
   companies=Array.isArray(list)?list:[];
+  writeCompaniesCache(companies);
   const sel=$("company");
   if(!sel){
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
@@ -1704,45 +1747,66 @@ function finishCompaniesLoad(list){
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
 }
 window.loadCompaniesFromCloud=async function(){
-  const cacheKey="servicebericht_companies_cache_v1";
   const s=$("status");
-  function readCache(){
-    try{ const x=JSON.parse(localStorage.getItem(cacheKey)||"null"); return Array.isArray(x)?x:null; }catch(e){ return null; }
-  }
-  function writeCache(list){
-    try{ localStorage.setItem(cacheKey, JSON.stringify(list)); }catch(e){}
-  }
+  const cached=readCompaniesCache();
   if(!window.sbLists){
-    finishCompaniesLoad(readCache()||[]);
+    finishCompaniesLoad(cached||[]);
     return;
   }
   const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
   const repoName=dr.repo||"Servicebericht-listen";
   if(!window.sbLists.hasToken()){
-    const cached=readCache();
     finishCompaniesLoad(cached||[]);
     if(s && !(cached&&cached.length))
       s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
+    else if(s && cached && cached.length)
+      s.textContent="Kundenliste vom Gerät. Token setzen, dann wird GitHub abgeglichen.";
     return;
   }
   try{
     const got=await window.sbLists.pullFile("companies");
+    const pending=readCompaniesPending();
     if(got && Array.isArray(got.data)){
-      writeCache(got.data);
-      finishCompaniesLoad(got.data);
+      const list=pending.length ? mergePendingCompanies(got.data, cached||[], pending) : got.data;
+      finishCompaniesLoad(list);
+      if(pending.length && window.sbLists.hasToken()){
+        window.sbLists.pushMerged(
+          "companies",
+          list,
+          "Kundenliste vom Gerät (offline)",
+          function(remote, local){ return mergePendingCompanies(remote, local, pending); }
+        ).then(function(out){
+          if(out && out.result && out.result.ok){
+            clearCompaniesPending();
+            if(Array.isArray(out.merged)) finishCompaniesLoad(out.merged);
+          }
+        }).catch(function(){});
+      }
       return;
     }
     if(got && got.status===404){
-      writeCache([]);
+      if(cached && cached.length){
+        finishCompaniesLoad(cached);
+        if(s) s.textContent="Kundenliste vom Gerät. GitHub-Datei fehlt noch – mit Netz speichern legt sie an.";
+        return;
+      }
       finishCompaniesLoad([]);
       if(s) s.textContent="Repo "+repoName+" ist neu oder ohne companies.json. Hinzufügen legt die Datei an.";
       return;
     }
-    const cached=readCache();
     finishCompaniesLoad(cached||[]);
-    if(s) s.textContent="Kundenliste: "+((got&&(got.status||got.reason))||"Fehler")+" – Token braucht Zugriff auf "+repoName+".";
+    if(!s) return;
+    if(got && got.reason==="network"){
+      s.textContent=(cached&&cached.length)
+        ? "Kundenliste vom Gerät (ohne Internet)."
+        : "Keine gespeicherte Kundenliste. Einmal mit Internet öffnen, dann geht die Liste auch offline.";
+    }else{
+      s.textContent="Kundenliste: "+((got&&(got.status||got.reason))||"Fehler")+" – Token braucht Zugriff auf "+repoName+".";
+    }
   }catch(e){
-    finishCompaniesLoad(readCache()||[]);
+    finishCompaniesLoad(readCompaniesCache()||[]);
+    if(s && readCompaniesCache() && readCompaniesCache().length)
+      s.textContent="Kundenliste vom Gerät (ohne Internet).";
   }
 };
 window.addEventListener("sb-lists-ready", function(){ window.loadCompaniesFromCloud(); });
@@ -3616,7 +3680,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.37";
+  const APP_VERSION="2.38";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4046,8 +4110,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const km2=document.querySelector('[data-k="Kilometer2"]');
       if(km1) km1.value=route.km;
       if(km2) km2.value=route.km;
+      function keepLocal(){
+        if(typeof mergeCompanyRecord!=="function") return;
+        const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
+        if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
+        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
+        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+        }
+        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+      }
       if(!window.sbLists){
-        if(s) s.textContent="GitHub-Listen sind nicht verfügbar.";
+        keepLocal();
+        if(s) s.textContent="Kunde steht auf diesem Gerät. Mit Internet und Token geht er in GitHub.";
         return;
       }
       if(s) s.textContent="Kunde wird in Servicebericht-listen gespeichert…";
@@ -4058,6 +4134,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         function(remote, local){ return mergeCompanyRecord(remote, local); }
       );
       if(result && result.ok){
+        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
         if(Array.isArray(merged) && typeof applyCompanies==="function") applyCompanies(merged, rec.firma);
         if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
         for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
@@ -4068,10 +4145,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           ? "km und Reisezeit in der Kundenliste gespeichert."
           : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
       }else{
-        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+        keepLocal();
         if(!s) return;
         if(result && result.reason==="no-token")
-          s.textContent="Token fehlt. Oben „GitHub fehlt · Token“ – Zugriff auf privates Repo Servicebericht-listen.";
+          s.textContent="Kunde steht auf diesem Gerät. Token oben setzen, dann mit Internet noch einmal speichern.";
         else if(result && (result.status===401 || result.status===403))
           s.textContent="Token darf Servicebericht-listen nicht schreiben. Contents: Read and write nur für dieses Repo.";
         else if(result && result.status===404)
@@ -4079,7 +4156,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         else if(result && result.reason==="encode")
           s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
         else if(result && result.reason==="network")
-          s.textContent="Chrome-App erreicht api.github.com nicht. Netz prüfen, Token oben setzen, erneut tippen.";
+          s.textContent="Kunde steht auf diesem Gerät (ohne Internet). Mit Netz noch einmal speichern für GitHub.";
         else
           s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
       }
