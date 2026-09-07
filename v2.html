@@ -4860,6 +4860,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(wasNew) list.push(e);
     map[k]=list;
     saveMap(map);
+    syncEmailSaveButton();
     const pushed=await pushEmails("E-Mail für "+k, e);
     const s=$("status");
     if(s){
@@ -4868,7 +4869,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
     if((opts && opts.showOk) || wasNew) showEmailSaveOk();
-    syncEmailSaveButton();
     return true;
     }finally{ unlock(); }
   }
@@ -4888,6 +4888,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(next.length) map[k]=next;
     else delete map[k];
     saveMap(map);
+    syncEmailSaveButton();
     try{
       if(typeof companies!=="undefined" && Array.isArray(companies) && typeof applyCompanies==="function"){
         applyCompanies(stripCompanyEmail(companies, k, e), typeof firmaName==="function"?firmaName():"");
@@ -4900,7 +4901,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail lokal gelöscht.";
       else s.textContent="E-Mail lokal gelöscht. GitHub "+((pushed&&(pushed.status||pushed.reason))||"Fehler")+" – noch einmal tippen.";
     }
-    syncEmailSaveButton();
     return true;
     }finally{ unlock(); }
   }
