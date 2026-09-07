@@ -5331,8 +5331,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function onManufacturerChosen(){
     const hasNr=!!norm($("machineNo")?.value||"");
     if(!norm($("manufacturer")?.value||"")){
-      loadedSaved=null;
-      clearBelow(["manufacturer"]);
+      if(!hasNr){
+        loadedSaved=null;
+        clearBelow(["manufacturer"]);
+      }
     }else if(!hasNr){
       loadedSaved=null;
       clearBelow(["manufacturer"]);
