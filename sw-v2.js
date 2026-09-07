@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-100";
+const CACHE_NAME = "servicebericht-v2-102";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -35,10 +35,25 @@ function isV2Asset(url) {
   );
 }
 
+function fetchWithTimeout(req, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, ms);
+  const url = typeof req === "string" ? req : req.url;
+  return fetch(url, { signal: ctrl.signal, cache: "no-store", redirect: "follow" })
+    .finally(function(){ clearTimeout(t); });
+}
+
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    for (const url of APP_SHELL) {
+      try {
+        const res = await fetchWithTimeout(url, 8000);
+        if (res && res.ok) await cache.put(url, res);
+      } catch (e) {}
+    }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", event => {
@@ -57,27 +72,48 @@ self.addEventListener("fetch", event => {
   if (req.method !== "GET") return;
 
   if (isV2Navigation(req)) {
-    event.respondWith(
-      fetch(req, {cache: "no-store"})
-        .then(res => {
-          if (new URL(req.url).pathname.endsWith("/v2.html")) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then(c => c.put("./v2.html", copy));
-          }
+    event.respondWith((async () => {
+      const cached = await caches.match("./v2.html");
+      try {
+        const res = await fetchWithTimeout(req, 2500);
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put("./v2.html", copy)).catch(() => {});
           return res;
-        })
-        .catch(() => caches.match("./v2.html"))
-    );
+        }
+      } catch (e) {}
+      if (cached) return cached;
+      try {
+        return await fetchWithTimeout(req, 4000);
+      } catch (e) {
+        return new Response(
+          "<!doctype html><meta charset=utf-8><title>Servicebericht</title><p>Offline. App schließen und noch einmal öffnen.</p>",
+          { headers: { "Content-Type": "text/html; charset=utf-8" } }
+        );
+      }
+    })());
     return;
   }
 
   if (!isV2Asset(req.url)) return;
 
-  event.respondWith(
-    caches.match(req).then(cached => cached || fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE_NAME).then(c => c.put(req, copy));
+  event.respondWith((async () => {
+    const cached = await caches.match(req);
+    if (cached) {
+      fetchWithTimeout(req, 6000).then(res => {
+        if (res && res.ok) caches.open(CACHE_NAME).then(c => c.put(req, res)).catch(() => {});
+      }).catch(() => {});
+      return cached;
+    }
+    try {
+      const res = await fetchWithTimeout(req, 8000);
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
+      }
       return res;
-    }))
-  );
+    } catch (e) {
+      return cached || Response.error();
+    }
+  })());
 });
