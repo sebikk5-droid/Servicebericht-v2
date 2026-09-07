@@ -5131,30 +5131,29 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const all=loadAll();
     return Array.isArray(all[k])?all[k]:[];
   }
-  function mergeFields(a,b){
-    const rec=cleanRec(a);
-    FIELD_IDS.forEach(id=>{
-      if(!rec[id] && b && b[id]) rec[id]=String(b[id]).trim();
-    });
-    return rec;
+  function typeKey(t){
+    return norm(t).replace(/[\s._\-\/]+/g,"");
   }
-  function brandKey(name){
-    const c=catalogEntry(name);
-    return c ? norm(c.name) : norm(name);
+  function sameNr(a,b){
+    return !!norm(a) && norm(a)===norm(b);
   }
-  function kindKey(m){
-    return brandKey(m&&m.manufacturer)+"\0"+norm(m&&m.type);
+  function sameTypeExact(a,b){
+    return !!norm(a) && norm(a)===norm(b);
+  }
+  function sameTypeLoose(a,b){
+    if(!norm(a) || !norm(b)) return false;
+    return sameTypeExact(a,b) || typeKey(a)===typeKey(b);
   }
   function collapseList(list){
     const out=[];
     const serialIdx=Object.create(null);
     (list||[]).forEach(m=>{
-      const rec=cleanRec(m);
-      if(isEmpty(rec) || !norm(rec.manufacturer) || !norm(rec.type) || !norm(rec.machineNo)) return;
-      const id=kindKey(rec)+"\0"+norm(rec.machineNo);
+      const rec=canonicalizeRec(m);
+      if(!rec || isEmpty(rec) || !norm(rec.manufacturer) || !norm(rec.type) || !norm(rec.machineNo)) return;
+      const id=norm(rec.machineNo);
       if(serialIdx[id]!=null){
         const i=serialIdx[id];
-        out[i]=mergeFields(out[i], rec);
+        out[i]=mergeMachineRows(out[i], rec);
         return;
       }
       serialIdx[id]=out.length;
@@ -5205,6 +5204,40 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return (c.match||[]).some(a=> n===norm(a) || n.indexOf(norm(a))===0 || norm(a).indexOf(n)===0);
     })||null;
   }
+  function catalogType(mfr, type){
+    const want=String(type||"").trim();
+    if(!want) return "";
+    const cat=catalogEntry(mfr);
+    const types=cat && Array.isArray(cat.types)?cat.types:[];
+    const exact=types.find(t=>sameTypeExact(t, want));
+    if(exact) return exact;
+    const loose=types.find(t=>sameTypeLoose(t, want));
+    return loose || want;
+  }
+  function canonicalizeRec(m){
+    const rec=cleanRec(m);
+    if(!rec) return rec;
+    const cat=catalogEntry(rec.manufacturer);
+    if(cat) rec.manufacturer=cat.name;
+    rec.type=catalogType(rec.manufacturer, rec.type);
+    return rec;
+  }
+  function mergeMachineRows(a,b){
+    const ta=Number(a&&a.savedAt)||0;
+    const tb=Number(b&&b.savedAt)||0;
+    const newer=tb>=ta?b:a;
+    const older=newer===b?a:b;
+    const rec=canonicalizeRec({
+      manufacturer: newer.manufacturer || older.manufacturer,
+      type: newer.type || older.type,
+      machineNo: newer.machineNo || older.machineNo,
+      control: newer.control || older.control,
+      nc: newer.nc || older.nc,
+      plc: newer.plc || older.plc,
+      savedAt: Math.max(ta, tb)
+    });
+    return rec;
+  }
   function nameFitsCatalog(entry, name){
     const n=norm(name);
     if(!entry || !n) return false;
@@ -5226,7 +5259,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const ta=na.split(" ")[0], tb=nb.split(" ")[0];
     return !!ta && ta===tb;
   }
-  function sameType(a,b){ return norm(a)===norm(b); }
+  function sameType(a,b){ return sameTypeLoose(a,b); }
   function manufacturerOptions(){
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
     const fromCat=catalog.map(c=>c.name).filter(n=>!mine.some(s=>sameBrand(s,n)));
@@ -5246,7 +5279,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const fromCat=cat? (cat.types||[]) : [];
     const preferred=preferredTypeOptions();
     const typed=$("type")?.value||"";
-    const extra=(typed && !fromCat.some(t=>sameType(t,typed)) && !preferred.some(t=>sameType(t,typed))) ? [typed] : [];
+    const extra=(typed && !fromCat.some(t=>sameTypeLoose(t,typed)) && !preferred.some(t=>sameTypeLoose(t,typed))) ? [typed] : [];
     const rest=naturalSort(fromCat.concat(extra).filter(t=>!preferred.some(p=>sameType(p,t))));
     return preferred.concat(rest);
   }
@@ -5271,11 +5304,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function findSaved(){
     const rec=fromForm();
     if(!norm(rec.machineNo)) return null;
-    return listForCustomer().find(m=>
-      sameType(m.machineNo, rec.machineNo) &&
-      (!norm(rec.type) || sameType(m.type, rec.type)) &&
-      (!norm(rec.manufacturer) || sameBrand(m.manufacturer, rec.manufacturer))
-    )||null;
+    const list=listForCustomer();
+    return list.find(m=>sameNr(m.machineNo, rec.machineNo))
+      || list.find(m=>sameMachine(m, rec))
+      || null;
   }
   const comboApi={};
   function clearBelow(keep){
@@ -5296,15 +5328,33 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }, 50);
   }
   function onManufacturerChosen(){
-    loadedSaved=null;
-    clearBelow(["manufacturer"]);
-    offerCombo("type", "typeBox", preferredTypeOptions());
+    const hasNr=!!norm($("machineNo")?.value||"");
+    if(!norm($("manufacturer")?.value||"")){
+      loadedSaved=null;
+      clearBelow(["manufacturer"]);
+    }else if(!hasNr){
+      loadedSaved=null;
+      clearBelow(["manufacturer"]);
+      offerCombo("type", "typeBox", preferredTypeOptions());
+    }else{
+      offerCombo("type", "typeBox", preferredTypeOptions());
+    }
     syncMachineSaveUi();
   }
   function onTypeChosen(){
-    loadedSaved=null;
-    clearBelow(["manufacturer","type"]);
-    offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    const hasNr=!!norm($("machineNo")?.value||"");
+    if(!norm($("type")?.value||"")){
+      if(!hasNr){
+        loadedSaved=null;
+        clearBelow(["manufacturer","type"]);
+      }
+    }else if(!hasNr){
+      loadedSaved=null;
+      clearBelow(["manufacturer","type"]);
+      offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    }else{
+      offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    }
     syncMachineSaveUi();
   }
   function syncNrEnabled(){
@@ -5411,14 +5461,18 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function cleanRec(m){
     const rec={};
     FIELD_IDS.forEach(id=>{ rec[id]=String((m&&m[id])||"").trim(); });
+    const ts=Number(m&&m.savedAt);
+    if(ts) rec.savedAt=ts;
     return rec;
   }
   function sameMachine(a,b){
     if(!a||!b) return false;
-    if(!norm(a.machineNo) || !norm(b.machineNo)) return false;
-    return sameBrand(a.manufacturer, b.manufacturer) &&
-      sameType(a.type, b.type) &&
-      sameType(a.machineNo, b.machineNo);
+    if(!sameNr(a.machineNo, b.machineNo)) return false;
+    return sameBrand(a.manufacturer, b.manufacturer) && sameType(a.type, b.type);
+  }
+  function findBySerial(list, rec){
+    if(!rec || !norm(rec.machineNo)) return -1;
+    return (list||[]).findIndex(m=>sameNr(m.machineNo, rec.machineNo));
   }
   function mergeMachineMaps(a,b){
     const out={};
@@ -5507,8 +5561,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function findLoadedIndex(list){
     if(!loadedSaved) return -1;
-    const exact=list.findIndex(m=>sameMachine(m, loadedSaved));
-    return exact;
+    const bySerial=findBySerial(list, loadedSaved);
+    if(bySerial>=0) return bySerial;
+    return list.findIndex(m=>sameMachine(m, loadedSaved));
+  }
+  function applyFormMachine(rec){
+    if(!rec) return;
+    FIELD_IDS.forEach(id=>{
+      if($(id)) $(id).value=String(rec[id]||"").trim();
+    });
   }
   function syncMachineSaveUi(){
     const btn=$("machineSave");
@@ -5546,52 +5607,47 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function newMachineNeedsOtherNr(rec){
     if(!norm(rec.machineNo))
       return "Für eine zweite Maschine eine andere Nr. eintragen.";
-    if(loadedSaved && sameType(rec.machineNo, loadedSaved.machineNo))
+    if(loadedSaved && sameNr(rec.machineNo, loadedSaved.machineNo))
       return "Gleiche Nr. – für eine zweite Maschine eine andere Nr. wählen.";
     return "";
   }
-  function emptyNrSameTypeIndex(list, rec){
-    return list.findIndex(m=>!norm(m.machineNo)
-      && sameBrand(m.manufacturer, rec.manufacturer)
-      && sameType(m.type, rec.type));
-  }
   function writeCustomerMachine(k, rec, mode, oldRec){
-    rec=cleanRec(rec);
+    rec=canonicalizeRec(rec);
+    rec.savedAt=Date.now();
     if(!norm(rec.manufacturer) || !norm(rec.type) || !norm(rec.machineNo))
-      return {ok:false, reason:"no-nr"};
+      return {ok:false, reason:"no-nr", rec};
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
     let wasNew=false;
+    let prev=null;
     if(mode==="new"){
-      const clash=list.findIndex(m=>sameMachine(m, rec));
-      if(clash>=0) return {ok:false, reason:"clash", list, all};
-      const empty=emptyNrSameTypeIndex(list, rec);
-      if(empty>=0) list[empty]=rec;
-      else list.push(rec);
+      const clash=findBySerial(list, rec);
+      if(clash>=0) return {ok:false, reason:"clash", rec};
+      list.push(rec);
       wasNew=true;
     }else if(mode==="overwrite" && oldRec){
-      const kept=list.filter(m=>!sameMachine(m, oldRec));
-      const idx=kept.findIndex(m=>sameMachine(m, rec));
+      const kept=list.filter(m=>!sameMachine(m, oldRec) && !sameNr(m.machineNo, oldRec.machineNo));
+      const idx=findBySerial(kept, rec);
       if(idx>=0) kept[idx]=rec;
-      else {
-        const empty=emptyNrSameTypeIndex(kept, rec);
-        if(empty>=0) kept[empty]=rec;
-        else kept.push(rec);
-      }
+      else kept.push(rec);
       list.length=0;
       kept.forEach(m=>list.push(m));
     }else{
-      let idx=list.findIndex(m=>sameMachine(m, rec));
-      if(idx<0) idx=emptyNrSameTypeIndex(list, rec);
+      let idx=findBySerial(list, rec);
+      if(idx<0 && oldRec) idx=findBySerial(list, oldRec);
+      if(idx<0 && oldRec) idx=list.findIndex(m=>sameMachine(m, oldRec));
       wasNew=idx<0;
-      if(idx>=0) list[idx]=rec;
-      else list.push(rec);
+      if(idx>=0){
+        prev=cleanRec(list[idx]);
+        list[idx]=rec;
+      }else list.push(rec);
     }
     all[k]=collapseList(list);
     saveAll(all);
-    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
+    const tomb=oldRec || prev;
+    if(tomb && !sameMachine(tomb, rec)) addMachineTomb(k, tomb);
     clearMachineTomb(k, rec);
-    return {ok:true, wasNew};
+    return {ok:true, wasNew, rec};
   }
   function queueMachineCloud(k, rec, oldRec, mode){
     rec=cleanRec(rec);
@@ -5624,7 +5680,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideMachineSaveOk();
       return;
     }
-    const rec=cleanRec(fromForm());
+    const rec=canonicalizeRec(fromForm());
     if(isEmpty(rec)){
       const s=$("status");
       if(s) s.textContent="Maschine hat noch keine Daten.";
@@ -5659,7 +5715,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
     }
-    const oldRec=mode==="overwrite" && loadedSaved ? cleanRec(loadedSaved) : null;
+    const existing=listForCustomer().find(m=>sameNr(m.machineNo, rec.machineNo))
+      || (loadedSaved && listForCustomer().find(m=>sameNr(m.machineNo, loadedSaved.machineNo)))
+      || (loadedSaved && listForCustomer().find(m=>sameMachine(m, loadedSaved)))
+      || null;
+    const oldRec=mode==="overwrite" && loadedSaved
+      ? cleanRec(loadedSaved)
+      : (existing && !sameMachine(existing, rec) ? cleanRec(existing) : null);
     const written=writeCustomerMachine(k, rec, mode, oldRec);
     if(!written.ok){
       const s=$("status");
@@ -5669,13 +5731,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideMachineSaveOk();
       return;
     }
-    loadedSaved=rec;
+    applyFormMachine(written.rec);
+    loadedSaved=cleanRec(written.rec);
     syncComboClears();
     syncMachineSaveUi();
     const s=$("status");
     if(s) s.textContent="Maschine lokal gespeichert.";
     if((opts && opts.showOk) || written.wasNew) showMachineSaveOk();
-    queueMachineCloud(k, rec, oldRec, mode);
+    queueMachineCloud(k, written.rec, oldRec, mode);
     }catch(e){
       const s=$("status");
       if(s) s.textContent="Maschine konnte nicht gespeichert werden.";
@@ -5727,10 +5790,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const saved=findSaved();
         if(saved){
           applyMachine(saved, true);
-          const form=cleanRec(fromForm());
-          loadedSaved=listForCustomer().some(m=>sameMachine(m, saved) || sameMachine(m, form))
-            ? form
-            : null;
+          loadedSaved=cleanRec(saved);
         }else{
           ["control","nc","plc"].forEach(id=>{ if($(id)) $(id).value=""; });
           loadedSaved=null;
@@ -5764,7 +5824,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const rec=fromForm();
       const all=loadAll();
       const list=Array.isArray(all[k])?all[k].slice():[];
-      const idx=list.findIndex(m=>sameMachine(m, rec));
+      const idx=list.findIndex(m=>sameMachine(m, rec) || sameNr(m.machineNo, rec.machineNo));
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
         loadedSaved=null;
@@ -5774,7 +5834,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
       if(!confirm("Diese Maschine beim Kunden löschen?")) return;
-      addMachineTomb(k, rec);
+      addMachineTomb(k, list[idx]);
+      if(!sameMachine(list[idx], rec)) addMachineTomb(k, rec);
       list.splice(idx,1);
       if(list.length) all[k]=list;
       else delete all[k];
@@ -5798,7 +5859,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         }
       });
     });
-    ["nc","plc","machineNo"].forEach(id=>{
+    ["manufacturer","type","nc","plc","machineNo"].forEach(id=>{
       $(id)?.addEventListener("change",()=>syncMachineSaveUi());
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
     });
