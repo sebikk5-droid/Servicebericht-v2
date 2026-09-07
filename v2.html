@@ -6,21 +6,62 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.59">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.60">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.59</title>
+  <title>Servicebericht v2.60</title>
 <script>
-try{
-  if(navigator.serviceWorker){
-    navigator.serviceWorker.getRegistrations().then(function(rs){
-      rs.forEach(function(r){ r.unregister(); });
-    });
+window.SB_APP_VERSION="2.60";
+(function(){
+  function remoteVersion(m){
+    const s=String((m&&(m.short_name||m.name))||"");
+    const x=s.match(/v(\d+(?:\.\d+)*)/i);
+    return x?x[1]:"";
   }
-}catch(e){}
+  function go(ver){
+    try{
+      if(sessionStorage.getItem("sb_loaded_"+ver)==="1") return;
+      sessionStorage.setItem("sb_loaded_"+ver,"1");
+    }catch(e){}
+    const u=new URL(location.href);
+    if(u.searchParams.get("v")===ver) return;
+    u.searchParams.set("v", ver);
+    location.replace(u.pathname+u.search+u.hash);
+  }
+  function checkLive(){
+    fetch("manifest-v2.webmanifest?t="+Date.now(), {cache:"no-store"}).then(function(r){
+      return r&&r.ok?r.json():null;
+    }).then(function(m){
+      const ver=remoteVersion(m);
+      if(ver && ver!==window.SB_APP_VERSION) go(ver);
+    }).catch(function(){});
+  }
+  try{
+    if(navigator.serviceWorker){
+      navigator.serviceWorker.getRegistrations().then(function(rs){
+        rs.forEach(function(r){
+          const u=String((r.active&&r.active.scriptURL)||(r.waiting&&r.waiting.scriptURL)||(r.installing&&r.installing.scriptURL)||"");
+          if(!/sw-v2\.js/i.test(u)) r.unregister();
+        });
+      }).catch(function(){});
+      const had=navigator.serviceWorker.controller;
+      navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION).catch(function(){});
+      navigator.serviceWorker.addEventListener("controllerchange", function(){
+        if(!had) return;
+        try{ if(sessionStorage.getItem("sb_sw_reload")) return; sessionStorage.setItem("sb_sw_reload","1"); }catch(e){}
+        location.reload();
+      });
+    }
+  }catch(e){}
+  checkLive();
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
+  window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+})();
 </script>
 <style>
 *{box-sizing:border-box}
@@ -547,7 +588,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.59</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.60</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3880,7 +3921,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.59";
+  const APP_VERSION=window.SB_APP_VERSION||"2.60";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -3936,7 +3977,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function syncTokenUi(){
     const credit=$("appCredit");
-    if(credit) credit.textContent="Created by S. Pawlina v"+APP_VERSION;
+    if(credit){
+      credit.textContent="Created by S. Pawlina v"+APP_VERSION;
+      credit.style.cursor="pointer";
+      credit.title="App neu laden";
+      if(credit.dataset.reloadBound!=="1"){
+        credit.dataset.reloadBound="1";
+        credit.addEventListener("click", function(){
+          location.replace("v2.html?v="+APP_VERSION+"&t="+Date.now());
+        });
+      }
+    }
     const place=$("appPlaceLine");
     if(place) place.textContent=appPlace();
     const btn=$("tokenStatusBtn");
