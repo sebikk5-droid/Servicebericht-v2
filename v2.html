@@ -6,13 +6,25 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.50">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.51">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.50</title>
+<title>Servicebericht v2.51</title>
+<script>
+try{
+  if(navigator.serviceWorker){
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      rs.forEach(function(r){ r.unregister(); });
+    });
+  }
+  if(window.caches){
+    caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); });
+  }
+}catch(e){}
+</script>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +550,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.50</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.51</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -813,7 +825,6 @@ input.to-check{
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
 </div>
-<script src="vendor/pdf-lib.min.js"></script>
 <script>
 function formResetPending(){
   try{ return sessionStorage.getItem("servicebericht_reset_v2")==="1"; }catch(e){ return false; }
@@ -2927,6 +2938,26 @@ initPdfKind();
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
 try{
+  if(!window.PDFLib){
+    $("status").textContent="PDF-Bibliothek wird geladen…";
+    await new Promise(function(resolve,reject){
+      const t=setTimeout(function(){ reject(new Error("PDF-Bibliothek nicht geladen. Seite neu laden.")); }, 20000);
+      const existing=document.getElementById("pdfLibScript");
+      function ok(){ clearTimeout(t); resolve(); }
+      if(existing){
+        if(window.PDFLib){ ok(); return; }
+        existing.addEventListener("load", ok);
+        existing.addEventListener("error", function(){ clearTimeout(t); reject(new Error("PDF-Bibliothek fehlt.")); });
+        return;
+      }
+      const s=document.createElement("script");
+      s.id="pdfLibScript";
+      s.src="vendor/pdf-lib.min.js";
+      s.onload=ok;
+      s.onerror=function(){ clearTimeout(t); reject(new Error("PDF-Bibliothek fehlt.")); };
+      document.head.appendChild(s);
+    });
+  }
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
 let leerRes=null;
 try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
@@ -3846,7 +3877,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.50";
+  const APP_VERSION="2.51";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5904,13 +5935,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 })();
 </script>
 
-<script>
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw-v2.js", {updateViaCache:"none"}).catch(()=>{});
-  });
-}
-</script>
+<script src="vendor/pdf-lib.min.js" id="pdfLibScript" async></script>
 
 </body>
 </html>
