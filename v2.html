@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.70">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.71">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.70</title>
+  <title>Servicebericht v2.71</title>
 <script>
-window.SB_APP_VERSION="2.70";
+window.SB_APP_VERSION="2.71";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -646,6 +646,19 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #machineSaveModal h3{margin:0 0 6px;font-size:18px}
 #machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
+#pdfMissingModal{
+  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#pdfMissingModal.is-open{display:flex}
+#pdfMissingModal .token-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
+}
+#pdfMissingModal h3{margin:0 0 6px;font-size:18px}
+#pdfMissingModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#pdfMissingModal .email-actions button{flex:1}
 .machine-check-hint{
   grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73;
   transform-origin:left center;
@@ -688,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.70</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.71</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -917,6 +930,16 @@ select.is-nudge,input.is-nudge{
       <button type="button" class="pdf-kind-num" data-pdf-kind="new">2</button>
     </div>
     <button type="button" class="clear" id="pdfKindCancel">Abbrechen</button>
+  </div>
+</div>
+<div id="pdfMissingModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3>Auswahl fehlt</h3>
+    <p class="muted" id="pdfMissingHint">Betriebsbereitschaft und Techniker sind nicht gewählt. Trotzdem PDF erstellen?</p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="pdfMissingNo">Nein</button>
+      <button type="button" class="go" id="pdfMissingYes">Ja</button>
+    </div>
   </div>
 </div>
 <div id="tokenModal" aria-hidden="true">
@@ -1419,7 +1442,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -3180,6 +3203,54 @@ function initPdfKind(){
 }
 initPdfKind();
 
+function pdfMissingChoices(){
+  const miss=[];
+  if(!document.querySelector('#choices input[name="betriebs"]:checked'))
+    miss.push("Betriebsbereitschaft");
+  if(!String($("tech")?.value||"").trim())
+    miss.push("Techniker");
+  return miss;
+}
+function pdfMissingConfirmText(miss){
+  if(miss.length===2)
+    return "Betriebsbereitschaft und Techniker sind nicht gewählt. Trotzdem PDF erstellen?";
+  if(miss[0]==="Betriebsbereitschaft")
+    return "Betriebsbereitschaft ist nicht gewählt. Trotzdem PDF erstellen?";
+  return "Techniker ist nicht gewählt. Trotzdem PDF erstellen?";
+}
+let pdfMissingWait=null;
+function closePdfMissingSheet(ok){
+  const modal=$("pdfMissingModal");
+  if(modal){
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+  }
+  const done=pdfMissingWait;
+  pdfMissingWait=null;
+  if(done) done(!!ok);
+}
+function confirmPdfMissingChoices(){
+  const miss=pdfMissingChoices();
+  if(!miss.length) return Promise.resolve(true);
+  const hint=$("pdfMissingHint");
+  if(hint) hint.textContent=pdfMissingConfirmText(miss);
+  const modal=$("pdfMissingModal");
+  if(!modal){
+    return Promise.resolve(window.confirm(pdfMissingConfirmText(miss)));
+  }
+  if(pdfMissingWait)
+    return new Promise(r=>{ const p=pdfMissingWait; pdfMissingWait=ok=>{ p(ok); r(ok); }; });
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden","false");
+  return new Promise(resolve=>{ pdfMissingWait=resolve; });
+}
+window.confirmPdfMissingChoices=confirmPdfMissingChoices;
+$("pdfMissingNo")?.addEventListener("click",()=>closePdfMissingSheet(false));
+$("pdfMissingYes")?.addEventListener("click",()=>closePdfMissingSheet(true));
+$("pdfMissingModal")?.addEventListener("click",e=>{
+  if(e.target===$("pdfMissingModal")) closePdfMissingSheet(false);
+});
+
   $("generate").onclick=async()=>{
 $("status").textContent="PDF wird erstellt…";
 try{
@@ -4129,7 +4200,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.70";
+  const APP_VERSION=window.SB_APP_VERSION||"2.71";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5466,7 +5537,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       if(btn.dataset.awaitKind!=="1"){
         e.preventDefault();
         e.stopImmediatePropagation();
-        if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+        const ask=typeof window.confirmPdfMissingChoices==="function"
+          ? window.confirmPdfMissingChoices()
+          : Promise.resolve(true);
+        ask.then(ok=>{
+          if(!ok) return;
+          if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+        });
         return;
       }
       btn.dataset.awaitKind="";
