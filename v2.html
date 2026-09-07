@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.39">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.40">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.39</title>
+<title>Servicebericht v2.40</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -486,7 +486,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.39</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.40</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1440,6 +1440,7 @@ function bindCompanySelect(){
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
     if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
     if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails("replace");
+    if(typeof window.clearSignatures==="function") window.clearSignatures();
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   };
 }
@@ -2616,6 +2617,12 @@ window.importSignatureData=function(data){
     updateSigPreview(id);
   });
 };
+window.clearSignatures=function(){
+  ["sigTech","sigKunde"].forEach(id=>{
+    signatureStore[id]=null;
+    updateSigPreview(id);
+  });
+};
 function signatureFieldBoxes(form){
   const fallback={
     sigTech:{x:343,y:43,width:221,height:45},
@@ -3153,6 +3160,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return;
     }
     applyForm(data);
+    if(typeof window.clearSignatures==="function") window.clearSignatures();
     setSelectedHistory(index, item);
     if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
     $("status").textContent="Bericht wurde geöffnet.";
@@ -3177,6 +3185,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     refresh(imported ? "0" : "");
     if(imported){
       applyForm(historyItemData(imported));
+      if(typeof window.clearSignatures==="function") window.clearSignatures();
       $("status").textContent="Bericht wurde geöffnet.";
     }else{
       $("status").textContent="Historie wurde importiert.";
@@ -3551,6 +3560,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         select.value="";
         clearCustomerContactFields();
         if(typeof window.clearMachineFields==="function") window.clearMachineFields();
+        if(typeof window.clearSignatures==="function") window.clearSignatures();
       }
     }
     function show(){
@@ -3597,6 +3607,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       select.value="";
       clearCustomerContactFields();
       if(typeof window.clearMachineFields==="function") window.clearMachineFields();
+      if(typeof window.clearSignatures==="function") window.clearSignatures();
       sync();
       input.focus();
       show();
@@ -3686,7 +3697,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.39";
+  const APP_VERSION="2.40";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
