@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.64">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.65">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.64</title>
+  <title>Servicebericht v2.65</title>
 <script>
-window.SB_APP_VERSION="2.64";
+window.SB_APP_VERSION="2.65";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -368,8 +368,10 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox input:read-only,.daybox input[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 .daybox input.km-check,
 .daybox input.to-check,
+.daybox select.to-check,
 input.km-check,
-input.to-check{
+input.to-check,
+select.to-check{
   background:#fff3a3;
   border-color:#e0b400;
 }
@@ -636,7 +638,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.64</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.65</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1142,6 +1144,17 @@ function markReturnPauseToCheck(box){
   el.classList.add("to-check");
   syncReturnPauseFromDay(box);
 }
+function markArrivalWorkEndToCheck(box, onlyEmpty){
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  if(!d) return;
+  [`RZende${d*2-1}`, `AZende${d*2-1}`].forEach(k=>{
+    const el=box.querySelector(`[data-k="${k}"]`);
+    if(!el) return;
+    if(onlyEmpty && String(el.value||"").trim()!=="") return;
+    el.classList.add("to-check");
+  });
+}
 const RETURN_PAUSE_DEFAULT=45;
 function syncReturnPauseFromDay(box){
   if(!box) return;
@@ -1304,6 +1317,7 @@ $("times").innerHTML=dayTemplate(1)+`
 initQuarterTimeSelects($("times"));
 document.querySelector('[data-daybox="1"]')?.setAttribute("data-day-active","1");
 markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
+markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
   ["tokenModal","machineSaveModal","routeModal","sigModal"].forEach(id=>{
@@ -1362,6 +1376,7 @@ function resetOpenForm(){
   lastPdfBlob=null;
   if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
   markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
+  markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
   if(typeof bindTimeInputs==="function") bindTimeInputs();
   if(typeof syncDayChrome==="function") syncDayChrome();
   if(typeof recalcTimes==="function") recalcTimes();
@@ -1394,6 +1409,7 @@ $("addDay").onclick=()=>{
   bindTimeInputs();
   applyCustomerRouteDay(d);
   markReturnPauseToCheck(box);
+  markArrivalWorkEndToCheck(box);
   if(d>1) markKmToCheck(box);
 
   if(visibleDays>=6)$("addDay").style.display="none";
@@ -3366,10 +3382,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(typeof syncDayChrome==="function") syncDayChrome();
 
     bindTimeInputs();
-    document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
+    document.querySelectorAll("input.to-check, select.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       if(typeof markReturnPauseToCheck==="function") markReturnPauseToCheck(box);
+      if(typeof markArrivalWorkEndToCheck==="function") markArrivalWorkEndToCheck(box, true);
     });
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
@@ -3996,7 +4013,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.64";
+  const APP_VERSION=window.SB_APP_VERSION||"2.65";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
