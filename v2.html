@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.47">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.48">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.47</title>
+<title>Servicebericht v2.48</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +538,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.47</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.48</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3776,7 +3776,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.47";
+  const APP_VERSION="2.48";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4053,9 +4053,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return {ok:false, reason:"network", status:0};
     }
   }
-  async function pushMerged(kind, localData, message, mergeFn){
+  async function pushMerged(kind, localData, message, mergeFn, opts){
+    opts=opts||{};
     return enqueueWrite(async ()=>{
       if(!token()){
+        if(opts.quiet) return {merged:localData, result:{ok:false, reason:"no-token"}};
         const ok=await ensureToken();
         if(!ok) return {merged:localData, result:{ok:false, reason:"no-token"}};
       }
@@ -5117,7 +5119,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const el=$("machineNo");
     const box=$("machineNoBox");
     if(el){
-      el.readOnly=!hasType;
+      const ro=!hasType;
+      if(el.readOnly!==ro) el.readOnly=ro;
       el.placeholder=hasType?"Seriennummer wählen oder neu":"Zuerst den Typ wählen";
     }
     if(box) box.classList.toggle("is-disabled", !hasType);
@@ -5250,7 +5253,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return loadAll();
     }
   }
-  async function pushMachines(message, removeMatch){
+  async function pushMachines(message, removeMatch, opts){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote, local){
       const merged=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), local||{}));
@@ -5259,7 +5262,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(!merged[removeMatch.k].length) delete merged[removeMatch.k];
       }
       return merged;
-    });
+    }, opts);
     saveAll(merged);
     return result;
   }
@@ -5341,6 +5344,56 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return "Gleiche Nr. – für eine zweite Maschine eine andere Nr. wählen.";
     return "";
   }
+  function writeCustomerMachine(k, rec, mode, oldRec){
+    const all=loadAll();
+    const list=collapseList(Array.isArray(all[k])?all[k]:[]);
+    let wasNew=false;
+    if(mode==="new"){
+      const clash=list.findIndex(m=>sameMachine(m, rec));
+      if(clash>=0) return {ok:false, reason:"clash", list, all};
+      list.push(rec);
+      wasNew=true;
+    }else if(mode==="overwrite" && oldRec){
+      const kept=list.filter(m=>!sameMachine(m, oldRec));
+      const idx=kept.findIndex(m=>sameMachine(m, rec));
+      if(idx>=0) kept[idx]=rec;
+      else kept.push(rec);
+      list.length=0;
+      kept.forEach(m=>list.push(m));
+    }else{
+      const idx=list.findIndex(m=>sameMachine(m, rec));
+      wasNew=idx<0;
+      if(idx>=0) list[idx]=rec;
+      else list.push(rec);
+    }
+    all[k]=list;
+    saveAll(all);
+    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
+    clearMachineTomb(k, rec);
+    return {ok:true, wasNew};
+  }
+  function queueMachineCloud(k, rec, oldRec, mode){
+    if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken())
+      return;
+    const prev=persistLock;
+    let unlock=()=>{};
+    persistLock=new Promise(r=>{ unlock=r; });
+    prev.then(async ()=>{
+      try{
+        await pullMachines();
+        writeCustomerMachine(k, rec, mode, oldRec);
+        const pushed=await pushMachines("Maschine für "+k, oldRec ? {k, rec: oldRec} : null, {quiet:true});
+        const s=$("status");
+        if(s){
+          if(mode==="overwrite" && pushed && pushed.ok) s.textContent="Gespeicherte Maschine überschrieben.";
+          else if(mode==="new" && pushed && pushed.ok) s.textContent="Zweite Maschine (gleicher Typ, andere Nr.) gespeichert.";
+          else if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
+          else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
+          else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+        }
+      }finally{ unlock(); }
+    });
+  }
   async function persistCurrent(opts){
     const k=customerKey();
     if(!k){
@@ -5373,56 +5426,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }
     const oldRec=mode==="overwrite" && loadedSaved ? cleanRec(loadedSaved) : null;
-    const prev=persistLock;
-    let unlock=()=>{};
-    persistLock=new Promise(r=>{ unlock=r; });
-    await prev;
-    try{
-    await pullMachines();
-    const all=loadAll();
-    const list=collapseList(Array.isArray(all[k])?all[k]:[]);
-    let wasNew=false;
-    if(mode==="new"){
-      const clash=list.findIndex(m=>sameMachine(m, rec));
-      if(clash>=0){
-        const s=$("status");
-        if(s) s.textContent="Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
-        hideMachineSaveOk();
-        return;
-      }
-      list.push(rec);
-      wasNew=true;
-    }else if(mode==="overwrite" && oldRec){
-      const kept=list.filter(m=>!sameMachine(m, oldRec));
-      const idx=kept.findIndex(m=>sameMachine(m, rec));
-      if(idx>=0) kept[idx]=rec;
-      else kept.push(rec);
-      list.length=0;
-      kept.forEach(m=>list.push(m));
-    }else{
-      let idx=list.findIndex(m=>sameMachine(m, rec));
-      wasNew=idx<0;
-      if(idx>=0) list[idx]=rec;
-      else list.push(rec);
+    const written=writeCustomerMachine(k, rec, mode, oldRec);
+    if(!written.ok){
+      const s=$("status");
+      if(s) s.textContent="Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
+      hideMachineSaveOk();
+      return;
     }
-    all[k]=list;
-    saveAll(all);
-    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
-    clearMachineTomb(k, rec);
     loadedSaved=rec;
     syncComboClears();
     syncMachineSaveUi();
-    const pushed=await pushMachines("Maschine für "+k, oldRec ? {k, rec: oldRec} : null);
     const s=$("status");
-    if(s){
-      if(mode==="overwrite" && pushed && pushed.ok) s.textContent="Gespeicherte Maschine überschrieben.";
-      else if(mode==="new" && pushed && pushed.ok) s.textContent="Zweite Maschine (gleicher Typ, andere Nr.) gespeichert.";
-      else if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
-      else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
-    }
-    if((opts && opts.showOk) || wasNew) showMachineSaveOk();
-    }finally{ unlock(); }
+    if(s) s.textContent="Maschine lokal gespeichert.";
+    if((opts && opts.showOk) || written.wasNew) showMachineSaveOk();
+    queueMachineCloud(k, rec, oldRec, mode);
   }
   window.pullCustomerMachines=pullMachines;
   window.clearMachineFields=clearMachineFields;
@@ -5474,7 +5491,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         }
         syncComboClears();
         syncMachineSaveUi();
-        if(customerKey() && !isEmpty(fromForm()) && !loadedSaved) persistCurrent();
       },
       q=>{
         if(!norm($("type")?.value||"")) return "Zuerst Hersteller und Typ wählen.";
@@ -5529,37 +5545,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         else s.textContent="Maschine gelöscht.";
       }
     });
-    let persistTimer=0;
     ["nc","plc","machineNo"].forEach(id=>{
-      $(id)?.addEventListener("change",()=>{
-        const k=customerKey();
-        if(!k || isEmpty(fromForm())) return;
-        syncMachineSaveUi();
-        if(nrNcPlcDirty()){
-          persistCurrent({showOk:true});
-          return;
-        }
-        if(loadedSaved) return;
-        if(!findSaved() && !norm($("type")?.value||"")) return;
-        clearTimeout(persistTimer);
-        persistTimer=setTimeout(()=>{
-          if(customerKey()!==k) return;
-          persistCurrent();
-        }, 400);
-      });
+      $(id)?.addEventListener("change",()=>syncMachineSaveUi());
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
     });
-    $("control")?.addEventListener("change",()=>{
-      const k=customerKey();
-      if(!k || isEmpty(fromForm())) return;
-      if(nrNcPlcDirty()) return;
-      if(!findSaved() && !norm($("type")?.value||"")) return;
-      clearTimeout(persistTimer);
-      persistTimer=setTimeout(()=>{
-        if(customerKey()!==k) return;
-        persistCurrent();
-      }, 400);
-    });
+    $("control")?.addEventListener("change",()=>syncMachineSaveUi());
     $("customerSearch")?.addEventListener("blur",()=>{
       if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
       if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
@@ -5778,10 +5768,16 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   const scroller=main();
   if(scroller){
     scroller.addEventListener("scroll",()=>{
+      const a=document.activeElement;
+      if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
       closeOpenCombos();
     }, {passive:true});
   }
-  window.addEventListener("resize",()=>closeOpenCombos(), {passive:true});
+  window.addEventListener("resize",()=>{
+    const a=document.activeElement;
+    if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
+    closeOpenCombos();
+  }, {passive:true});
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize",()=>{
       const a=document.activeElement;
@@ -5800,7 +5796,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const el=e.target;
     if(!el || !el.tagName) return;
     if(el.tagName!=="INPUT" && el.tagName!=="TEXTAREA" && el.tagName!=="SELECT") return;
-    if(el.closest && el.closest("#sigModal")) return;
+    if(el.closest && el.closest("#sigModal, .combo-box")) return;
+    if(el.id==="control" || el.id==="nc" || el.id==="plc") return;
     if(!penField || penField===el) return;
     const jumpedToSearch=Date.now()-penAt<1200 && (
       el.id==="customerSearch" || el.id==="historySearch" ||
