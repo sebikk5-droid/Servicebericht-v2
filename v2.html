@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.63">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.64">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.63</title>
+  <title>Servicebericht v2.64</title>
 <script>
-window.SB_APP_VERSION="2.63";
+window.SB_APP_VERSION="2.64";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -131,17 +131,33 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 -6px 16px #0000000d}
+.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom-actions{display:flex;gap:8px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0}
-.email-copy-row{display:flex;align-items:center;gap:8px;order:2}
+.email-copy-row{display:flex;align-items:center;gap:8px;order:2;position:relative}
 .email-copy-val{
   flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:14px;font-weight:600;line-height:1.3;padding:10px 12px;border-radius:11px;background:#e8e8ed;color:#111;
 }
 .email-copy-val.is-empty{color:#888;font-weight:500}
 .email-copy-val.has-mail{cursor:pointer}
+.email-copy-more{
+  display:none;flex:0 0 auto;width:40px;min-width:40px;height:44px;padding:0;
+  align-items:center;justify-content:center;background:#e5e5ea;color:#111;
+}
+.email-copy-row.has-more .email-copy-more{display:inline-flex}
+.email-copy-more svg{width:20px;height:20px;display:block}
+.email-copy-row.is-open .email-copy-more svg{transform:rotate(180deg)}
+.email-copy-list{
+  display:none;position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:8;
+  background:#fff;border:1px solid #bbb;border-radius:10px;max-height:220px;overflow-y:auto;
+  box-shadow:0 -4px 16px rgba(0,0,0,.16);
+}
+.email-copy-row.is-open .email-copy-list{display:block}
+.email-copy-list .combo-pick{
+  flex:none;width:100%;text-align:left;border-radius:0;min-height:44px;padding:10px 12px;
+}
 .email-copy-btn{
   flex:0 0 auto;width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
@@ -532,7 +548,20 @@ input.to-check{
 .machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
 #customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
 #customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
+#customerEmailBox.has-more #customerEmail{padding-right:36px}
+#customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
 #customerEmailBox .combo-results{z-index:70}
+.combo-more{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border:0;border-radius:50%;padding:0;
+  background:transparent;color:#555;
+  display:none;align-items:center;justify-content:center;
+  min-height:26px;flex:none;cursor:pointer;z-index:2;
+}
+.combo-more svg{width:18px;height:18px;display:block}
+#customerEmailBox.has-more .combo-more{display:inline-flex}
+#customerEmailBox.has-more.has-value .combo-more{right:36px}
+#customerEmailBox.is-open .combo-more svg{transform:rotate(180deg)}
 .email-save-row{
   display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:4px;
 }
@@ -607,7 +636,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.63</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.64</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -663,6 +692,9 @@ input.to-check{
     <label for="customerEmail">E-Mail</label>
     <div class="combo-field">
       <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+      <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
     </div>
     <div id="customerEmailResults" class="combo-results"></div>
@@ -814,10 +846,14 @@ input.to-check{
   </div>
   <div class="email-copy-row" id="emailCopyRow">
     <div class="email-copy-val is-empty" id="emailCopyVal" role="status">Keine E-Mail</div>
+    <button type="button" class="email-copy-more" id="emailCopyMore" hidden aria-label="E-Mail wählen" title="Weitere E-Mails">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
     <button type="button" class="email-copy-btn" id="emailCopyBtn" disabled aria-label="E-Mail kopieren" title="Kopieren">
       <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       <svg class="email-copy-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
+    <div class="email-copy-list" id="emailCopyList"></div>
   </div>
 </div>
 <div id="pdfKindModal" aria-hidden="true">
@@ -1665,6 +1701,11 @@ function bindCompanySelect(){
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
     if(typeof window.clearSignatures==="function") window.clearSignatures();
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+    if(typeof window.refreshCustomerEmails==="function"){
+      window.refreshCustomerEmails("replace");
+      if(typeof window.pullCustomerEmails==="function")
+        window.pullCustomerEmails().then(()=>window.refreshCustomerEmails()).catch(()=>{});
+    }
   };
 }
 function selectCompanyByName(name){
@@ -3955,7 +3996,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.63";
+  const APP_VERSION=window.SB_APP_VERSION||"2.64";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4745,6 +4786,50 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(box) box.classList.toggle("has-value", String(el?.value||"").trim()!=="");
     syncEmailCopyRow();
   }
+  function syncEmailListToggle(){
+    const more=emailsForCustomer().length>1;
+    const topMore=$("customerEmailMore");
+    const footMore=$("emailCopyMore");
+    const box=$("customerEmailBox");
+    const row=$("emailCopyRow");
+    if(topMore) topMore.hidden=!more;
+    if(footMore) footMore.hidden=!more;
+    if(box) box.classList.toggle("has-more", more);
+    if(row) row.classList.toggle("has-more", more);
+    if(!more){
+      closeEmailCopyList();
+      if(box) box.classList.remove("is-open");
+    }
+  }
+  function closeEmailCopyList(){
+    const row=$("emailCopyRow");
+    const list=$("emailCopyList");
+    if(row) row.classList.remove("is-open");
+    if(list) list.innerHTML="";
+  }
+  function fillEmailCopyList(){
+    const list=$("emailCopyList");
+    const row=$("emailCopyRow");
+    if(!list||!row) return;
+    const emails=emailsForCustomer();
+    const cur=currentEmail().toLowerCase();
+    list.innerHTML="";
+    emails.forEach(e=>{
+      const pick=document.createElement("button");
+      pick.type="button";
+      pick.className="combo-pick";
+      pick.textContent=e;
+      if(e.toLowerCase()===cur) pick.classList.add("is-on");
+      pick.addEventListener("click",ev=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        setEmail(e);
+        closeEmailCopyList();
+      });
+      list.appendChild(pick);
+    });
+    row.classList.toggle("is-open", emails.length>1);
+  }
   function syncEmailCopyRow(){
     const val=$("emailCopyVal");
     const btn=$("emailCopyBtn");
@@ -4762,6 +4847,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         btn.setAttribute("aria-label","E-Mail kopieren");
       }
     }
+    syncEmailListToggle();
   }
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
@@ -4816,11 +4902,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     function close(){
       results.style.display="none";
       results.innerHTML="";
+      if(box) box.classList.remove("is-open");
     }
-    function show(){
+    function show(opts){
       const emails=emailsForCustomer();
       const q=currentEmail().toLowerCase();
-      const options=q ? emails.filter(e=>e.toLowerCase().includes(q)) : emails;
+      const all=opts && opts.all;
+      const options=(!all && q) ? emails.filter(e=>e.toLowerCase().includes(q)) : emails;
       results.innerHTML="";
       if(!customerKey()){
         const empty=document.createElement("div");
@@ -4828,6 +4916,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         empty.textContent="Zuerst den Kunden wählen.";
         results.appendChild(empty);
         openComboResults(results, box);
+        if(box) box.classList.add("is-open");
         return;
       }
       if(!options.length){
@@ -4838,6 +4927,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           : "Noch keine E-Mail. Neu eintragen und hinzufügen.";
         results.appendChild(empty);
         openComboResults(results, box);
+        if(box) box.classList.add("is-open");
         return;
       }
       options.forEach(e=>{
@@ -4853,15 +4943,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         results.appendChild(pick);
       });
       openComboResults(results, box);
+      if(box) box.classList.add("is-open");
     }
     input.addEventListener("focus", ()=>{
-      show();
       if(!input.dataset.cloudOnce){
         input.dataset.cloudOnce="1";
-        pullEmails().then(()=>show()).catch(()=>{});
+        pullEmails().then(()=>{ syncEmailListToggle(); }).catch(()=>{});
       }
     });
-    input.addEventListener("click", show);
     input.addEventListener("input",()=>{
       setEmail(input.value);
       show();
@@ -4878,6 +4967,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideEmailSaveOk();
       input.focus();
       show();
+    });
+    $("customerEmailMore")?.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      closeEmailCopyList();
+      if(box && box.classList.contains("is-open")) close();
+      else show({all:true});
     });
     document.addEventListener("click",e=>{
       if(box && !box.contains(e.target)) close();
@@ -4921,13 +5017,39 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function bindEmailCopy(){
     const copyBtn=$("emailCopyBtn");
     const copyVal=$("emailCopyVal");
+    const moreBtn=$("emailCopyMore");
+    const row=$("emailCopyRow");
     if(copyBtn && copyBtn.dataset.copyBound!=="1"){
       copyBtn.dataset.copyBound="1";
-      copyBtn.addEventListener("click", copyCurrentEmail);
+      copyBtn.addEventListener("click",()=>{
+        closeEmailCopyList();
+        copyCurrentEmail();
+      });
     }
     if(copyVal && copyVal.dataset.copyBound!=="1"){
       copyVal.dataset.copyBound="1";
       copyVal.addEventListener("click",()=>{ if(currentEmail()) copyCurrentEmail(); });
+    }
+    if(moreBtn && moreBtn.dataset.copyBound!=="1"){
+      moreBtn.dataset.copyBound="1";
+      moreBtn.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const box=$("customerEmailBox");
+        if(box && box.classList.contains("is-open")){
+          const results=$("customerEmailResults");
+          if(results){ results.style.display="none"; results.innerHTML=""; }
+          box.classList.remove("is-open");
+        }
+        if(row && row.classList.contains("is-open")) closeEmailCopyList();
+        else fillEmailCopyList();
+      });
+    }
+    if(row && row.dataset.listBound!=="1"){
+      row.dataset.listBound="1";
+      document.addEventListener("click",e=>{
+        if(row && !row.contains(e.target)) closeEmailCopyList();
+      });
     }
     syncEmailCopyRow();
   }
