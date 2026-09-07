@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.45">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.46">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.45</title>
+<title>Servicebericht v2.46</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +538,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.45</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.46</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3776,7 +3776,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.45";
+  const APP_VERSION="2.46";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4888,6 +4888,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const KEY="servicebericht_customer_machines_v1";
+  const TOMB_KEY="servicebericht_machine_tombs_v1";
   const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
   let catalog=[];
   let loadedSaved=null;
@@ -4895,8 +4896,42 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
     if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
   }).catch(()=>{});
+  function loadTombs(){
+    try{
+      const x=JSON.parse(localStorage.getItem(TOMB_KEY)||"[]");
+      return Array.isArray(x)?x:[];
+    }catch(e){ return []; }
+  }
+  function saveTombs(list){
+    try{ localStorage.setItem(TOMB_KEY, JSON.stringify((list||[]).slice(-80))); }catch(e){}
+  }
+  function addMachineTomb(k, rec){
+    if(!k || !rec || isEmpty(rec)) return;
+    const next=loadTombs().filter(t=>!(t && t.k===k && sameMachine(t.rec, rec)));
+    next.push({k, rec:cleanRec(rec)});
+    saveTombs(next);
+  }
+  function clearMachineTomb(k, rec){
+    if(!k || !rec) return;
+    saveTombs(loadTombs().filter(t=>!(t && t.k===k && sameMachine(t.rec, rec))));
+  }
+  function applyMachineTombs(map){
+    const tombs=loadTombs();
+    if(!tombs.length) return map||{};
+    const out={};
+    Object.keys(map||{}).forEach(k=>{
+      if(!Array.isArray(map[k])) return;
+      const list=map[k].filter(m=>!tombs.some(t=>t && t.k===k && sameMachine(t.rec, m)));
+      if(list.length) out[k]=list;
+    });
+    return out;
+  }
   function loadAll(){
-    try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
+    try{
+      const o=JSON.parse(localStorage.getItem(KEY)||"{}");
+      const map=o&&typeof o==="object"&&!Array.isArray(o)?o:{};
+      return applyMachineTombs(map);
+    }
     catch(e){ return {}; }
   }
   function saveAll(map){
@@ -4910,15 +4945,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!k) return [];
     const all=loadAll();
     return Array.isArray(all[k])?all[k]:[];
-  }
-  function listAllSaved(){
-    const all=loadAll();
-    const out=[];
-    Object.keys(all||{}).forEach(k=>{
-      if(!Array.isArray(all[k])) return;
-      all[k].forEach(m=>out.push(m));
-    });
-    return collapseList(out);
   }
   function mergeFields(a,b){
     const rec=cleanRec(a);
@@ -5021,21 +5047,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function sameType(a,b){ return norm(a)===norm(b); }
   function manufacturerOptions(){
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
-    const fromSaved=naturalSort(listAllSaved().map(m=>m.manufacturer).filter(n=>n && !mine.some(s=>sameBrand(s,n))));
-    const fromCat=catalog.map(c=>c.name).filter(n=>!mine.concat(fromSaved).some(s=>sameBrand(s,n)));
-    return mine.concat(fromSaved).concat(naturalSort(fromCat));
+    const fromCat=catalog.map(c=>c.name).filter(n=>!mine.some(s=>sameBrand(s,n)));
+    return mine.concat(naturalSort(fromCat));
   }
   function preferredTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
     if(!norm(mfr)) return [];
     return naturalSort(listForCustomer().filter(m=>
-      sameBrand(m.manufacturer,mfr) && !!m.type
-    ).map(m=>m.type));
-  }
-  function savedTypeOptions(){
-    const mfr=$("manufacturer")?.value||"";
-    if(!norm(mfr)) return [];
-    return naturalSort(listAllSaved().filter(m=>
       sameBrand(m.manufacturer,mfr) && !!m.type
     ).map(m=>m.type));
   }
@@ -5045,10 +5063,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const cat=catalogEntry(mfr);
     const fromCat=cat? (cat.types||[]) : [];
     const preferred=preferredTypeOptions();
-    const saved=savedTypeOptions();
     const typed=$("type")?.value||"";
-    const extra=(typed && !saved.some(t=>sameType(t,typed)) && !fromCat.some(t=>sameType(t,typed)) && !preferred.some(t=>sameType(t,typed))) ? [typed] : [];
-    const rest=naturalSort(saved.concat(fromCat).concat(extra).filter(t=>!preferred.some(p=>sameType(p,t))));
+    const extra=(typed && !fromCat.some(t=>sameType(t,typed)) && !preferred.some(t=>sameType(t,typed))) ? [typed] : [];
+    const rest=naturalSort(fromCat.concat(extra).filter(t=>!preferred.some(p=>sameType(p,t))));
     return preferred.concat(rest);
   }
   function preferredNrOptions(){
@@ -5248,7 +5265,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const got=await window.sbLists.pullFile("machines");
         remote=window.sbLists.asMap(got.data);
       }
-      const merged=mergeMachineMaps(loadAll(), remote);
+      const merged=applyMachineTombs(mergeMachineMaps(loadAll(), remote));
       saveAll(merged);
       return merged;
     }catch(e){
@@ -5258,7 +5275,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   async function pushMachines(message, removeMatch){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote, local){
-      const merged=mergeMachineMaps(window.sbLists.asMap(remote), local||{});
+      const merged=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), local||{}));
       if(removeMatch && removeMatch.k && Array.isArray(merged[removeMatch.k])){
         merged[removeMatch.k]=merged[removeMatch.k].filter(m=>!sameMachine(m, removeMatch.rec));
         if(!merged[removeMatch.k].length) delete merged[removeMatch.k];
@@ -5378,6 +5395,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
     }
+    const oldRec=mode==="overwrite" && loadedSaved ? cleanRec(loadedSaved) : null;
+    if(oldRec && !sameMachine(oldRec, rec)) addMachineTomb(k, oldRec);
+    clearMachineTomb(k, rec);
     const prev=persistLock;
     let unlock=()=>{};
     persistLock=new Promise(r=>{ unlock=r; });
@@ -5397,10 +5417,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
       list.push(rec);
       wasNew=true;
-    }else if(mode==="overwrite" && loadedSaved){
-      const idx=findLoadedIndex(list);
-      if(idx>=0) list[idx]=rec;
-      else list.push(rec);
+    }else if(mode==="overwrite" && oldRec){
+      const kept=list.filter(m=>!sameMachine(m, oldRec));
+      const idx=kept.findIndex(m=>sameMachine(m, rec));
+      if(idx>=0) kept[idx]=rec;
+      else kept.push(rec);
+      list.length=0;
+      kept.forEach(m=>list.push(m));
     }else{
       let idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
       wasNew=idx<0;
@@ -5412,7 +5435,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     loadedSaved=rec;
     syncComboClears();
     syncMachineSaveUi();
-    const pushed=await pushMachines("Maschine für "+k);
+    const pushed=await pushMachines("Maschine für "+k, oldRec ? {k, rec: oldRec} : null);
     const s=$("status");
     if(s){
       if(mode==="overwrite" && pushed && pushed.ok) s.textContent="Gespeicherte Maschine überschrieben.";
@@ -5512,6 +5535,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
       if(!confirm("Diese Maschine beim Kunden löschen?")) return;
+      addMachineTomb(k, rec);
       list.splice(idx,1);
       all[k]=list;
       saveAll(all);
