@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.43">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.44">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.43</title>
+<title>Servicebericht v2.44</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -538,7 +538,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.43</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.44</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -764,7 +764,7 @@ input.to-check{
 <div id="machineSaveModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Maschine geändert</h3>
-    <p class="muted">Diese Maschine ist schon beim Kunden gespeichert. Aktuelle Daten überschreiben oder als zweite Maschine desselben Typs mit anderer Nr. anlegen?</p>
+    <p class="muted">Nr., NC-Nr. oder PLC-Nr. weicht von der gespeicherten Maschine ab. Daten überschreiben oder als neue Maschine (andere Nr.) anlegen?</p>
     <p id="machineSaveModalErr" class="muted"></p>
     <div class="email-actions">
       <button type="button" class="clear" id="machineSaveModalCancel">Abbrechen</button>
@@ -3776,7 +3776,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.43";
+  const APP_VERSION="2.44";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5300,6 +5300,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function formDiffersFromLoaded(){
     return !!(loadedSaved && !recEqual(cleanRec(fromForm()), loadedSaved));
   }
+  function nrNcPlcDirty(){
+    if(!loadedSaved) return false;
+    const rec=fromForm();
+    return ["machineNo","nc","plc"].some(id=>String(rec[id]||"").trim()!==String(loadedSaved[id]||"").trim());
+  }
+  function machineModalOpen(){
+    return $("machineSaveModal")?.classList.contains("is-open");
+  }
   function findLoadedIndex(list){
     if(!loadedSaved) return -1;
     const exact=list.findIndex(m=>sameMachine(m, loadedSaved));
@@ -5347,11 +5355,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return "";
   }
   async function persistCurrent(opts){
-    const prev=persistLock;
-    let unlock=()=>{};
-    persistLock=new Promise(r=>{ unlock=r; });
-    await prev;
-    try{
     const k=customerKey();
     if(!k){
       const s=$("status");
@@ -5366,15 +5369,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideMachineSaveOk();
       return;
     }
-    const dirtyLoaded=formDiffersFromLoaded();
     let mode=opts && opts.mode;
-    if(dirtyLoaded && !mode){
-      if(!(opts && opts.showOk)){
-        syncMachineSaveUi();
-        const s=$("status");
-        if(s) s.textContent="Maschine geändert – speichern: überschreiben oder neu anlegen.";
-        return;
-      }
+    if(!mode && nrNcPlcDirty()){
+      if(machineModalOpen()) return;
       const choice=await askMachineSaveChoice();
       if(!choice) return;
       mode=choice;
@@ -5388,6 +5385,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
     }
+    const prev=persistLock;
+    let unlock=()=>{};
+    persistLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    try{
     await pullMachines();
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
@@ -5533,17 +5535,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     });
     let persistTimer=0;
-    ["control","nc","plc","machineNo"].forEach(id=>{
+    ["nc","plc","machineNo"].forEach(id=>{
       $(id)?.addEventListener("change",()=>{
         const k=customerKey();
         if(!k || isEmpty(fromForm())) return;
-        if(!findSaved() && !norm($("type")?.value||"")) return;
         syncMachineSaveUi();
-        if(formDiffersFromLoaded()){
-          const s=$("status");
-          if(s) s.textContent="Maschine geändert – speichern: überschreiben oder neu anlegen.";
+        if(nrNcPlcDirty()){
+          persistCurrent({showOk:true});
           return;
         }
+        if(loadedSaved) return;
+        if(!findSaved() && !norm($("type")?.value||"")) return;
         clearTimeout(persistTimer);
         persistTimer=setTimeout(()=>{
           if(customerKey()!==k) return;
@@ -5551,6 +5553,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         }, 400);
       });
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
+    });
+    $("control")?.addEventListener("change",()=>{
+      const k=customerKey();
+      if(!k || isEmpty(fromForm())) return;
+      if(nrNcPlcDirty()) return;
+      if(!findSaved() && !norm($("type")?.value||"")) return;
+      clearTimeout(persistTimer);
+      persistTimer=setTimeout(()=>{
+        if(customerKey()!==k) return;
+        persistCurrent();
+      }, 400);
     });
     $("customerSearch")?.addEventListener("blur",()=>{
       if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
