@@ -51,7 +51,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .parts-plus:active{transform:scale(.96)}
 #partsResults.combo-results{border-radius:6px}
 #partsResults .combo-pick{
-  font-size:13px;font-weight:600;min-height:32px;padding:5px 10px;line-height:1.25;
+  font-size:12px;font-weight:600;min-height:26px;padding:3px 8px;line-height:1.2;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
@@ -813,12 +813,15 @@ document.querySelectorAll('#choices input').forEach(el=>{
 const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
 function layoutComboResults(results, box){
   if(!results||!box) return;
-  const r=box.getBoundingClientRect();
   const parts=results.id==="partsResults";
+  const boxEl=parts?($("partsBox")||box):box;
+  const plusEl=parts?$("partsPlus"):null;
+  const r=boxEl.getBoundingClientRect();
+  const v=(plusEl||boxEl).getBoundingClientRect();
   const gap=parts?2:4;
-  const spaceBelow=window.innerHeight-r.bottom-gap;
-  const spaceAbove=r.top-gap;
-  const maxH=parts?168:260;
+  const spaceBelow=window.innerHeight-v.bottom-gap;
+  const spaceAbove=v.top-gap;
+  const maxH=parts?140:260;
   results.style.position="fixed";
   if(parts){
     const w=Math.min(r.width, 268);
@@ -831,11 +834,11 @@ function layoutComboResults(results, box){
   results.style.right="auto";
   results.style.zIndex="80";
   if(spaceBelow>=140 || spaceBelow>=spaceAbove){
-    results.style.top=(r.bottom+gap)+"px";
+    results.style.top=(v.bottom+gap)+"px";
     results.style.bottom="auto";
     results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceBelow))+"px";
   }else{
-    results.style.bottom=(window.innerHeight-r.top+gap)+"px";
+    results.style.bottom=(window.innerHeight-v.top+gap)+"px";
     results.style.top="auto";
     results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceAbove))+"px";
   }
