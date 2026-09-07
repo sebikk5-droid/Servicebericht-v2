@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.68">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.69">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.68</title>
+  <title>Servicebericht v2.69</title>
 <script>
-window.SB_APP_VERSION="2.68";
+window.SB_APP_VERSION="2.69";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -556,9 +556,9 @@ select.is-nudge,input.is-nudge{
 @media (prefers-reduced-motion:reduce){
   #machineSaveOk.is-on,#emailSaveOk.is-on{animation:none}
 }
-#companySave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
-#companySave.is-pulse,#companyRouteEdit.is-pulse{
+#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
 @keyframes companySavePulse{
@@ -566,7 +566,7 @@ select.is-nudge,input.is-nudge{
   50%{transform:scale(1.045);box-shadow:0 0 0 12px rgba(22,58,92,0)}
 }
 @media (prefers-reduced-motion:reduce){
-  #companySave,#companyRouteEdit{animation:none}
+  #companySave,#companyRouteEdit,#emailSave{animation:none}
 }
 .customer-route-bar{
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;
@@ -683,7 +683,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.68</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.69</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -746,7 +746,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
-  <button type="button" id="emailSave">E-Mail merken</button>
+  <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="emailDelete">Löschen</button>
 </div>
@@ -4123,7 +4123,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.68";
+  const APP_VERSION=window.SB_APP_VERSION||"2.69";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4868,6 +4868,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
     if((opts && opts.showOk) || wasNew) showEmailSaveOk();
+    syncEmailSaveButton();
     return true;
     }finally{ unlock(); }
   }
@@ -4899,6 +4900,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail lokal gelöscht.";
       else s.textContent="E-Mail lokal gelöscht. GitHub "+((pushed&&(pushed.status||pushed.reason))||"Fehler")+" – noch einmal tippen.";
     }
+    syncEmailSaveButton();
     return true;
     }finally{ unlock(); }
   }
@@ -4975,6 +4977,20 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }
     syncEmailListToggle();
+    syncEmailSaveButton();
+  }
+  function emailAlreadySaved(e){
+    const n=String(e||"").trim().toLowerCase();
+    if(!n) return false;
+    return emailsForCustomer().some(x=>x.toLowerCase()===n);
+  }
+  function syncEmailSaveButton(){
+    const btn=$("emailSave");
+    if(!btn) return;
+    const e=currentEmail();
+    const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
+    btn.hidden=!show;
+    btn.classList.toggle("is-pulse", show);
   }
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
