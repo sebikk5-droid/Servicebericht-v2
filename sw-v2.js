@@ -1,10 +1,9 @@
-const CACHE_NAME = "servicebericht-v2-102";
+const CACHE_NAME = "servicebericht-v2-103";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
   "./vendor/pdf-lib.min.js",
   "./machine-catalog.json",
-  "./Leer.pdf",
   "./favicon.png",
   "./icons/icon-192.png"
 ];
@@ -22,10 +21,11 @@ function isV2Navigation(req) {
 
 function isV2Asset(url) {
   const path = new URL(url).pathname;
+  if (path.endsWith("/sw-v2.js")) return false;
+  if (path.endsWith("/repair.html")) return false;
   return (
     path.endsWith("/v2.html") ||
     path.endsWith("/servicebericht-v2.html") ||
-    path.endsWith("/sw-v2.js") ||
     path.endsWith("/manifest-v2.webmanifest") ||
     path.endsWith("/vendor/pdf-lib.min.js") ||
     path.endsWith("/machine-catalog.json") ||
@@ -35,33 +35,45 @@ function isV2Asset(url) {
   );
 }
 
-function fetchWithTimeout(req, ms) {
-  const ctrl = new AbortController();
-  const t = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, ms);
-  const url = typeof req === "string" ? req : req.url;
-  return fetch(url, { signal: ctrl.signal, cache: "no-store", redirect: "follow" })
-    .finally(function(){ clearTimeout(t); });
+function fetchNetwork(req, ms) {
+  const timeout = new Promise(function(_, reject){
+    setTimeout(function(){ reject(new Error("timeout")); }, ms || 12000);
+  });
+  return Promise.race([fetch(req), timeout]);
+}
+
+async function matchHtml() {
+  const keys = await caches.keys();
+  for (let i = 0; i < keys.length; i++) {
+    const cache = await caches.open(keys[i]);
+    const hit = await cache.match("./v2.html", { ignoreSearch: true })
+      || await cache.match("v2.html", { ignoreSearch: true });
+    if (hit) return hit;
+  }
+  return null;
 }
 
 self.addEventListener("install", event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    for (const url of APP_SHELL) {
+    await Promise.all(APP_SHELL.map(async url => {
       try {
-        const res = await fetchWithTimeout(url, 8000);
+        const res = await fetchNetwork(url, 15000);
         if (res && res.ok) await cache.put(url, res);
       } catch (e) {}
-    }
+    }));
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener("activate", event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const ready = await cache.match("./v2.html");
+    if (!ready) return;
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+  })());
 });
 
 self.addEventListener("fetch", event => {
@@ -73,9 +85,9 @@ self.addEventListener("fetch", event => {
 
   if (isV2Navigation(req)) {
     event.respondWith((async () => {
-      const cached = await caches.match("./v2.html");
+      const cached = await matchHtml();
       try {
-        const res = await fetchWithTimeout(req, 2500);
+        const res = await fetchNetwork(req, 12000);
         if (res && res.ok) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then(c => c.put("./v2.html", copy)).catch(() => {});
@@ -84,12 +96,9 @@ self.addEventListener("fetch", event => {
       } catch (e) {}
       if (cached) return cached;
       try {
-        return await fetchWithTimeout(req, 4000);
+        return await fetch(req);
       } catch (e) {
-        return new Response(
-          "<!doctype html><meta charset=utf-8><title>Servicebericht</title><p>Offline. App schließen und noch einmal öffnen.</p>",
-          { headers: { "Content-Type": "text/html; charset=utf-8" } }
-        );
+        return Response.redirect("./repair.html", 302);
       }
     })());
     return;
@@ -98,22 +107,18 @@ self.addEventListener("fetch", event => {
   if (!isV2Asset(req.url)) return;
 
   event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) {
-      fetchWithTimeout(req, 6000).then(res => {
-        if (res && res.ok) caches.open(CACHE_NAME).then(c => c.put(req, res)).catch(() => {});
-      }).catch(() => {});
-      return cached;
-    }
+    const cached = await caches.match(req, { ignoreSearch: true });
+    if (cached) return cached;
     try {
-      const res = await fetchWithTimeout(req, 8000);
+      const res = await fetchNetwork(req, 15000);
       if (res && res.ok) {
         const copy = res.clone();
         caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
       }
       return res;
     } catch (e) {
-      return cached || Response.error();
+      if (cached) return cached;
+      return fetch(req);
     }
   })());
 });
