@@ -568,7 +568,6 @@ input.to-check{
 }
 .token-status.is-on{background:#dcefe0;color:#14532d}
 .token-status.is-off{background:#fde8d2;color:#9a3412}
-.token-status.is-offline{background:#f3efe3;color:#7a5c12}
 .blatt-row{
   display:flex;align-items:flex-end;gap:6px;max-width:200px;
 }
@@ -588,7 +587,7 @@ input.to-check{
       <h1>Servicebericht</h1>
       <div class="muted" id="appPlaceLine"></div>
     </div>
-    <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
+    <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
   <div class="credit" id="appCredit">Created by S. Pawlina v2.61</div>
 </header>
@@ -3994,15 +3993,30 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(place) place.textContent=appPlace();
     const btn=$("tokenStatusBtn");
     if(!btn) return;
-    const online=navigator.onLine!==false;
     const has=!!token();
-    btn.classList.toggle("is-on", has && online);
-    btn.classList.toggle("is-off", !has);
-    btn.classList.toggle("is-offline", has && !online);
-    if(has && online) btn.textContent="GitHub online · Token";
-    else if(has && !online) btn.textContent="GitHub offline · Token";
-    else if(!online) btn.textContent="GitHub fehlt · offline";
-    else btn.textContent="GitHub fehlt · Token";
+    paintTokenStatus(has);
+    if(has) verifyTokenStatus();
+  }
+  let tokenCheckSeq=0;
+  function paintTokenStatus(ok){
+    const btn=$("tokenStatusBtn");
+    if(!btn) return;
+    btn.classList.toggle("is-on", !!ok);
+    btn.classList.toggle("is-off", !ok);
+    btn.textContent=ok ? "online" : "offline";
+  }
+  function verifyTokenStatus(){
+    const t=token();
+    if(!t){
+      paintTokenStatus(false);
+      return;
+    }
+    const seq=++tokenCheckSeq;
+    fetch("https://api.github.com/user", {headers:headers(true), cache:"no-store"}).then(function(r){
+      if(seq!==tokenCheckSeq) return;
+      if(r && (r.status===401 || r.status===403)) paintTokenStatus(false);
+      else if(r && r.ok) paintTokenStatus(true);
+    }).catch(function(){});
   }
   let tokenModalWait=null;
   function closeTokenModal(ok){
@@ -4071,8 +4085,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       closeTokenModal(false);
     });
     $("tokenStatusBtn")?.addEventListener("click",()=>{ openTokenModal(); });
-    window.addEventListener("online", syncTokenUi);
-    window.addEventListener("offline", syncTokenUi);
   }
   function captureToken(){
     try{
