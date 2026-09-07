@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.41">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.42">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.41</title>
+<title>Servicebericht v2.42</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -36,6 +36,20 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
+.parts-box{position:relative}
+.parts-box #parts{display:block;padding-bottom:48px}
+.parts-plus{
+  position:absolute;right:10px;bottom:10px;z-index:3;
+  flex:none;width:36px;height:36px;min-height:36px;padding:0;margin:0;
+  border:0;border-radius:50%;
+  background:#163a5c;color:#fff;
+  font-size:26px;font-weight:600;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.18);
+  cursor:pointer;
+}
+.parts-plus:active{transform:scale(.96)}
+.parts-box .combo-pick{font-size:15px;font-weight:600}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:relative;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:6}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
@@ -495,7 +509,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.41</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.42</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -608,7 +622,11 @@ input.to-check{
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
+<div class="parts-box" id="partsBox">
 <textarea id="parts" placeholder="- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
+<button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen">+</button>
+<div id="partsResults" class="combo-results" hidden></div>
+</div>
 </section>
 
 <section class="card"><h2>Reise- und Arbeitszeit</h2>
@@ -796,7 +814,7 @@ function layoutComboResults(results, box){
   const gap=4;
   const spaceBelow=window.innerHeight-r.bottom-gap;
   const spaceAbove=r.top-gap;
-  const maxH=260;
+  const maxH=results.id==="partsResults"?340:260;
   results.style.position="fixed";
   results.style.left=Math.max(8, r.left)+"px";
   results.style.width=Math.max(80, r.width)+"px";
@@ -3719,7 +3737,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.41";
+  const APP_VERSION="2.42";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5530,6 +5548,79 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!document.hidden) refreshSharedLists();
   });
   window.addEventListener("pageshow",()=>refreshSharedLists());
+})();
+</script>
+
+<script>
+(function(){
+  const PRESETS=[
+    "Fließfett Art. Nr.: 1761",
+    "Multilub-Molykote Art. Nr.: 3510",
+    "Bremsenreiniger Art. Nr.: 3710",
+    "Universalreiniger-Clean Art. Nr.: 1677",
+    "Klüber Art. Nr.: 2072",
+    "Gehäusedicht. Fluid-D Art. Nr.: 640",
+    "Rückschlagventil Art. Nr.: 2924",
+    "Rückschlagventil rund Art. Nr.: 4519",
+    "Meldelampe Art. Nr.: 166",
+    "Metaflux Art. Nr.: 3408",
+    "Montagepaste Art. Nr.: 4143",
+    "Flächendicht grün Art. Nr.: 9501"
+  ];
+  function closePartsList(){
+    const results=$("partsResults");
+    if(!results) return;
+    results.style.display="none";
+    results.innerHTML="";
+    results.hidden=true;
+  }
+  function appendPart(line){
+    const el=$("parts");
+    if(!el) return;
+    const add=String(line||"").trim()+",";
+    if(!add || add===",") return;
+    const cur=String(el.value||"");
+    const trimmed=cur.replace(/\s+$/,"");
+    el.value=trimmed ? trimmed+"\n"+add : add;
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+  }
+  function showPartsList(){
+    const results=$("partsResults");
+    const box=$("partsBox");
+    if(!results || !box) return;
+    if(results.style.display==="block" && !results.hidden){
+      closePartsList();
+      return;
+    }
+    results.innerHTML="";
+    PRESETS.forEach(v=>{
+      const pick=document.createElement("div");
+      pick.className="combo-pick";
+      pick.setAttribute("role","option");
+      pick.textContent=v;
+      pick.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        appendPart(v);
+        closePartsList();
+      });
+      results.appendChild(pick);
+    });
+    openComboResults(results, box);
+  }
+  function bindPartsPlus(){
+    $("partsPlus")?.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      showPartsList();
+    });
+    document.addEventListener("click",e=>{
+      const box=$("partsBox");
+      if(box && !box.contains(e.target)) closePartsList();
+    });
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPartsPlus);
+  else bindPartsPlus();
 })();
 </script>
 
