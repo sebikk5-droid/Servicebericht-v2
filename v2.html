@@ -5711,6 +5711,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   const main=()=>document.querySelector("main");
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
+      if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
       el.style.display="none";
       el.innerHTML="";
       if("hidden" in el) el.hidden=true;
