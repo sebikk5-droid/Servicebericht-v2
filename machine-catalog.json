@@ -1,8 +1,20 @@
 {
   "manufacturers": [
     {
+      "name": "DMG",
+      "match": ["dmg", "gildemeister", "deckel maho", "deckel"],
+      "types": [
+        "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
+        "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
+        "DMC 635 V", "DMC 1035 V", "DMC 1150 V", "DMC 80 U", "DMC 125 U", "DMC 160 U",
+        "CMX 50 U", "CMX 70 U", "CMX 1100 V", "CMX V",
+        "CTX 310", "CTX 450", "CTX 650", "CTX beta", "CTX gamma",
+        "CLX 350", "CLX 450", "CLX 550"
+      ]
+    },
+    {
       "name": "DMG MORI",
-      "match": ["dmg", "dmg mori", "gildemeister", "mori seiki", "deckel maho"],
+      "match": ["dmg mori"],
       "types": [
         "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
         "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
@@ -14,6 +26,20 @@
         "NHX 4000", "NHX 5000", "NHX 5500", "NHX 6300",
         "NTX 1000", "NTX 2000", "NTX 2500",
         "MILLTAP 700", "NVX 5080", "NVX 5100"
+      ]
+    },
+    {
+      "name": "Mori Seiki",
+      "match": ["mori seiki", "moriseiki", "mori"],
+      "types": [
+        "NL 1500", "NL 2000", "NL 2500", "NL 3000",
+        "NH 4000", "NH 5000", "NH 6300",
+        "NV 5000", "NV 6000", "NMV 5000", "NT 4300",
+        "NLX 1500", "NLX 2000", "NLX 2500", "NLX 3000",
+        "NHX 4000", "NHX 5000", "NHX 5500", "NHX 6300",
+        "NTX 1000", "NTX 2000", "NTX 2500",
+        "NVX 5080", "NVX 5100", "MILLTAP 700",
+        "DuraVertical 5060", "DuraVertical 5100"
       ]
     },
     {

@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.71">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.72">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.71</title>
+  <title>Servicebericht v2.72</title>
 <script>
-window.SB_APP_VERSION="2.71";
+window.SB_APP_VERSION="2.72";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.71</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.72</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -778,7 +778,7 @@ select.is-nudge,input.is-nudge{
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
   <div class="combo-field">
-    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG MORI, Hermle">
+    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG, DMG MORI, Mori Seiki">
     <button type="button" class="combo-clear" id="manufacturerClear" aria-label="Hersteller löschen">×</button>
   </div>
   <div id="manufacturerResults" class="combo-results"></div>
@@ -4200,7 +4200,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.71";
+  const APP_VERSION=window.SB_APP_VERSION||"2.72";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5741,10 +5741,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function catalogEntry(name){
     const n=norm(name);
     if(!n) return null;
-    return catalog.find(c=>{
-      if(norm(c.name)===n) return true;
-      return (c.match||[]).some(a=> n===norm(a) || n.indexOf(norm(a))===0 || norm(a).indexOf(n)===0);
-    })||null;
+    const exactName=catalog.find(c=>norm(c.name)===n);
+    if(exactName) return exactName;
+    const exactAlias=catalog.find(c=>(c.match||[]).some(a=>n===norm(a)));
+    if(exactAlias) return exactAlias;
+    return catalog.find(c=>(c.match||[]).some(a=>{
+      const x=norm(a);
+      return !!x && (n.indexOf(x)===0 || x.indexOf(n)===0);
+    }))||null;
   }
   function catalogType(mfr, type){
     const want=String(type||"").trim();
