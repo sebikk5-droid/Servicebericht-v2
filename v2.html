@@ -5108,6 +5108,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const o=JSON.parse(localStorage.getItem(KEY)||"{}");
       const map=o&&typeof o==="object"&&!Array.isArray(o)?o:{};
       machinesCache=collapseMachineMap(applyMachineTombs(map));
+      try{ localStorage.setItem(KEY, JSON.stringify(machinesCache)); }catch(e){}
       return machinesCache;
     }
     catch(e){ return {}; }
@@ -5149,30 +5150,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const serialIdx=Object.create(null);
     (list||[]).forEach(m=>{
       const rec=cleanRec(m);
-      if(isEmpty(rec)) return;
-      const kind=kindKey(rec);
-      const serial=norm(rec.machineNo);
-      if(serial){
-        const id=kind+"\0"+serial;
-        if(serialIdx[id]!=null){
-          const i=serialIdx[id];
-          out[i]=mergeFields(out[i], rec);
-          return;
-        }
-        serialIdx[id]=out.length;
-        out.push(rec);
+      if(isEmpty(rec) || !norm(rec.manufacturer) || !norm(rec.type) || !norm(rec.machineNo)) return;
+      const id=kindKey(rec)+"\0"+norm(rec.machineNo);
+      if(serialIdx[id]!=null){
+        const i=serialIdx[id];
+        out[i]=mergeFields(out[i], rec);
         return;
       }
-      const i=out.findIndex(x=>kindKey(x)===kind && !norm(x.machineNo));
-      if(i>=0) out[i]=mergeFields(out[i], rec);
-      else out.push(rec);
+      serialIdx[id]=out.length;
+      out.push(rec);
     });
-    const collapsed=out.filter(m=>{
-      if(norm(m.machineNo)) return true;
-      const kind=kindKey(m);
-      return !out.some(x=>norm(x.machineNo) && kindKey(x)===kind);
-    });
-    return collapsed.length>250 ? collapsed.filter(m=>norm(m.machineNo)).slice(0,250) : collapsed;
+    return out.length>250 ? out.slice(0,250) : out;
   }
   function fromForm(){
     const m={};
@@ -5569,7 +5557,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function writeCustomerMachine(k, rec, mode, oldRec){
     rec=cleanRec(rec);
-    if(!norm(rec.machineNo)) return {ok:false, reason:"no-nr"};
+    if(!norm(rec.manufacturer) || !norm(rec.type) || !norm(rec.machineNo))
+      return {ok:false, reason:"no-nr"};
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
     let wasNew=false;
@@ -5639,6 +5628,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(isEmpty(rec)){
       const s=$("status");
       if(s) s.textContent="Maschine hat noch keine Daten.";
+      hideMachineSaveOk();
+      return;
+    }
+    if(!norm(rec.manufacturer) || !norm(rec.type)){
+      const s=$("status");
+      if(s) s.textContent="Hersteller und Typ eintragen, dann speichern.";
       hideMachineSaveOk();
       return;
     }
