@@ -5061,6 +5061,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
     if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
     machinesCache=null;
+    loadAll();
   }).catch(()=>{});
   function loadTombs(){
     try{
@@ -5868,6 +5869,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
       if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
       machinesCache=null;
+      loadAll();
       syncComboClears();
     }).catch(()=>{});
   }
