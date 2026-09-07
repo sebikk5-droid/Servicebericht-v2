@@ -4861,6 +4861,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     map[k]=list;
     saveMap(map);
     syncEmailSaveButton();
+    if((opts && opts.showOk) || wasNew) showEmailSaveOk();
     const pushed=await pushEmails("E-Mail für "+k, e);
     const s=$("status");
     if(s){
@@ -4868,7 +4869,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
       else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
-    if((opts && opts.showOk) || wasNew) showEmailSaveOk();
     return true;
     }finally{ unlock(); }
   }
