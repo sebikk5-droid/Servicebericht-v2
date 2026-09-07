@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.73">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.74">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.73</title>
+  <title>Servicebericht v2.74</title>
 <script>
-window.SB_APP_VERSION="2.73";
+window.SB_APP_VERSION="2.74";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.73</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.74</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4200,7 +4200,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.73";
+  const APP_VERSION=window.SB_APP_VERSION||"2.74";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5760,11 +5760,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const loose=types.find(t=>sameTypeLoose(t, want));
     return loose || want;
   }
+  function catalogDisplayName(name){
+    const raw=String(name||"").trim();
+    const n=norm(raw);
+    if(!n) return raw;
+    const exact=catalog.find(c=>norm(c.name)===n);
+    return exact ? exact.name : raw;
+  }
   function canonicalizeRec(m){
     const rec=cleanRec(m);
     if(!rec) return rec;
-    const cat=catalogEntry(rec.manufacturer);
-    if(cat) rec.manufacturer=cat.name;
+    rec.manufacturer=catalogDisplayName(rec.manufacturer);
     rec.type=catalogType(rec.manufacturer, rec.type);
     return rec;
   }
@@ -5811,7 +5817,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       catalog.some(c=>norm(c.name)===norm(n))
     );
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean)
-      .filter(s=>!featured.some(n=>sameBrand(s,n))));
+      .filter(s=>!featured.some(n=>norm(s)===norm(n))));
     const fromCat=catalog.map(c=>c.name).filter(n=>
       !mine.some(s=>sameBrand(s,n)) && !featured.some(s=>norm(s)===norm(n))
     );
