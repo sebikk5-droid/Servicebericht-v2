@@ -3761,15 +3761,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.innerHTML="";
       const options=getOptions().filter(o=>{
         if(!q) return true;
-        return o.textContent.trim().toLocaleLowerCase("de-DE").includes(q);
-      }).sort((a,b)=>{
-        if(!q) return 0;
-        const an=a.textContent.trim().toLocaleLowerCase("de-DE");
-        const bn=b.textContent.trim().toLocaleLowerCase("de-DE");
-        const as=an.startsWith(q)?0:1;
-        const bs=bn.startsWith(q)?0:1;
-        if(as!==bs) return as-bs;
-        return an.localeCompare(bn,"de");
+        return o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q);
       });
       if(!options.length){
         const empty=document.createElement("div");
