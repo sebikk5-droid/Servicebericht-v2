@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.65">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.66">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.65</title>
+  <title>Servicebericht v2.66</title>
 <script>
-window.SB_APP_VERSION="2.65";
+window.SB_APP_VERSION="2.66";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -448,8 +448,40 @@ select.to-check{
   line-height:1.15;
   flex:0 0 auto;
 }
-.overnight-end{margin:10px 0 0;padding-top:8px;border-top:1px solid #b7cde3}
-.overnight-end .check{font-size:13px;font-weight:650}
+.overnight-end{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:10px 0 0;padding:10px 12px;border-top:1px solid #b7cde3;border-radius:12px;
+}
+.overnight-end .check{font-size:13px;font-weight:650;margin:0}
+.overnight-ask-btns{display:none;align-items:center;gap:8px;margin-left:auto}
+.overnight-end.is-ask .overnight-ask-btns{display:inline-flex}
+.overnight-ask-ok,.overnight-ask-no{
+  flex:0 0 auto;width:42px;min-width:42px;height:42px;padding:0;
+  border-radius:50%;font-size:22px;font-weight:800;line-height:1;
+}
+.overnight-ask-ok{background:#16a34a;color:#fff}
+.overnight-ask-no{background:#e5e5ea;color:#111}
+.overnight-end.is-ask{
+  animation:overnightAskPulse 1.1s ease-in-out infinite;
+  background:#eefaf1;border:1px solid #86efac;
+}
+@keyframes overnightAskPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.38);transform:scale(1)}
+  50%{box-shadow:0 0 0 10px rgba(22,163,74,0);transform:scale(1.02)}
+}
+.daybox select.is-nudge,.daybox input.is-nudge,
+select.is-nudge,input.is-nudge{
+  animation:reisezeitNudge .5s ease-in-out 4;
+  background:#fff3a3;border-color:#e0b400;
+}
+@keyframes reisezeitNudge{
+  0%,100%{background:#fff3a3}
+  50%{background:#ffe066}
+}
+@media (prefers-reduced-motion:reduce){
+  .overnight-end.is-ask{animation:none}
+  .daybox select.is-nudge,.daybox input.is-nudge,select.is-nudge,input.is-nudge{animation:none}
+}
 .sig-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:10px}
 @media (min-width:700px){.sig-grid{grid-template-columns:1fr 1fr}}
 .sig-box label{margin-bottom:5px}
@@ -638,7 +670,7 @@ select.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.65</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.66</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1155,6 +1187,50 @@ function markArrivalWorkEndToCheck(box, onlyEmpty){
     el.classList.add("to-check");
   });
 }
+function clearOvernightAsk(d){
+  const wrap=document.querySelector(`[data-daybox="${d}"] .overnight-end`);
+  if(wrap) wrap.classList.remove("is-ask");
+}
+function afternoonReisezeitFields(d){
+  const box=document.querySelector(`[data-daybox="${d}"]`);
+  if(!box) return [];
+  return [
+    box.querySelector(`[data-k="RZstart${d*2}"]`),
+    box.querySelector(`[data-k="RZende${d*2}"]`),
+    box.querySelector(`[data-k="PauseRZ${d*2}"]`),
+    box.querySelector('[data-route-override="back"]')
+  ].filter(Boolean);
+}
+function nudgeAfternoonReisezeit(d){
+  const els=afternoonReisezeitFields(d);
+  els.forEach(el=>el.classList.add("is-nudge"));
+  els[0]?.scrollIntoView({block:"center", behavior:"smooth"});
+  clearTimeout(nudgeAfternoonReisezeit._t);
+  nudgeAfternoonReisezeit._t=setTimeout(()=>{
+    els.forEach(el=>el.classList.remove("is-nudge"));
+  }, 2000);
+}
+function promptOvernightAfterAddDay(d){
+  document.querySelectorAll(".overnight-end.is-ask").forEach(el=>el.classList.remove("is-ask"));
+  const box=document.querySelector(`[data-daybox="${d}"]`);
+  const wrap=box?.querySelector(".overnight-end");
+  const cb=box?.querySelector("[data-overnight-day]");
+  if(!wrap || !cb) return;
+  if(cb.checked) return;
+  if(box.classList.contains("day-collapsed") && typeof setDayCollapsed==="function")
+    setDayCollapsed(box, false);
+  wrap.classList.add("is-ask");
+  setTimeout(()=>wrap.scrollIntoView({block:"center", behavior:"smooth"}), 50);
+}
+function answerOvernightAsk(d, yes){
+  const box=document.querySelector(`[data-daybox="${d}"]`);
+  const wrap=box?.querySelector(".overnight-end");
+  const cb=box?.querySelector("[data-overnight-day]");
+  if(!wrap || !wrap.classList.contains("is-ask")) return;
+  wrap.classList.remove("is-ask");
+  if(cb) cb.checked=!!yes;
+  if(yes) nudgeAfternoonReisezeit(d);
+}
 const RETURN_PAUSE_DEFAULT=45;
 function syncReturnPauseFromDay(box){
   if(!box) return;
@@ -1266,6 +1342,10 @@ function dayTemplate(d){
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
       <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
+      <div class="overnight-ask-btns">
+        <button type="button" class="overnight-ask-ok" data-overnight-ask="yes" data-overnight-ask-day="${d}" aria-label="Übernachtungskosten übernehmen" title="Ja">✓</button>
+        <button type="button" class="overnight-ask-no" data-overnight-ask="no" data-overnight-ask-day="${d}" aria-label="Ohne Übernachtungskosten" title="Nein">×</button>
+      </div>
     </div>
     </div>
   <div class="day-end-actions">
@@ -1411,6 +1491,7 @@ $("addDay").onclick=()=>{
   markReturnPauseToCheck(box);
   markArrivalWorkEndToCheck(box);
   if(d>1) markKmToCheck(box);
+  if(d>1) promptOvernightAfterAddDay(d-1);
 
   if(visibleDays>=6)$("addDay").style.display="none";
 };
@@ -1533,12 +1614,27 @@ document.getElementById("times").addEventListener("change",function(e){
 });
 
 document.getElementById("times").addEventListener("click",function(e){
+  const ask=e.target.closest("[data-overnight-ask]");
+  if(ask){
+    e.preventDefault();
+    const d=parseInt(ask.getAttribute("data-overnight-ask-day"),10);
+    if(d) answerOvernightAsk(d, ask.getAttribute("data-overnight-ask")==="yes");
+    return;
+  }
   const btn=e.target.closest(".btn-day-collapse");
   if(!btn) return;
   const d=btn.getAttribute("data-collapse-day");
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
   setDayCollapsed(box, !box.classList.contains("day-collapsed"));
+});
+document.getElementById("times").addEventListener("change",function(e){
+  const cb=e.target.closest("[data-overnight-day]");
+  if(!cb || cb!==e.target) return;
+  const wrap=cb.closest(".overnight-end");
+  if(!wrap || !wrap.classList.contains("is-ask") || !cb.checked) return;
+  const d=parseInt(cb.getAttribute("data-overnight-day"),10);
+  if(d) answerOvernightAsk(d, true);
 });
 
 // Day controls: collapse or remove a day that was added by mistake.
@@ -1588,6 +1684,7 @@ document.addEventListener("click",function(e){
         dateEl.setAttribute("aria-label",`Datum Tag ${n}`);
       }
       b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
+      b.querySelectorAll("[data-overnight-ask-day]").forEach(x=>x.setAttribute("data-overnight-ask-day",String(n)));
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
       if(oldDay!==n){
         b.querySelectorAll("[data-k]").forEach(x=>{
@@ -4013,7 +4110,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.65";
+  const APP_VERSION=window.SB_APP_VERSION||"2.66";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
