@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.55">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.56">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.55</title>
+  <title>Servicebericht v2.56</title>
 <script>
 try{
   if(navigator.serviceWorker){
@@ -547,7 +547,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.55</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.56</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3880,7 +3880,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.55";
+  const APP_VERSION="2.56";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5527,24 +5527,38 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return "Gleiche Nr. – für eine zweite Maschine eine andere Nr. wählen.";
     return "";
   }
+  function emptyNrSameTypeIndex(list, rec){
+    return list.findIndex(m=>!norm(m.machineNo)
+      && sameBrand(m.manufacturer, rec.manufacturer)
+      && sameType(m.type, rec.type));
+  }
   function writeCustomerMachine(k, rec, mode, oldRec){
+    rec=cleanRec(rec);
+    if(!norm(rec.machineNo)) return {ok:false, reason:"no-nr"};
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
     let wasNew=false;
     if(mode==="new"){
       const clash=list.findIndex(m=>sameMachine(m, rec));
       if(clash>=0) return {ok:false, reason:"clash", list, all};
-      list.push(rec);
+      const empty=emptyNrSameTypeIndex(list, rec);
+      if(empty>=0) list[empty]=rec;
+      else list.push(rec);
       wasNew=true;
     }else if(mode==="overwrite" && oldRec){
       const kept=list.filter(m=>!sameMachine(m, oldRec));
       const idx=kept.findIndex(m=>sameMachine(m, rec));
       if(idx>=0) kept[idx]=rec;
-      else kept.push(rec);
+      else {
+        const empty=emptyNrSameTypeIndex(kept, rec);
+        if(empty>=0) kept[empty]=rec;
+        else kept.push(rec);
+      }
       list.length=0;
       kept.forEach(m=>list.push(m));
     }else{
-      const idx=list.findIndex(m=>sameMachine(m, rec));
+      let idx=list.findIndex(m=>sameMachine(m, rec));
+      if(idx<0) idx=emptyNrSameTypeIndex(list, rec);
       wasNew=idx<0;
       if(idx>=0) list[idx]=rec;
       else list.push(rec);
@@ -5556,6 +5570,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     return {ok:true, wasNew};
   }
   function queueMachineCloud(k, rec, oldRec, mode){
+    rec=cleanRec(rec);
+    if(!norm(rec.machineNo)) return;
     if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken())
       return;
     const prev=persistLock;
@@ -5592,6 +5608,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideMachineSaveOk();
       return;
     }
+    if(!norm(rec.machineNo)){
+      const s=$("status");
+      if(s) s.textContent="Nr. eintragen, dann speichern.";
+      hideMachineSaveOk();
+      return;
+    }
     let mode=opts && opts.mode;
     if(!mode && nrNcPlcDirty()){
       if(machineModalOpen()) return;
@@ -5612,7 +5634,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const written=writeCustomerMachine(k, rec, mode, oldRec);
     if(!written.ok){
       const s=$("status");
-      if(s) s.textContent="Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
+      if(s) s.textContent=written.reason==="no-nr"
+        ? "Nr. eintragen, dann speichern."
+        : "Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
       hideMachineSaveOk();
       return;
     }
