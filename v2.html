@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.40">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.41">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Servicebericht v2.40</title>
+<title>Servicebericht v2.41</title>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -458,6 +458,15 @@ input.to-check{
 #routeModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #routeModal .email-actions button{flex:1 1 30%;min-width:90px}
 #routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
+#machineSaveModal{
+  display:none;position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#machineSaveModal.is-open{display:flex}
+#machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#machineSaveModal h3{margin:0 0 6px;font-size:18px}
+#machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
+.machine-check-hint{grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73}
 .token-status{
   flex:0 0 auto;border:0;border-radius:10px;padding:8px 10px;min-height:40px;
   font-size:12px;font-weight:750;line-height:1.2;max-width:46%;
@@ -486,7 +495,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.40</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.41</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -584,6 +593,7 @@ input.to-check{
 <div><label>Steuerungstyp</label><input id="control"></div>
 <div><label>NC-Nr.</label><input id="nc"></div>
 <div><label>PLC-Nr.</label><input id="plc"></div>
+<p class="machine-check-hint">NC-Nr. und PLC-Nr. an der Maschine prüfen – sie können sich gegenüber der letzten Speicherung geändert haben.</p>
 <div class="full"><label>Maschinenstörung</label><input id="fault"></div>
 <div class="full"><label>Betriebsstunden</label><input id="hours"></div>
 </div>
@@ -701,6 +711,18 @@ input.to-check{
       <button type="button" class="clear" id="tokenModalClear">Entfernen</button>
       <button type="button" class="clear" id="tokenModalSkip">Später</button>
       <button type="button" class="go" id="tokenModalSave">Speichern</button>
+    </div>
+  </div>
+</div>
+<div id="machineSaveModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3>Maschine geändert</h3>
+    <p class="muted">Diese Maschine ist schon beim Kunden gespeichert. Aktuelle Daten überschreiben oder als zweite Maschine desselben Typs mit anderer Nr. anlegen?</p>
+    <p id="machineSaveModalErr" class="muted"></p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="machineSaveModalCancel">Abbrechen</button>
+      <button type="button" class="clear" id="machineSaveModalNew">Neu anlegen</button>
+      <button type="button" class="go" id="machineSaveModalOverwrite">Überschreiben</button>
     </div>
   </div>
 </div>
@@ -3697,7 +3719,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.40";
+  const APP_VERSION="2.41";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4811,6 +4833,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   const KEY="servicebericht_customer_machines_v1";
   const FIELD_IDS=["manufacturer","type","machineNo","control","nc","plc"];
   let catalog=[];
+  let loadedSaved=null;
+  let machineSaveChoice=null;
   fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
     if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
   }).catch(()=>{});
@@ -5033,12 +5057,16 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }, 50);
   }
   function onManufacturerChosen(){
+    loadedSaved=null;
     clearBelow(["manufacturer"]);
     offerCombo("type", "typeBox", preferredTypeOptions());
+    syncMachineSaveUi();
   }
   function onTypeChosen(){
+    loadedSaved=null;
     clearBelow(["manufacturer","type"]);
     offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    syncMachineSaveUi();
   }
   function syncNrEnabled(){
     const hasType=!!norm($("type")?.value||"");
@@ -5208,6 +5236,59 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     clearTimeout(saveOkTimer);
     saveOkTimer=setTimeout(hideMachineSaveOk, 4000);
   }
+  function recEqual(a,b){
+    if(!a||!b) return false;
+    return FIELD_IDS.every(id=>String((a&&a[id])||"").trim()===String((b&&b[id])||"").trim());
+  }
+  function formDiffersFromLoaded(){
+    return !!(loadedSaved && !recEqual(cleanRec(fromForm()), loadedSaved));
+  }
+  function findLoadedIndex(list){
+    if(!loadedSaved) return -1;
+    const exact=list.findIndex(m=>sameMachine(m, loadedSaved));
+    if(exact>=0) return exact;
+    return list.findIndex(m=>canCollapse(m, loadedSaved));
+  }
+  function syncMachineSaveUi(){
+    const btn=$("machineSave");
+    if(!btn) return;
+    btn.textContent=formDiffersFromLoaded()
+      ? "Geänderte Maschine speichern"
+      : "Zur Maschinenliste des Kunden hinzufügen";
+  }
+  function closeMachineSaveModal(choice){
+    const modal=$("machineSaveModal");
+    if(modal){
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden","true");
+    }
+    const err=$("machineSaveModalErr");
+    if(err) err.textContent="";
+    const done=machineSaveChoice;
+    machineSaveChoice=null;
+    if(done) done(choice);
+  }
+  function askMachineSaveChoice(){
+    return new Promise(resolve=>{
+      machineSaveChoice=resolve;
+      const err=$("machineSaveModalErr");
+      if(err) err.textContent="";
+      const modal=$("machineSaveModal");
+      if(!modal){
+        resolve(null);
+        return;
+      }
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden","false");
+    });
+  }
+  function newMachineNeedsOtherNr(rec){
+    if(!norm(rec.machineNo))
+      return "Für eine zweite Maschine eine andere Nr. eintragen.";
+    if(loadedSaved && sameType(rec.machineNo, loadedSaved.machineNo))
+      return "Gleiche Nr. – für eine zweite Maschine eine andere Nr. wählen.";
+    return "";
+  }
   async function persistCurrent(opts){
     const prev=persistLock;
     let unlock=()=>{};
@@ -5221,27 +5302,70 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       hideMachineSaveOk();
       return;
     }
-    const rec=fromForm();
+    const rec=cleanRec(fromForm());
     if(isEmpty(rec)){
       const s=$("status");
       if(s) s.textContent="Maschine hat noch keine Daten.";
       hideMachineSaveOk();
       return;
     }
+    const dirtyLoaded=formDiffersFromLoaded();
+    let mode=opts && opts.mode;
+    if(dirtyLoaded && !mode){
+      if(!(opts && opts.showOk)){
+        syncMachineSaveUi();
+        const s=$("status");
+        if(s) s.textContent="Maschine geändert – speichern: überschreiben oder neu anlegen.";
+        return;
+      }
+      const choice=await askMachineSaveChoice();
+      if(!choice) return;
+      mode=choice;
+    }
+    if(mode==="new"){
+      const need=newMachineNeedsOtherNr(rec);
+      if(need){
+        const s=$("status");
+        if(s) s.textContent=need;
+        hideMachineSaveOk();
+        return;
+      }
+    }
     await pullMachines();
     const all=loadAll();
     const list=collapseList(Array.isArray(all[k])?all[k]:[]);
-    let idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
-    const wasNew=idx<0;
-    if(idx>=0) list[idx]=overlayForm(list[idx], rec);
-    else list.push(cleanRec(rec));
+    let wasNew=false;
+    if(mode==="new"){
+      const clash=list.findIndex(m=>sameMachine(m, rec));
+      if(clash>=0){
+        const s=$("status");
+        if(s) s.textContent="Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
+        hideMachineSaveOk();
+        return;
+      }
+      list.push(rec);
+      wasNew=true;
+    }else if(mode==="overwrite" && loadedSaved){
+      const idx=findLoadedIndex(list);
+      if(idx>=0) list[idx]=rec;
+      else list.push(rec);
+    }else{
+      let idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
+      wasNew=idx<0;
+      if(idx>=0) list[idx]=overlayForm(list[idx], rec);
+      else list.push(rec);
+    }
     all[k]=list;
     saveAll(all);
+    loadedSaved=rec;
     syncComboClears();
+    syncMachineSaveUi();
     const pushed=await pushMachines("Maschine für "+k);
     const s=$("status");
     if(s){
-      if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
+      if(mode==="overwrite" && pushed && pushed.ok) s.textContent="Gespeicherte Maschine überschrieben.";
+      else if(mode==="new" && pushed && pushed.ok) s.textContent="Zweite Maschine (gleicher Typ, andere Nr.) gespeichert.";
+      else if(pushed && pushed.ok) s.textContent="Maschine steht auf der gemeinsamen Liste – andere iPads laden sie.";
       else if(pushed && pushed.reason==="no-token") s.textContent="Maschine zur Liste des Kunden hinzugefügt.";
       else s.textContent="Maschine lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
@@ -5252,7 +5376,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   window.clearMachineFields=clearMachineFields;
   function clearMachineFields(){
     FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+    loadedSaved=null;
     syncComboClears();
+    syncMachineSaveUi();
     hideMachineSaveOk();
   }
   window.refreshCustomerMachines=async function(){
@@ -5284,9 +5410,18 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       nrOptions,
       function(){
         const saved=findSaved();
-        if(saved) applyMachine(saved, true);
+        if(saved){
+          applyMachine(saved, true);
+          const form=cleanRec(fromForm());
+          loadedSaved=listForCustomer().some(m=>sameMachine(m, saved) || canCollapse(m, saved) || sameMachine(m, form) || canCollapse(m, form))
+            ? form
+            : null;
+        }else{
+          loadedSaved=null;
+        }
         syncComboClears();
-        if(customerKey() && !isEmpty(fromForm())) persistCurrent();
+        syncMachineSaveUi();
+        if(customerKey() && !isEmpty(fromForm()) && !loadedSaved) persistCurrent();
       },
       q=>{
         if(!norm($("type")?.value||"")) return "Zuerst Hersteller und Typ wählen.";
@@ -5294,6 +5429,21 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     );
     $("machineSave")?.addEventListener("click",()=>persistCurrent({showOk:true}));
+    $("machineSaveModalCancel")?.addEventListener("click",()=>closeMachineSaveModal(null));
+    $("machineSaveModalOverwrite")?.addEventListener("click",()=>closeMachineSaveModal("overwrite"));
+    $("machineSaveModalNew")?.addEventListener("click",()=>{
+      const rec=cleanRec(fromForm());
+      const need=newMachineNeedsOtherNr(rec);
+      if(need){
+        const err=$("machineSaveModalErr");
+        if(err) err.textContent=need;
+        return;
+      }
+      closeMachineSaveModal("new");
+    });
+    $("machineSaveModal")?.addEventListener("click",e=>{
+      if(e.target===$("machineSaveModal")) closeMachineSaveModal(null);
+    });
     $("machineDelete")?.addEventListener("click", async ()=>{
       const k=customerKey();
       const rec=fromForm();
@@ -5303,7 +5453,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const idx=list.findIndex(m=>sameMachine(m, rec) || canCollapse(m, rec));
       if(idx<0){
         FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+        loadedSaved=null;
         syncComboClears();
+        syncMachineSaveUi();
         hideMachineSaveOk();
         return;
       }
@@ -5312,7 +5464,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       all[k]=list;
       saveAll(all);
       FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
+      loadedSaved=null;
       syncComboClears();
+      syncMachineSaveUi();
       hideMachineSaveOk();
       const pushed=await pushMachines("Maschine gelöscht: "+k, {k, rec});
       const s=$("status");
@@ -5327,12 +5481,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         const k=customerKey();
         if(!k || isEmpty(fromForm())) return;
         if(!findSaved() && !norm($("type")?.value||"")) return;
+        syncMachineSaveUi();
+        if(formDiffersFromLoaded()){
+          const s=$("status");
+          if(s) s.textContent="Maschine geändert – speichern: überschreiben oder neu anlegen.";
+          return;
+        }
         clearTimeout(persistTimer);
         persistTimer=setTimeout(()=>{
           if(customerKey()!==k) return;
           persistCurrent();
         }, 400);
       });
+      $(id)?.addEventListener("input",()=>syncMachineSaveUi());
     });
     $("customerSearch")?.addEventListener("blur",()=>{
       if(typeof window.refreshCustomerMachines==="function") window.refreshCustomerMachines();
