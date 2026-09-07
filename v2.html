@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.69">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.70">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.69</title>
+  <title>Servicebericht v2.70</title>
 <script>
-window.SB_APP_VERSION="2.69";
+window.SB_APP_VERSION="2.70";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -187,6 +187,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .pdf-kind-num.is-on{background:#163a5c;border-color:#163a5c;color:#fff}
 #pdfKindCancel{width:100%}
 #status{font-size:13px;color:#555;margin:7px 2px}
+#status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 @media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
 @media (orientation:landscape) and (min-width: 900px){.grid{grid-template-columns:repeat(2,1fr)}}
@@ -542,6 +543,10 @@ select.is-nudge,input.is-nudge{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+#machineSaveHint{
+  margin:8px 0 0;font-size:13px;line-height:1.35;color:#b42318;font-weight:650;
+}
+#machineSaveHint[hidden]{display:none!important}
 #machineSaveOk,#emailSaveOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
   width:36px;height:36px;border-radius:50%;background:#16a34a;color:#fff;
@@ -683,7 +688,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.69</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.70</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -793,6 +798,7 @@ select.is-nudge,input.is-nudge{
   <span id="machineSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="machineDelete" class="machine-del">Löschen</button>
 </div>
+<p id="machineSaveHint" hidden>Ohne Nr. nicht möglich. Zuerst die Maschinennummer eintragen.</p>
 </section>
 
 <section class="card"><h2>Bemerkungen</h2>
@@ -4123,7 +4129,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.69";
+  const APP_VERSION=window.SB_APP_VERSION||"2.70";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5995,6 +6001,36 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     ok.classList.remove("is-on");
     ok.setAttribute("aria-hidden","true");
   }
+  const MACHINE_NO_REQUIRED="Ohne Nr. nicht möglich. Zuerst die Maschinennummer eintragen.";
+  function hideMachineSaveHint(){
+    const el=$("machineSaveHint");
+    if(el) el.hidden=true;
+    $("status")?.classList.remove("is-warn");
+  }
+  function showMachineNoRequired(){
+    const hint=$("machineSaveHint");
+    if(hint){
+      hint.textContent=MACHINE_NO_REQUIRED;
+      hint.hidden=false;
+    }
+    const s=$("status");
+    if(s){
+      s.textContent=MACHINE_NO_REQUIRED;
+      s.classList.add("is-warn");
+    }
+    hideMachineSaveOk();
+    const el=$("machineNo");
+    if(!el) return;
+    el.classList.remove("is-nudge");
+    void el.offsetWidth;
+    el.classList.add("is-nudge");
+    try{ el.scrollIntoView({block:"center", behavior:"smooth"}); }catch(e){ el.scrollIntoView(true); }
+    setTimeout(()=>{
+      el.focus();
+      if(norm($("type")?.value||"")) offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    }, 60);
+    setTimeout(()=>el.classList.remove("is-nudge"), 2200);
+  }
   function showMachineSaveOk(){
     const ok=$("machineSaveOk");
     if(!ok) return;
@@ -6138,25 +6174,19 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!k){
       const s=$("status");
       if(s) s.textContent="Zuerst den Kunden / die Firma wählen.";
+      hideMachineSaveHint();
       hideMachineSaveOk();
       return;
     }
     const rec=canonicalizeRec(fromForm());
-    if(isEmpty(rec)){
-      const s=$("status");
-      if(s) s.textContent="Maschine hat noch keine Daten.";
-      hideMachineSaveOk();
+    if(!norm(rec.machineNo)){
+      showMachineNoRequired();
       return;
     }
+    hideMachineSaveHint();
     if(!norm(rec.manufacturer) || !norm(rec.type)){
       const s=$("status");
       if(s) s.textContent="Hersteller und Typ eintragen, dann speichern.";
-      hideMachineSaveOk();
-      return;
-    }
-    if(!norm(rec.machineNo)){
-      const s=$("status");
-      if(s) s.textContent="Nr. eintragen, dann speichern.";
       hideMachineSaveOk();
       return;
     }
@@ -6185,10 +6215,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       : (existing && !sameMachine(existing, rec) ? cleanRec(existing) : null);
     const written=writeCustomerMachine(k, rec, mode, oldRec);
     if(!written.ok){
+      if(written.reason==="no-nr"){
+        showMachineNoRequired();
+        return;
+      }
       const s=$("status");
-      if(s) s.textContent=written.reason==="no-nr"
-        ? "Nr. eintragen, dann speichern."
-        : "Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
+      if(s) s.textContent="Diese Nr. ist beim Kunden schon gespeichert. Überschreiben oder andere Nr. wählen.";
       hideMachineSaveOk();
       return;
     }
@@ -6217,6 +6249,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
     loadedSaved=null;
     pulseMachineCheckHint(false);
+    hideMachineSaveHint();
     syncComboClears();
     syncMachineSaveUi();
     hideMachineSaveOk();
@@ -6330,6 +6363,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       $(id)?.addEventListener("input",()=>syncMachineSaveUi());
     });
     $("machineNo")?.addEventListener("input",()=>{
+      if(norm($("machineNo")?.value||"")) hideMachineSaveHint();
       if(!loadedSaved || !sameNr($("machineNo")?.value||"", loadedSaved.machineNo))
         pulseMachineCheckHint(false);
     });
