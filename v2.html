@@ -6,13 +6,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.57">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.58">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.57</title>
+  <title>Servicebericht v2.58</title>
 <script>
 try{
   if(navigator.serviceWorker){
@@ -547,7 +547,7 @@ input.to-check{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off">GitHub fehlt · Token</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.57</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.58</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3880,7 +3880,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION="2.57";
+  const APP_VERSION="2.58";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5912,15 +5912,56 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     results.innerHTML="";
     results.hidden=true;
   }
+  function partsQtyOnly(line){
+    return /^(\s*(?:[-–•]\s*)?)(\d+[ \t]*[x×])[ \t]*$/i.test(String(line||""));
+  }
+  function partsWithArticle(line, article){
+    const m=String(line||"").match(/^(\s*(?:[-–•]\s*)?)(\d+[ \t]*[x×])[ \t]*$/i);
+    if(!m) return null;
+    return m[1]+m[2]+" "+article;
+  }
+  function partsLineIndexAt(text, caret){
+    const n=String(text||"");
+    const i=Math.max(0, Math.min(Number(caret)||0, n.length));
+    return n.slice(0, i).split("\n").length-1;
+  }
   function appendPart(line){
     const el=$("parts");
     if(!el) return;
-    const add=String(line||"").trim()+",";
-    if(!add || add===",") return;
+    let article=String(line||"").trim();
+    if(!article) return;
+    if(!/,$/.test(article)) article+=",";
     const cur=String(el.value||"");
-    const trimmed=cur.replace(/\s+$/,"");
-    el.value=trimmed ? trimmed+"\n"+add : add;
+    const lines=cur.split("\n");
+    const caret=el.selectionStart==null?cur.length:el.selectionStart;
+    let idx=partsLineIndexAt(cur, caret);
+    if(!partsQtyOnly(lines[idx]) && String(lines[idx]||"").trim()==="" && idx>0 && partsQtyOnly(lines[idx-1]))
+      idx=idx-1;
+    if(!partsQtyOnly(lines[idx])){
+      idx=-1;
+      for(let i=lines.length-1;i>=0;i--){
+        if(String(lines[i]||"").trim()==="") continue;
+        if(partsQtyOnly(lines[i])) idx=i;
+        break;
+      }
+    }
+    let caretAt;
+    if(idx>=0){
+      lines[idx]=partsWithArticle(lines[idx], article);
+      if(idx===lines.length-2 && String(lines[idx+1]||"").trim()==="")
+        lines.splice(idx+1,1);
+      el.value=lines.join("\n");
+      caretAt=lines.slice(0, idx+1).join("\n").length;
+    }else{
+      const trimmed=cur.replace(/\s+$/,"");
+      el.value=trimmed ? trimmed+"\n"+article : article;
+      caretAt=el.value.length;
+    }
     el.dispatchEvent(new Event("input",{bubbles:true}));
+    try{
+      el.focus();
+      el.setSelectionRange(caretAt, caretAt);
+    }catch(e){}
   }
   function showNewInput(bar, results){
     bar.innerHTML="";
