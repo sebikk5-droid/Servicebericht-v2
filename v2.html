@@ -1789,8 +1789,7 @@ function fileSafePart(s){
   return String(s||"").trim().replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").replace(/^_+|_+$/g,"").slice(0,48);
 }
 function pdfFileName(){
-  const n=new Date();
-  const iso=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;
+  const iso=$("date")?.value || isoDateLocal(new Date());
   const initials=techInitials($("tech")?.value);
   const firma=fileSafePart(firmaName() || $("customersign")?.value || "Kunde")||"Kunde";
   return `Servicebericht_${iso}_${initials}_${firma}.pdf`;
@@ -3176,6 +3175,12 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       const d=box.getAttribute("data-daybox");
       data[`day${d}_collapsed`]=box.classList.contains("day-collapsed");
+      const back=box.querySelector(`[data-k="PauseRZ${Number(d)*2}"]`);
+      if(back && back.dataset.pauseManual==="1") data[`day${d}_pauseManual`]=true;
+    });
+    document.querySelectorAll("#times [data-manual='1']").forEach(el=>{
+      const key=fieldKey(el);
+      if(key) data["__manual_"+key]=true;
     });
     return data;
   }
@@ -3219,11 +3224,18 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || key.startsWith("__manual_") || /_(collapsed|pauseManual)$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
+      else if(el.tagName==="SELECT" && el.classList.contains("quarter-time") && typeof setClock==="function")
+        setClock(el, data[key] ?? "");
       else el.value=data[key] ?? "";
+    });
+    Object.keys(data).forEach(key=>{
+      if(!key.startsWith("__manual_") || !data[key]) return;
+      const el=findField(key.slice(10));
+      if(el) el.dataset.manual="1";
     });
 
     const searchName=String(data.customerSearch||"").trim();
@@ -3250,15 +3262,16 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           btn.setAttribute("aria-expanded",collapsed?"false":"true");
         }
       }
+      if(data[`day${d}_pauseManual`]){
+        const back=box.querySelector(`[data-k="PauseRZ${Number(d)*2}"]`);
+        if(back) back.dataset.pauseManual="1";
+      }
     });
     if(typeof syncDayChrome==="function") syncDayChrome();
 
     bindTimeInputs();
     document.querySelectorAll("input.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
-    document.querySelectorAll("[data-daybox]").forEach(box=>{
-      if(typeof markReturnPauseToCheck==="function") markReturnPauseToCheck(box);
-    });
     if(typeof recalcTimes==="function") recalcTimes();
     document.querySelectorAll("#choices input[type=checkbox]").forEach(el=>{
       const label=el.closest(".choice-opt");
@@ -3267,6 +3280,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(typeof syncIoToMaschine==="function") syncIoToMaschine();
     if(typeof window.importSignatureData==="function") window.importSignatureData(data);
     if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
+    if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -3747,7 +3761,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       results.innerHTML="";
       const options=getOptions().filter(o=>{
         if(!q) return true;
-        return o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q);
+        return o.textContent.trim().toLocaleLowerCase("de-DE").includes(q);
+      }).sort((a,b)=>{
+        if(!q) return 0;
+        const an=a.textContent.trim().toLocaleLowerCase("de-DE");
+        const bn=b.textContent.trim().toLocaleLowerCase("de-DE");
+        const as=an.startsWith(q)?0:1;
+        const bs=bn.startsWith(q)?0:1;
+        if(as!==bs) return as-bs;
+        return an.localeCompare(bn,"de");
       });
       if(!options.length){
         const empty=document.createElement("div");
@@ -5650,6 +5672,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   window.pullCustomerMachines=pullMachines;
   window.clearMachineFields=clearMachineFields;
+  window.syncLoadedMachineFromForm=function(){
+    loadedSaved=findSaved() ? cleanRec(fromForm()) : null;
+    syncComboClears();
+    syncMachineSaveUi();
+  };
   function clearMachineFields(){
     FIELD_IDS.forEach(id=>{ if($(id)) $(id).value=""; });
     loadedSaved=null;
