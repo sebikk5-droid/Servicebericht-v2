@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.72">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.73">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.72</title>
+  <title>Servicebericht v2.73</title>
 <script>
-window.SB_APP_VERSION="2.72";
+window.SB_APP_VERSION="2.73";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.72</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.73</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4200,7 +4200,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.72";
+  const APP_VERSION=window.SB_APP_VERSION||"2.73";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5582,7 +5582,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   let catalog=[];
   let loadedSaved=null;
   let machineSaveChoice=null;
-  fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+  fetch("machine-catalog.json?v="+(window.SB_APP_VERSION||"")).then(r=>r.ok?r.json():null).then(d=>{
     if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
     machinesCache=null;
     loadAll();
@@ -5807,9 +5807,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return sameTypeLoose(a,b); }
   function manufacturerOptions(){
-    const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean));
-    const fromCat=catalog.map(c=>c.name).filter(n=>!mine.some(s=>sameBrand(s,n)));
-    return mine.concat(naturalSort(fromCat));
+    const featured=["DMG","DMG MORI","Mori Seiki"].filter(n=>
+      catalog.some(c=>norm(c.name)===norm(n))
+    );
+    const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean)
+      .filter(s=>!featured.some(n=>sameBrand(s,n))));
+    const fromCat=catalog.map(c=>c.name).filter(n=>
+      !mine.some(s=>sameBrand(s,n)) && !featured.some(s=>norm(s)===norm(n))
+    );
+    return featured.concat(mine, naturalSort(fromCat));
   }
   function preferredTypeOptions(){
     const mfr=$("manufacturer")?.value||"";
@@ -6450,11 +6456,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     $("control")?.addEventListener("change",()=>syncMachineSaveUi());
     syncComboClears();
-    fetch("machine-catalog.json").then(r=>r.ok?r.json():null).then(d=>{
+    fetch("machine-catalog.json?v="+(window.SB_APP_VERSION||"")).then(r=>r.ok?r.json():null).then(d=>{
       if(d && Array.isArray(d.manufacturers)) catalog=d.manufacturers;
       machinesCache=null;
       loadAll();
       syncComboClears();
+      if(comboApi.manufacturer && comboApi.manufacturer.show && $("manufacturerResults")?.style.display==="block")
+        comboApi.manufacturer.show(true);
     }).catch(()=>{});
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bind);
