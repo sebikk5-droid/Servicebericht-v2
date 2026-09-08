@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.78">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.79">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,15 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.78</title>
+  <title>Servicebericht v2.79</title>
 <script>
-window.SB_APP_VERSION="2.78";
-window.SB_WHATS_NEW={
-  "2.78":[
-    "PDF-Dateiname: das Einsatzdatum steht als Tag-Monat-Jahr, z. B. 08-09-2026.",
-    "Nach jedem Update erscheint einmal, was sich geändert hat."
-  ]
-};
+window.SB_APP_VERSION="2.79";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -619,24 +613,6 @@ select.is-nudge,input.is-nudge{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#e5e5ea;color:#111;
 }
-#whatsNewModal{
-  display:none;position:fixed;inset:0;z-index:95;background:rgba(20,20,20,.45);
-  align-items:flex-end;justify-content:center;
-}
-#whatsNewModal.is-open{display:flex}
-#whatsNewModal .token-sheet{
-  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
-  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
-  box-shadow:0 -8px 24px rgba(0,0,0,.18);
-}
-#whatsNewModal h3{margin:0 0 8px;font-size:18px}
-#whatsNewBody{max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-#whatsNewBody .whats-new-ver{font-weight:750;font-size:13px;color:#555;margin:10px 0 6px}
-#whatsNewBody .whats-new-ver:first-child{margin-top:0}
-#whatsNewBody ul{margin:0 0 8px;padding-left:1.15em;font-size:15px;line-height:1.4}
-#whatsNewBody li{margin:0 0 8px}
-#whatsNewModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#whatsNewModal .email-actions button{flex:1}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -725,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.78</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.79</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -966,15 +942,6 @@ select.is-nudge,input.is-nudge{
     </div>
   </div>
 </div>
-<div id="whatsNewModal" aria-hidden="true">
-  <div class="token-sheet">
-    <h3 id="whatsNewTitle">Was ist neu</h3>
-    <div id="whatsNewBody"></div>
-    <div class="email-actions">
-      <button type="button" class="go" id="whatsNewOk">OK</button>
-    </div>
-  </div>
-</div>
 <div id="tokenModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>GitHub-Token</h3>
@@ -1039,97 +1006,6 @@ select.is-nudge,input.is-nudge{
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
   </div>
 </div>
-<script>
-(function(){
-  const KEY="servicebericht_whatsnew_seen_v1";
-  function verParts(v){
-    return String(v||"").split(".").map(n=>parseInt(n,10)||0);
-  }
-  function verNewer(a,b){
-    const pa=verParts(a), pb=verParts(b);
-    const n=Math.max(pa.length, pb.length);
-    for(let i=0;i<n;i++){
-      const x=pa[i]||0, y=pb[i]||0;
-      if(x>y) return true;
-      if(x<y) return false;
-    }
-    return false;
-  }
-  function lastSeen(){
-    try{ return String(localStorage.getItem(KEY)||"").trim(); }catch(e){ return ""; }
-  }
-  function markSeen(ver){
-    try{ localStorage.setItem(KEY, ver||""); }catch(e){}
-  }
-  function notesFor(current, seen){
-    const all=window.SB_WHATS_NEW||{};
-    return Object.keys(all).filter(v=>{
-      const list=all[v];
-      if(!Array.isArray(list) || !list.length) return false;
-      if(verNewer(v, current)) return false;
-      if(!seen) return v===current;
-      return verNewer(v, seen);
-    }).sort((a,b)=> verNewer(a,b)?1:verNewer(b,a)?-1:0);
-  }
-  function closeWhatsNew(ver){
-    const modal=document.getElementById("whatsNewModal");
-    if(modal){
-      modal.classList.remove("is-open");
-      modal.setAttribute("aria-hidden","true");
-    }
-    markSeen(ver);
-  }
-  function showWhatsNew(){
-    const current=window.SB_APP_VERSION||"";
-    if(!current) return;
-    const seen=lastSeen();
-    if(seen===current) return;
-    const vers=notesFor(current, seen);
-    const all=window.SB_WHATS_NEW||{};
-    if(!vers.length){
-      markSeen(current);
-      return;
-    }
-    const modal=document.getElementById("whatsNewModal");
-    const title=document.getElementById("whatsNewTitle");
-    const body=document.getElementById("whatsNewBody");
-    if(!modal||!body) return;
-    if(title) title.textContent=vers.length===1 ? "Neu in v"+vers[0] : "Was ist neu";
-    body.innerHTML="";
-    vers.forEach(v=>{
-      if(vers.length>1){
-        const h=document.createElement("div");
-        h.className="whats-new-ver";
-        h.textContent="v"+v;
-        body.appendChild(h);
-      }
-      const ul=document.createElement("ul");
-      (all[v]||[]).forEach(t=>{
-        const li=document.createElement("li");
-        li.textContent=t;
-        ul.appendChild(li);
-      });
-      body.appendChild(ul);
-    });
-    modal.classList.add("is-open");
-    modal.setAttribute("aria-hidden","false");
-    const ok=document.getElementById("whatsNewOk");
-    if(ok && !ok.dataset.bound){
-      ok.dataset.bound="1";
-      ok.addEventListener("click",()=>closeWhatsNew(current));
-    }
-    if(!modal.dataset.bound){
-      modal.dataset.bound="1";
-      modal.addEventListener("click",e=>{
-        if(e.target===modal) closeWhatsNew(current);
-      });
-    }
-  }
-  function start(){ setTimeout(showWhatsNew, 400); }
-  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", start);
-  else start();
-})();
-</script>
 <script>
 function formResetPending(){
   try{ return sessionStorage.getItem("servicebericht_reset_v2")==="1"; }catch(e){ return false; }
@@ -1566,7 +1442,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal","whatsNewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -4404,7 +4280,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.78";
+  const APP_VERSION=window.SB_APP_VERSION||"2.79";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
