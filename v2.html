@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.75">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.76">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.75</title>
+  <title>Servicebericht v2.76</title>
 <script>
-window.SB_APP_VERSION="2.75";
+window.SB_APP_VERSION="2.76";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.75</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.76</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2749,10 +2749,10 @@ function sizeModalCanvas(){
   const r=wrap.getBoundingClientRect();
   const cssW=Math.max(280, Math.floor(r.width||window.innerWidth));
   const cssH=Math.max(180, Math.floor(r.height||window.innerHeight*0.55));
-  const maxSide=4096;
-  let dpr=Math.max(3, Math.min(4, (window.devicePixelRatio||2)*2));
+  const maxSide=1600;
+  let dpr=Math.min(2, window.devicePixelRatio||2);
   dpr=Math.min(dpr, maxSide/cssW, maxSide/cssH);
-  dpr=Math.max(2, dpr);
+  dpr=Math.max(1.5, dpr);
   canvas.style.width=cssW+"px";
   canvas.style.height=cssH+"px";
   canvas.width=Math.round(cssW*dpr);
@@ -3075,14 +3075,55 @@ function signatureFieldBoxes(form){
   }
   return out;
 }
+function loadSigImage(url){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error("Unterschrift konnte nicht geladen werden."));
+    img.src=url;
+  });
+}
+async function pngBytesForAdobePrint(url){
+  const img=await loadSigImage(url);
+  const srcW=Math.max(1, img.naturalWidth||img.width);
+  const srcH=Math.max(1, img.naturalHeight||img.height);
+  const maxSide=800;
+  const scale=Math.min(1, maxSide/Math.max(srcW,srcH));
+  const w=Math.max(1, Math.round(srcW*scale));
+  const h=Math.max(1, Math.round(srcH*scale));
+  const canvas=document.createElement("canvas");
+  canvas.width=w;
+  canvas.height=h;
+  const ctx=canvas.getContext("2d",{alpha:true});
+  ctx.clearRect(0,0,w,h);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(img,0,0,w,h);
+  const blob=await new Promise((resolve,reject)=>{
+    canvas.toBlob(b=>b?resolve(b):reject(new Error("Unterschrift PNG fehlgeschlagen.")),"image/png");
+  });
+  return blob.arrayBuffer();
+}
+function scrubPdfForAdobePrint(pdf){
+  try{
+    const Name=PDFLib.PDFName;
+    const cat=pdf.catalog;
+    ["AcroForm","Names","OpenAction","AA","NeedsRendering","PieceInfo","Perms"].forEach(k=>{
+      try{ cat.delete(Name.of(k)); }catch(e){}
+    });
+    pdf.getPages().forEach(page=>{
+      ["AA","Annots"].forEach(k=>{
+        try{ page.node.delete(Name.of(k)); }catch(e){}
+      });
+    });
+  }catch(e){}
+}
 async function embedSignatures(pdf, boxes){
   const page=pdf.getPages()[0];
   const rects=boxes||signatureFieldBoxes(null);
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
-    const png=await fetch(url).then(r=>r.arrayBuffer());
-    const img=await pdf.embedPng(png);
+    let img=await pdf.embedPng(await pngBytesForAdobePrint(url));
     const box=rects[id];
     const padX=3;
     const lineGap=Math.max(5, Math.round(box.height*0.1));
@@ -3420,7 +3461,8 @@ if(selectedPdfKind()==="new"){
   }, pdfFitFontBold);
 }
 await embedSignatures(pdf, sigBoxes);
-let out=await pdf.save();
+scrubPdfForAdobePrint(pdf);
+let out=await pdf.save({useObjectStreams:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
@@ -4200,7 +4242,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.74";
+  const APP_VERSION=window.SB_APP_VERSION||"2.76";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
