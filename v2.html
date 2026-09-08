@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.80">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.81">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.80</title>
+  <title>Servicebericht v2.81</title>
 <script>
-window.SB_APP_VERSION="2.80";
+window.SB_APP_VERSION="2.81";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -720,7 +720,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.80</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.81</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2096,6 +2096,11 @@ function fileDatePart(iso){
   const t=String(today).match(/^(\d{4})-(\d{2})-(\d{2})/);
   return t ? t[3]+"-"+t[2]+"-"+t[1] : today;
 }
+function pdfEmailLabel(){
+  const iso=$("date")?.value || isoDateLocal(new Date());
+  return "Servicebericht "+fileDatePart(iso);
+}
+window.pdfEmailLabel=pdfEmailLabel;
 function pdfFileName(){
   const iso=$("date")?.value || isoDateLocal(new Date());
   const initials=techInitials($("tech")?.value);
@@ -4313,7 +4318,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.80";
+  const APP_VERSION=window.SB_APP_VERSION||"2.81";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5632,12 +5637,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const copied=await copyEmailQuiet(email);
     const shareFile=await pdfFileForShare();
     if(!shareFile) return false;
-    const firma=typeof firmaName==="function"?firmaName():"";
-    const text="Servicebericht"+(firma?" "+firma:"")+(email?"\nAn: "+email:"");
+    const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     closePdfEmailSheet();
     try{
       if(navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
-        await navigator.share({files:[shareFile], title:shareFile.name, text});
+        await navigator.share({files:[shareFile], title:label, text:label});
         setStatus(email
           ? (copied ? "Mail öffnen – Empfänger liegt in der Zwischenablage." : "Mail öffnen und Empfänger eintragen: "+email)
           : "Mail öffnen und Empfänger eintragen.");
@@ -5648,8 +5652,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }
     if(email){
       location.href="mailto:"+encodeURIComponent(email)
-        +"?subject="+encodeURIComponent("Servicebericht"+(firma?" "+firma:""))
-        +"&body="+encodeURIComponent("Guten Tag,\n\nim Anhang der Servicebericht.\n\nDatei: "+shareFile.name+"\n");
+        +"?subject="+encodeURIComponent(label)
+        +"&body="+encodeURIComponent(label);
       setStatus("Mail geöffnet. PDF ist gespeichert – bitte als Anhang hinzufügen.");
       return true;
     }
