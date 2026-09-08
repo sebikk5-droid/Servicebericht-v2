@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.79">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.80">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.79</title>
+  <title>Servicebericht v2.80</title>
 <script>
-window.SB_APP_VERSION="2.79";
+window.SB_APP_VERSION="2.80";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -168,6 +168,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .email-copy-btn.is-copied{background:#14532d}
 .email-copy-btn.is-copied .email-copy-icon{display:none}
 .email-copy-btn.is-copied .email-copy-ok{display:block}
+.email-pdf-btn{
+  flex:0 0 auto;width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  background:#163a5c;color:#fff;
+}
+.email-pdf-btn svg{width:22px;height:22px;display:block}
+.email-pdf-btn:disabled{opacity:.4;background:#8a8a90}
 #pdfKindModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -186,6 +192,19 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .pdf-kind-num.is-on{background:#163a5c;border-color:#163a5c;color:#fff}
 #pdfKindCancel{width:100%}
+#pdfEmailModal{
+  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#pdfEmailModal.is-open{display:flex}
+#pdfEmailModal .token-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
+}
+#pdfEmailModal h3{margin:0 0 6px;font-size:18px}
+#pdfEmailModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#pdfEmailModal .email-actions button{flex:1}
 #status{font-size:13px;color:#555;margin:7px 2px}
 #status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
@@ -701,7 +720,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.79</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.80</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -919,7 +938,20 @@ select.is-nudge,input.is-nudge{
       <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
       <svg class="email-copy-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
+    <button type="button" class="email-pdf-btn" id="emailPdfBtn" disabled aria-label="PDF per E-Mail senden" title="PDF per E-Mail">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
     <div class="email-copy-list" id="emailCopyList"></div>
+  </div>
+</div>
+<div id="pdfEmailModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3>PDF per E-Mail</h3>
+    <p class="muted" id="pdfEmailHint">Das PDF an die Kunden-E-Mail senden.</p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="pdfEmailLater">Später</button>
+      <button type="button" class="go" id="pdfEmailSend">Senden</button>
+    </div>
   </div>
 </div>
 <div id="pdfKindModal" aria-hidden="true">
@@ -1442,7 +1474,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal","pdfEmailModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -1496,6 +1528,7 @@ function resetOpenForm(){
     if(b) b.classList.remove("has-value");
   });
   lastPdfBlob=null;
+  if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
   markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
   markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
@@ -4280,7 +4313,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.79";
+  const APP_VERSION=window.SB_APP_VERSION||"2.80";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5454,12 +5487,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     setMeta(name, true);
     try{ await idbPut(copy, name, true); }catch(e){}
     try{ await opfsFile(copy, name); }catch(e){}
+    if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
   window.restoreStashedPdf=async function(){
     const rec=await idbGet();
     if(!rec || !rec.blob) return false;
     lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
     setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false);
+    if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
     return true;
   };
   window.pdfShareFile=async function(){
@@ -5532,6 +5567,95 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const s=$("status");
     if(s) s.textContent=text;
   }
+  function customerPdfEmail(){
+    return String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
+  }
+  window.syncPdfEmailUi=function(){
+    const btn=$("emailPdfBtn");
+    if(btn) btn.disabled=!lastPdfBlob;
+  };
+  function closePdfEmailSheet(){
+    const modal=$("pdfEmailModal");
+    if(!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+  }
+  window.openPdfEmailSheet=function(){
+    if(!lastPdfBlob){
+      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      return;
+    }
+    const modal=$("pdfEmailModal");
+    const hint=$("pdfEmailHint");
+    const email=customerPdfEmail();
+    if(hint){
+      hint.textContent=email
+        ? "An "+email+" senden? Auf dem iPad in der Freigabe „Mail“ wählen – der Empfänger liegt in der Zwischenablage."
+        : "Keine Kunden-E-Mail. Mail trotzdem öffnen und den Empfänger selbst eintragen.";
+    }
+    if(!modal) return;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+  };
+  function offerPdfEmailAfterSave(){
+    window.syncPdfEmailUi();
+    setTimeout(function(){
+      window.openPdfEmailSheet();
+    }, 500);
+  }
+  async function pdfFileForShare(){
+    let shareFile=null;
+    if(typeof window.pdfShareFile==="function") shareFile=await window.pdfShareFile();
+    if(shareFile) return shareFile;
+    const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    if(!lastPdfBlob) return null;
+    return new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
+  }
+  async function copyEmailQuiet(email){
+    if(!email) return false;
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(email);
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+  window.sendPdfByEmail=async function(){
+    if(!lastPdfBlob && typeof window.restoreStashedPdf==="function")
+      await window.restoreStashedPdf();
+    if(!lastPdfBlob){
+      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      return false;
+    }
+    const email=customerPdfEmail();
+    const copied=await copyEmailQuiet(email);
+    const shareFile=await pdfFileForShare();
+    if(!shareFile) return false;
+    const firma=typeof firmaName==="function"?firmaName():"";
+    const text="Servicebericht"+(firma?" "+firma:"")+(email?"\nAn: "+email:"");
+    closePdfEmailSheet();
+    try{
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
+        await navigator.share({files:[shareFile], title:shareFile.name, text});
+        setStatus(email
+          ? (copied ? "Mail öffnen – Empfänger liegt in der Zwischenablage." : "Mail öffnen und Empfänger eintragen: "+email)
+          : "Mail öffnen und Empfänger eintragen.");
+        return true;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return false;
+    }
+    if(email){
+      location.href="mailto:"+encodeURIComponent(email)
+        +"?subject="+encodeURIComponent("Servicebericht"+(firma?" "+firma:""))
+        +"&body="+encodeURIComponent("Guten Tag,\n\nim Anhang der Servicebericht.\n\nDatei: "+shareFile.name+"\n");
+      setStatus("Mail geöffnet. PDF ist gespeichert – bitte als Anhang hinzufügen.");
+      return true;
+    }
+    setStatus("Kein E-Mail-Programm mit Anhang. PDF ist gespeichert.");
+    return false;
+  };
   window.deliverLastPdf=async function(){
     if(!lastPdfBlob && typeof window.restoreStashedPdf==="function")
       await window.restoreStashedPdf();
@@ -5549,6 +5673,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const offline=navigator.onLine===false;
       if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
       setStatus(typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet.");
+      offerPdfEmailAfterSave();
       return true;
     };
     try{
@@ -5575,6 +5700,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         await writable.close();
         if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(false);
         setStatus("PDF wurde gespeichert.");
+        offerPdfEmailAfterSave();
         return true;
       }
     }catch(e){
@@ -5597,6 +5723,17 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function keepSaveButton(btn){
     btn.dataset.shareReady="1";
     btn.textContent="PDF speichern";
+  }
+  function bindPdfEmailUi(){
+    $("emailPdfBtn")?.addEventListener("click",()=>{
+      window.openPdfEmailSheet();
+    });
+    $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
+    $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail(); });
+    $("pdfEmailModal")?.addEventListener("click",e=>{
+      if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
+    });
+    window.syncPdfEmailUi();
   }
   function installCombined(){
     const btn=document.getElementById("generate");
@@ -5648,9 +5785,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }, true);
   }
   if(document.readyState==="loading")
-    document.addEventListener("DOMContentLoaded",installCombined);
-  else
+    document.addEventListener("DOMContentLoaded",function(){ bindPdfEmailUi(); installCombined(); });
+  else{
+    bindPdfEmailUi();
     installCombined();
+  }
 })();
 </script>
 
