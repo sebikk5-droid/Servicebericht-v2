@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.76">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.77">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.76</title>
+  <title>Servicebericht v2.77</title>
 <script>
-window.SB_APP_VERSION="2.76";
+window.SB_APP_VERSION="2.77";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.76</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.77</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3103,17 +3103,48 @@ async function pngBytesForAdobePrint(url){
   });
   return blob.arrayBuffer();
 }
+function pdfNameStr(x){
+  if(!x) return "";
+  try{
+    if(typeof x.asString==="function") return x.asString();
+  }catch(e){}
+  return String(x);
+}
+function isPdfAnnotDict(obj){
+  if(!obj || typeof obj.get!=="function") return false;
+  const type=pdfNameStr(obj.get(PDFLib.PDFName.of("Type")));
+  const sub=pdfNameStr(obj.get(PDFLib.PDFName.of("Subtype")));
+  if(/Annot/i.test(type)) return true;
+  return /Widget|Link|Popup|Text|Highlight|Square|Circle|Line|Ink|Stamp|FileAttachment|Screen|Watermark|Redact|PrinterMark/i.test(sub);
+}
 function scrubPdfForAdobePrint(pdf){
   try{
     const Name=PDFLib.PDFName;
-    const cat=pdf.catalog;
-    ["AcroForm","Names","OpenAction","AA","NeedsRendering","PieceInfo","Perms"].forEach(k=>{
-      try{ cat.delete(Name.of(k)); }catch(e){}
-    });
+    const PDFArray=PDFLib.PDFArray;
     pdf.getPages().forEach(page=>{
-      ["AA","Annots"].forEach(k=>{
-        try{ page.node.delete(Name.of(k)); }catch(e){}
+      const annots=page.node.lookupMaybe(Name.of("Annots"), PDFArray);
+      if(annots && typeof annots.size==="function"){
+        for(let i=annots.size()-1;i>=0;i--){
+          try{
+            const ref=annots.get(i);
+            annots.remove(i);
+            if(ref) pdf.context.delete(ref);
+          }catch(e){}
+        }
+      }
+      page.node.set(Name.of("Annots"), pdf.context.obj([]));
+      try{ page.node.delete(Name.of("AA")); }catch(e){}
+    });
+    try{
+      pdf.context.enumerateIndirectObjects().forEach(function(pair){
+        const ref=pair[0], obj=pair[1];
+        if(isPdfAnnotDict(obj)){
+          try{ pdf.context.delete(ref); }catch(e){}
+        }
       });
+    }catch(e){}
+    ["AcroForm","Names","OpenAction","AA","NeedsRendering","PieceInfo","Perms"].forEach(k=>{
+      try{ pdf.catalog.delete(Name.of(k)); }catch(e){}
     });
   }catch(e){}
 }
@@ -4242,7 +4273,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.76";
+  const APP_VERSION=window.SB_APP_VERSION||"2.77";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
