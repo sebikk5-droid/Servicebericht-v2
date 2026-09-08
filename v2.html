@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.74">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.75">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.74</title>
+  <title>Servicebericht v2.75</title>
 <script>
-window.SB_APP_VERSION="2.74";
+window.SB_APP_VERSION="2.75";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.74</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.75</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5813,10 +5813,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return sameTypeLoose(a,b); }
   function manufacturerOptions(){
-    const featured=["DMG","DMG MORI","Mori Seiki"].filter(n=>
+    const featured=["DMG MORI","Mori Seiki"].filter(n=>
       catalog.some(c=>norm(c.name)===norm(n))
     );
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean)
+      .map(s=>{ const c=catalogEntry(s); return c?c.name:s; })
       .filter(s=>!featured.some(n=>norm(s)===norm(n))));
     const fromCat=catalog.map(c=>c.name).filter(n=>
       !mine.some(s=>sameBrand(s,n)) && !featured.some(s=>norm(s)===norm(n))

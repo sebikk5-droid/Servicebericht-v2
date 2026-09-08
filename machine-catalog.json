@@ -1,20 +1,8 @@
 {
   "manufacturers": [
     {
-      "name": "DMG",
-      "match": ["dmg", "gildemeister", "deckel maho", "deckel"],
-      "types": [
-        "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
-        "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
-        "DMC 635 V", "DMC 1035 V", "DMC 1150 V", "DMC 80 U", "DMC 125 U", "DMC 160 U",
-        "CMX 50 U", "CMX 70 U", "CMX 1100 V", "CMX V",
-        "CTX 310", "CTX 450", "CTX 650", "CTX beta", "CTX gamma",
-        "CLX 350", "CLX 450", "CLX 550"
-      ]
-    },
-    {
       "name": "DMG MORI",
-      "match": ["dmg mori"],
+      "match": ["dmg mori", "dmg", "gildemeister", "deckel maho", "deckel"],
       "types": [
         "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
         "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
