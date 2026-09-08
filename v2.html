@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.82">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.83">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.82</title>
+  <title>Servicebericht v2.83</title>
 <script>
-window.SB_APP_VERSION="2.82";
+window.SB_APP_VERSION="2.83";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -720,7 +720,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.82</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.83</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2050,7 +2050,6 @@ function companyRecordFromForm(route){
   const street=String($("street")?.value||"").trim();
   const city=String($("city")?.value||"").trim();
   const adres=[street, city].filter(Boolean).join(", ");
-  const email=String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
   let km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
   const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
   const clock=rtTxt.match(/^(\d+):(\d+)$/);
@@ -2059,7 +2058,7 @@ function companyRecordFromForm(route){
     if(route.km!=null) km=Number(route.km)||0;
     if(route.minutes!=null) minutes=Number(route.minutes)||0;
   }
-  return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
+  return {firma, tel:"", email:"", adres, notatki:formatRouteNote(km, minutes)};
 }
 window.applyCompanies=applyCompanies;
 window.mergeCompanyRecord=mergeCompanyRecord;
@@ -4318,7 +4317,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.82";
+  const APP_VERSION=window.SB_APP_VERSION||"2.83";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4898,6 +4897,15 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function customerKey(){
     return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
   }
+  function listedCustomerKey(){
+    const c=typeof selectedCompany==="function"?selectedCompany():null;
+    if(c) return String(c.firma||c.name||"").trim().toLowerCase();
+    const typed=String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim();
+    if(!typed || typeof companyRecordByName!=="function") return "";
+    const rec=companyRecordByName(typed);
+    if(!rec) return "";
+    return String(rec.firma||rec.name||typed).trim().toLowerCase();
+  }
   function splitEmails(s){
     return String(s||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
   }
@@ -4981,7 +4989,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   async function pushEmails(message, email, remove){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
-    const k=customerKey();
+    const k=listedCustomerKey();
     const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
       const merged=mergeEmailMaps(window.sbLists.asMap(remote), local||{});
       if(remove && email && k && Array.isArray(merged[k])){
@@ -5045,7 +5053,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     addLock=new Promise(r=>{ unlock=r; });
     await prev;
     try{
-    const k=customerKey();
+    const k=listedCustomerKey();
     const e=String(email||"").trim();
     if(!k || !validEmail(e)) return false;
     await pullEmails();
@@ -5073,7 +5081,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     addLock=new Promise(r=>{ unlock=r; });
     await prev;
     try{
-    const k=customerKey();
+    const k=listedCustomerKey();
     const e=String(email||"").trim();
     if(!k || !validEmail(e)) return false;
     await pullEmails();
@@ -5183,7 +5191,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const btn=$("emailSave");
     if(!btn) return;
     const e=currentEmail();
-    const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
+    const show=!!listedCustomerKey() && validEmail(e) && !emailAlreadySaved(e);
     btn.hidden=!show;
     btn.classList.toggle("is-pulse", show);
   }
@@ -5236,7 +5244,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const clearBtn=$("customerEmailClear");
     if(!input||!results||input.dataset.comboBound==="1") return;
     input.dataset.comboBound="1";
-    let skipEmailPersist=false;
     function close(){
       results.style.display="none";
       results.innerHTML="";
@@ -5293,11 +5300,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       setEmail(input.value);
       show();
     });
-    input.addEventListener("change",()=>{ persistEmailField(); });
-    input.addEventListener("blur",()=>{
-      if(skipEmailPersist){ skipEmailPersist=false; return; }
-      persistEmailField();
-    });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -5320,27 +5322,23 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const e=currentEmail();
       if(!await addEmail(e, {showOk:true})){
         const s=$("status");
-        if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
+        if(s) s.textContent=listedCustomerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden aus der Liste wählen.";
       }else{
         setEmail(e);
       }
     });
-    $("emailDelete")?.addEventListener("pointerdown",()=>{ skipEmailPersist=true; });
     $("emailDelete")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const s=$("status");
-      if(!customerKey()){
-        skipEmailPersist=false;
-        if(s) s.textContent="Zuerst den Kunden wählen.";
+      if(!listedCustomerKey()){
+        if(s) s.textContent="Zuerst den Kunden aus der Liste wählen.";
         return;
       }
       if(!validEmail(e)){
-        skipEmailPersist=false;
         if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
         return;
       }
       if(!confirm("Diese E-Mail beim Kunden löschen?")){
-        skipEmailPersist=false;
         return;
       }
       if(!await deleteEmail(e)){
@@ -5390,11 +5388,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       });
     }
     syncEmailCopyRow();
-  }
-  async function persistEmailField(){
-    const e=currentEmail();
-    if(!customerKey() || !validEmail(e)) return;
-    await addEmail(e);
   }
   window.refreshCustomerEmails=async function(mode, opts){
     if(opts && opts.cloud) await pullEmails();
