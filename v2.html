@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.75">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.76">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.75</title>
+  <title>Servicebericht v2.76</title>
 <script>
-window.SB_APP_VERSION="2.75";
+window.SB_APP_VERSION="2.76";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -701,7 +701,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.75</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.76</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3075,14 +3075,43 @@ function signatureFieldBoxes(form){
   }
   return out;
 }
+function loadSigImage(url){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error("Unterschrift konnte nicht geladen werden."));
+    img.src=url;
+  });
+}
+async function jpegBytesForAdobePrint(url){
+  const img=await loadSigImage(url);
+  const w=Math.max(1, img.naturalWidth||img.width);
+  const h=Math.max(1, img.naturalHeight||img.height);
+  const canvas=document.createElement("canvas");
+  canvas.width=w;
+  canvas.height=h;
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.fillStyle="#ffffff";
+  ctx.fillRect(0,0,w,h);
+  ctx.drawImage(img,0,0,w,h);
+  const blob=await new Promise((resolve,reject)=>{
+    canvas.toBlob(b=>b?resolve(b):reject(new Error("Unterschrift JPEG fehlgeschlagen.")),"image/jpeg",0.92);
+  });
+  return blob.arrayBuffer();
+}
 async function embedSignatures(pdf, boxes){
   const page=pdf.getPages()[0];
   const rects=boxes||signatureFieldBoxes(null);
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
-    const png=await fetch(url).then(r=>r.arrayBuffer());
-    const img=await pdf.embedPng(png);
+    let img;
+    try{
+      img=await pdf.embedJpg(await jpegBytesForAdobePrint(url));
+    }catch(e){
+      const png=await fetch(url).then(r=>r.arrayBuffer());
+      img=await pdf.embedPng(png);
+    }
     const box=rects[id];
     const padX=3;
     const lineGap=Math.max(5, Math.round(box.height*0.1));
@@ -3420,7 +3449,7 @@ if(selectedPdfKind()==="new"){
   }, pdfFitFontBold);
 }
 await embedSignatures(pdf, sigBoxes);
-let out=await pdf.save();
+let out=await pdf.save({useObjectStreams:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
@@ -4200,7 +4229,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.74";
+  const APP_VERSION=window.SB_APP_VERSION||"2.76";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
