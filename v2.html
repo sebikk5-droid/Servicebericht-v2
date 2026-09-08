@@ -3085,19 +3085,38 @@ function loadSigImage(url){
 }
 async function jpegBytesForAdobePrint(url){
   const img=await loadSigImage(url);
-  const w=Math.max(1, img.naturalWidth||img.width);
-  const h=Math.max(1, img.naturalHeight||img.height);
+  const srcW=Math.max(1, img.naturalWidth||img.width);
+  const srcH=Math.max(1, img.naturalHeight||img.height);
+  const maxSide=1200;
+  const scale=Math.min(1, maxSide/Math.max(srcW,srcH));
+  const w=Math.max(1, Math.round(srcW*scale));
+  const h=Math.max(1, Math.round(srcH*scale));
   const canvas=document.createElement("canvas");
   canvas.width=w;
   canvas.height=h;
   const ctx=canvas.getContext("2d",{alpha:false});
   ctx.fillStyle="#ffffff";
   ctx.fillRect(0,0,w,h);
+  ctx.imageSmoothingEnabled=true;
   ctx.drawImage(img,0,0,w,h);
   const blob=await new Promise((resolve,reject)=>{
-    canvas.toBlob(b=>b?resolve(b):reject(new Error("Unterschrift JPEG fehlgeschlagen.")),"image/jpeg",0.92);
+    canvas.toBlob(b=>b?resolve(b):reject(new Error("Unterschrift JPEG fehlgeschlagen.")),"image/jpeg",0.88);
   });
   return blob.arrayBuffer();
+}
+function scrubPdfForAdobePrint(pdf){
+  try{
+    const Name=PDFLib.PDFName;
+    const cat=pdf.catalog;
+    ["AcroForm","Names","OpenAction","AA","NeedsRendering","PieceInfo","Perms"].forEach(k=>{
+      try{ cat.delete(Name.of(k)); }catch(e){}
+    });
+    pdf.getPages().forEach(page=>{
+      ["AA","Annots"].forEach(k=>{
+        try{ page.node.delete(Name.of(k)); }catch(e){}
+      });
+    });
+  }catch(e){}
 }
 async function embedSignatures(pdf, boxes){
   const page=pdf.getPages()[0];
@@ -3105,13 +3124,7 @@ async function embedSignatures(pdf, boxes){
   for(const id of ["sigTech","sigKunde"]){
     const url=signatureStore[id];
     if(!url) continue;
-    let img;
-    try{
-      img=await pdf.embedJpg(await jpegBytesForAdobePrint(url));
-    }catch(e){
-      const png=await fetch(url).then(r=>r.arrayBuffer());
-      img=await pdf.embedPng(png);
-    }
+    let img=await pdf.embedJpg(await jpegBytesForAdobePrint(url));
     const box=rects[id];
     const padX=3;
     const lineGap=Math.max(5, Math.round(box.height*0.1));
@@ -3449,6 +3462,7 @@ if(selectedPdfKind()==="new"){
   }, pdfFitFontBold);
 }
 await embedSignatures(pdf, sigBoxes);
+scrubPdfForAdobePrint(pdf);
 let out=await pdf.save({useObjectStreams:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 if(typeof window.stashGeneratedPdf==="function"){
