@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.81">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.82">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.81</title>
+  <title>Servicebericht v2.82</title>
 <script>
-window.SB_APP_VERSION="2.81";
+window.SB_APP_VERSION="2.82";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -720,7 +720,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.81</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.82</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4318,7 +4318,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.81";
+  const APP_VERSION=window.SB_APP_VERSION||"2.82";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5638,10 +5638,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const shareFile=await pdfFileForShare();
     if(!shareFile) return false;
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
+    const emailName=String(label).replace(/[\\/:*?"<>|]+/g," ").trim()+".pdf";
+    const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
     closePdfEmailSheet();
     try{
-      if(navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
-        await navigator.share({files:[shareFile], title:label, text:label});
+      const shareData={files:[emailFile], title:label, text:label};
+      if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
+        await navigator.share(shareData);
         setStatus(email
           ? (copied ? "Mail öffnen – Empfänger liegt in der Zwischenablage." : "Mail öffnen und Empfänger eintragen: "+email)
           : "Mail öffnen und Empfänger eintragen.");
