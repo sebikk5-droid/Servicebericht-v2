@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.82">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.83">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.82</title>
+  <title>Servicebericht v2.83</title>
 <script>
-window.SB_APP_VERSION="2.82";
+window.SB_APP_VERSION="2.83";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -720,7 +720,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.82</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.83</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4318,7 +4318,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.82";
+  const APP_VERSION=window.SB_APP_VERSION||"2.83";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6123,6 +6123,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       loadedSaved=null;
       clearBelow(["manufacturer"]);
       offerCombo("type", "typeBox", preferredTypeOptions());
+    }else if(loadedSaved && !sameBrand($("manufacturer")?.value||"", loadedSaved.manufacturer)){
+      loadedSaved=null;
+      offerCombo("type", "typeBox", preferredTypeOptions());
     }else{
       offerCombo("type", "typeBox", preferredTypeOptions());
     }
@@ -6138,6 +6141,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }else if(!hasNr){
       loadedSaved=null;
       clearBelow(["manufacturer","type"]);
+      offerCombo("machineNo", "machineNoBox", preferredNrOptions());
+    }else if(loadedSaved && !sameType($("type")?.value||"", loadedSaved.type)){
+      loadedSaved=null;
       offerCombo("machineNo", "machineNoBox", preferredNrOptions());
     }else{
       offerCombo("machineNo", "machineNoBox", preferredNrOptions());
@@ -6451,8 +6457,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       kept.forEach(m=>list.push(m));
     }else{
       let idx=findBySerial(list, rec);
-      if(idx<0 && oldRec) idx=findBySerial(list, oldRec);
-      if(idx<0 && oldRec) idx=list.findIndex(m=>sameMachine(m, oldRec));
+      if(mode==="overwrite"){
+        if(idx<0 && oldRec) idx=findBySerial(list, oldRec);
+        if(idx<0 && oldRec) idx=list.findIndex(m=>sameMachine(m, oldRec));
+      }
       wasNew=idx<0;
       if(idx>=0){
         prev=cleanRec(list[idx]);
@@ -6526,13 +6534,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         return;
       }
     }
-    const existing=listForCustomer().find(m=>sameNr(m.machineNo, rec.machineNo))
-      || (loadedSaved && listForCustomer().find(m=>sameNr(m.machineNo, loadedSaved.machineNo)))
-      || (loadedSaved && listForCustomer().find(m=>sameMachine(m, loadedSaved)))
-      || null;
-    const oldRec=mode==="overwrite" && loadedSaved
-      ? cleanRec(loadedSaved)
-      : (existing && !sameMachine(existing, rec) ? cleanRec(existing) : null);
+    const oldRec=mode==="overwrite" && loadedSaved ? cleanRec(loadedSaved) : null;
     const written=writeCustomerMachine(k, rec, mode, oldRec);
     if(!written.ok){
       if(written.reason==="no-nr"){
@@ -6684,8 +6686,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     });
     $("machineNo")?.addEventListener("input",()=>{
       if(norm($("machineNo")?.value||"")) hideMachineSaveHint();
-      if(!loadedSaved || !sameNr($("machineNo")?.value||"", loadedSaved.machineNo))
+      if(!loadedSaved || !sameNr($("machineNo")?.value||"", loadedSaved.machineNo)){
+        loadedSaved=null;
         pulseMachineCheckHint(false);
+      }
     });
     $("control")?.addEventListener("change",()=>syncMachineSaveUi());
     syncComboClears();
