@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.88">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.87</title>
+  <title>Servicebericht v2.88</title>
 <script>
-window.SB_APP_VERSION="2.87";
+window.SB_APP_VERSION="2.88";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -137,6 +137,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
 #historySaveBottom{flex:1.15 1 0;background:#163a5c;color:#fff}
 #generate{flex:1.2 1 0}
+#generate[data-share-ready="1"]{background:#15803d}
 #historyActionOkBottom{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
   width:28px;height:28px;border-radius:50%;color:#fff;
@@ -745,7 +746,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.87</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.88</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1638,6 +1639,7 @@ function resetOpenForm(){
     if(b) b.classList.remove("has-value");
   });
   lastPdfBlob=null;
+  window._readyShareFile=null;
   if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
   markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
@@ -4432,7 +4434,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.87";
+  const APP_VERSION=window.SB_APP_VERSION||"2.88";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5603,30 +5605,48 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const copy=await copyBlob(blob);
     lastPdfBlob=copy;
     const name=filename||"Servicebericht.pdf";
+    window._readyShareFile=new File([copy], name,{type:"application/pdf", lastModified:Date.now()});
     setMeta(name, true);
     try{ await idbPut(copy, name, true); }catch(e){}
-    try{ await opfsFile(copy, name); }catch(e){}
+    try{
+      const fromDisk=await opfsFile(copy, name);
+      if(fromDisk) window._readyShareFile=fromDisk;
+    }catch(e){}
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
   window.restoreStashedPdf=async function(){
     const rec=await idbGet();
     if(!rec || !rec.blob) return false;
     lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
-    setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false);
+    const name=rec.filename||"Servicebericht.pdf";
+    window._readyShareFile=new File([lastPdfBlob], name,{type:"application/pdf", lastModified:Date.now()});
+    setMeta(name, rec.pending!==false);
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
     return true;
   };
-  window.pdfShareFile=async function(){
-    if(!lastPdfBlob) await window.restoreStashedPdf();
+  window.pdfFileNow=function(){
+    if(window._readyShareFile instanceof File && lastPdfBlob) return window._readyShareFile;
     if(!lastPdfBlob) return null;
     const meta=getMeta();
     const filename=(typeof window.pdfFileName==="function")
       ? window.pdfFileName()
       : (meta && meta.filename) || "Servicebericht.pdf";
-    const copy=await copyBlob(lastPdfBlob);
-    const fromDisk=await opfsFile(copy, filename);
-    if(fromDisk) return fromDisk;
-    return new File([copy], filename,{type:"application/pdf", lastModified:Date.now()});
+    try{
+      return new File([lastPdfBlob], filename,{type:"application/pdf", lastModified:Date.now()});
+    }catch(e){
+      return null;
+    }
+  };
+  window.pdfShareFile=async function(){
+    if(!lastPdfBlob) await window.restoreStashedPdf();
+    const ready=window.pdfFileNow();
+    if(ready) return ready;
+    if(!lastPdfBlob) return null;
+    const meta=getMeta();
+    const filename=(typeof window.pdfFileName==="function")
+      ? window.pdfFileName()
+      : (meta && meta.filename) || "Servicebericht.pdf";
+    return new File([lastPdfBlob], filename,{type:"application/pdf", lastModified:Date.now()});
   };
   window.markPdfSharePending=function(pending){
     const meta=getMeta()||{};
@@ -5723,6 +5743,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     }, 500);
   }
   async function pdfFileForShare(){
+    if(typeof window.pdfFileNow==="function"){
+      const now=window.pdfFileNow();
+      if(now) return now;
+    }
     let shareFile=null;
     if(typeof window.pdfShareFile==="function") shareFile=await window.pdfShareFile();
     if(shareFile) return shareFile;
@@ -5748,9 +5772,11 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       return false;
     }
     const email=customerPdfEmail();
-    const copied=await copyEmailQuiet(email);
-    const shareFile=await pdfFileForShare();
-    if(!shareFile) return false;
+    const shareFile=typeof window.pdfFileNow==="function" ? window.pdfFileNow() : null;
+    if(!shareFile){
+      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      return false;
+    }
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=String(label).replace(/[\\/:*?"<>|]+/g," ").trim()+".pdf";
     const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
@@ -5758,7 +5784,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     try{
       const shareData={files:[emailFile], title:label, text:label};
       if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
-        await navigator.share(shareData);
+        const shareP=navigator.share(shareData);
+        const copiedP=copyEmailQuiet(email);
+        await shareP;
+        const copied=await copiedP;
         setStatus(email
           ? (copied ? "Mail öffnen – Empfänger liegt in der Zwischenablage." : "Mail öffnen und Empfänger eintragen: "+email)
           : "Mail öffnen und Empfänger eintragen.");
@@ -5784,12 +5813,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
       return false;
     }
-    let shareFile=null;
-    if(typeof window.pdfShareFile==="function") shareFile=await window.pdfShareFile();
-    if(!shareFile){
-      const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
-      shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
-    }
+    const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+    const shareFile=(typeof window.pdfFileNow==="function" && window.pdfFileNow())
+      || new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
     const afterShare=function(){
       const offline=navigator.onLine===false;
       if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
@@ -5804,8 +5830,6 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
     }catch(e){
       if(e && e.name==="AbortError") return false;
-      if(isIosPdfDevice() && e && (e.name==="NotAllowedError" || e.name==="InvalidStateError"))
-        return false;
     }
     try{
       if(window.showSaveFilePicker && !isIosPdfDevice()){
@@ -5893,11 +5917,13 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           return;
         }
         if(!lastPdfBlob) return;
-        const ok=await window.deliverLastPdf();
-        if(!ok && isIosPdfDevice()){
+        if(isIosPdfDevice()){
           keepSaveButton(btn);
-          setStatus("PDF fertig. Noch einmal „PDF speichern“ tippen.");
-        }else if(ok){
+          setStatus("PDF fertig. Jetzt „PDF speichern“ tippen.");
+          return;
+        }
+        const ok=await window.deliverLastPdf();
+        if(ok){
           btn.dataset.shareReady="";
           btn.textContent=defaultGenerateLabel;
         }
@@ -7115,6 +7141,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 </script>
 
 <script src="vendor/pdf-lib.min.js" id="pdfLibScript" async></script>
+<script>
+["Leer.pdf","vendor/pdf-lib.min.js"].forEach(function(u){ fetch(u).catch(function(){}); });
+</script>
 
 </body>
 </html>
