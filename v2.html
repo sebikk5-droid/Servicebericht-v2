@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.85">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.86">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.85</title>
+  <title>Servicebericht v2.86</title>
 <script>
-window.SB_APP_VERSION="2.85";
+window.SB_APP_VERSION="2.86";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -131,14 +131,16 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
+.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
-.bottom-history{display:flex;align-items:center;gap:8px;order:3}
-#historySaveBottom{flex:1 1 auto;background:#163a5c;color:#fff;min-width:0}
+.bottom-actions{display:flex;align-items:center;gap:6px;order:1}
+.bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
+#historySaveBottom{flex:1.15 1 0;background:#163a5c;color:#fff}
+#generate{flex:1.2 1 0}
 #historyActionOkBottom{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
-  width:44px;height:44px;border-radius:50%;color:#fff;
-  font-size:18px;font-weight:800;line-height:1;
+  width:28px;height:28px;border-radius:50%;color:#fff;
+  font-size:14px;font-weight:800;line-height:1;
 }
 #historyActionOkBottom.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
 #historyActionOkBottom.is-ok{background:#16a34a}
@@ -146,17 +148,15 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 @media (prefers-reduced-motion:reduce){
   #historyActionOkBottom.is-on{animation:none}
 }
-.bottom-actions{display:flex;gap:8px;order:1}
-.bottom-actions button{flex:1 1 0;min-width:0}
-.email-copy-row{display:flex;align-items:center;gap:8px;order:2;position:relative}
+.email-copy-row{display:flex;align-items:center;gap:6px;order:2;position:relative}
 .email-copy-val{
   flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:14px;font-weight:600;line-height:1.3;padding:10px 12px;border-radius:11px;background:#e8e8ed;color:#111;
+  font-size:13px;font-weight:600;line-height:1.3;padding:6px 10px;border-radius:10px;background:#e8e8ed;color:#111;
 }
 .email-copy-val.is-empty{color:#888;font-weight:500}
 .email-copy-val.has-mail{cursor:pointer}
 .email-copy-more{
-  display:none;flex:0 0 auto;width:40px;min-width:40px;height:44px;padding:0;
+  display:none;flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;
   align-items:center;justify-content:center;background:#e5e5ea;color:#111;
 }
 .email-copy-row.has-more .email-copy-more{display:inline-flex}
@@ -172,20 +172,20 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   flex:none;width:100%;text-align:left;border-radius:0;min-height:44px;padding:10px 12px;
 }
 .email-copy-btn{
-  flex:0 0 auto;width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
 }
-.email-copy-btn svg{width:22px;height:22px;display:block}
+.email-copy-btn svg{width:20px;height:20px;display:block}
 .email-copy-btn .email-copy-ok{display:none}
 .email-copy-btn:disabled{opacity:.4;background:#8a8a90}
 .email-copy-btn.is-copied{background:#14532d}
 .email-copy-btn.is-copied .email-copy-icon{display:none}
 .email-copy-btn.is-copied .email-copy-ok{display:block}
 .email-pdf-btn{
-  flex:0 0 auto;width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
 }
-.email-pdf-btn svg{width:22px;height:22px;display:block}
+.email-pdf-btn svg{width:20px;height:20px;display:block}
 .email-pdf-btn:disabled{opacity:.4;background:#8a8a90}
 #pdfKindModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
@@ -741,7 +741,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.85</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.86</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -948,6 +948,8 @@ select.is-nudge,input.is-nudge{
 <div class="bottom">
   <div class="bottom-actions">
     <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
+    <button type="button" id="historySaveBottom">Historie speichern</button>
+    <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
     <button class="go" id="generate">PDF erstellen & speichern</button>
   </div>
   <div class="email-copy-row" id="emailCopyRow">
@@ -963,10 +965,6 @@ select.is-nudge,input.is-nudge{
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="email-copy-list" id="emailCopyList"></div>
-  </div>
-  <div class="bottom-history">
-    <button type="button" id="historySaveBottom">Historie speichern</button>
-    <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
   </div>
 </div>
 <div id="pdfEmailModal" aria-hidden="true">
@@ -4384,7 +4382,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.85";
+  const APP_VERSION=window.SB_APP_VERSION||"2.86";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
