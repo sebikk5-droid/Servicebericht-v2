@@ -2,7 +2,7 @@
   "manufacturers": [
     {
       "name": "DMG MORI",
-      "match": ["dmg mori", "dmg", "gildemeister", "deckel maho", "deckel"],
+      "match": ["dmg mori", "dmg", "deckel maho", "deckel"],
       "types": [
         "DMU 50", "DMU 60", "DMU 70", "DMU 80", "DMU 100", "DMU 125", "DMU 210",
         "DMU 50 eVo", "DMU 65 monoBLOCK", "DMU 75 monoBLOCK", "DMU 80 P", "DMU 95",
@@ -14,6 +14,19 @@
         "NHX 4000", "NHX 5000", "NHX 5500", "NHX 6300",
         "NTX 1000", "NTX 2000", "NTX 2500",
         "MILLTAP 700", "NVX 5080", "NVX 5100"
+      ]
+    },
+    {
+      "name": "Gildemeister",
+      "match": ["gildemeister"],
+      "types": [
+        "CTX 310", "CTX 400", "CTX 450", "CTX 510", "CTX 620", "CTX 650",
+        "CTX beta", "CTX gamma",
+        "CTV 160", "CTV 250", "CTV 400",
+        "NEF 400", "NEF 600",
+        "Sprint 20", "Sprint 32", "Sprint 65",
+        "Twin 32", "Twin 42", "Twin 65",
+        "GMC 20", "GMC 35"
       ]
     },
     {

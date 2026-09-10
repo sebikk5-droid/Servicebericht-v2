@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.88">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.89">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.88</title>
+  <title>Servicebericht v2.89</title>
 <script>
-window.SB_APP_VERSION="2.88";
+window.SB_APP_VERSION="2.89";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -746,7 +746,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.88</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.89</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -823,7 +823,7 @@ select.is-nudge,input.is-nudge{
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
   <div class="combo-field">
-    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG, DMG MORI, Mori Seiki">
+    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG, DMG MORI, Mori Seiki, Gildemeister">
     <button type="button" class="combo-clear" id="manufacturerClear" aria-label="Hersteller löschen">×</button>
   </div>
   <div id="manufacturerResults" class="combo-results"></div>
@@ -4582,7 +4582,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.88";
+  const APP_VERSION=window.SB_APP_VERSION||"2.89";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6303,7 +6303,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   }
   function sameType(a,b){ return sameTypeLoose(a,b); }
   function manufacturerOptions(){
-    const featured=["DMG MORI","Mori Seiki"].filter(n=>
+    const featured=["DMG MORI","Mori Seiki","Gildemeister"].filter(n=>
       catalog.some(c=>norm(c.name)===norm(n))
     );
     const mine=naturalSort(listForCustomer().map(m=>m.manufacturer).filter(Boolean)
