@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.88">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.87</title>
+  <title>Servicebericht v2.88</title>
 <script>
-window.SB_APP_VERSION="2.87";
+window.SB_APP_VERSION="2.88";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -397,15 +397,16 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sectiontitle-row{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
 }
-.rueckfahrt-tools{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
-.btn-rueckfahrt-zero,.btn-rueckfahrt-refresh{
+.rueckfahrt-tools,.anfahrt-tools{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.btn-rueckfahrt-zero,.btn-rueckfahrt-refresh,.btn-anfahrt-zero,.btn-anfahrt-refresh{
   flex:0 0 auto;margin:0;width:32px;min-width:32px;height:32px;padding:0;
   border-radius:8px;font-size:18px;font-weight:800;line-height:1;
 }
-.btn-rueckfahrt-zero{background:#e5e5ea;color:#111}
-.btn-rueckfahrt-refresh{background:#163a5c;color:#fff}
-.btn-rueckfahrt-refresh svg{width:18px;height:18px;display:block;margin:0 auto}
-.daybox[data-rueckfahrt-off="1"] .btn-rueckfahrt-zero{background:#dc2626;color:#fff}
+.btn-rueckfahrt-zero,.btn-anfahrt-zero{background:#e5e5ea;color:#111}
+.btn-rueckfahrt-refresh,.btn-anfahrt-refresh{background:#163a5c;color:#fff}
+.btn-rueckfahrt-refresh svg,.btn-anfahrt-refresh svg{width:18px;height:18px;display:block;margin:0 auto}
+.daybox[data-rueckfahrt-off="1"] .btn-rueckfahrt-zero,
+.daybox[data-anfahrt-off="1"] .btn-anfahrt-zero{background:#dc2626;color:#fff}
 .daybox .day-actions button{background:#fff}
 .daybox .day-actions .day-collapse{background:#163a5c;color:#fff}
 .daybox .day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
@@ -745,7 +746,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.87</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.88</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1202,6 +1203,32 @@ function setClock(el,t){
 function rueckfahrtOff(box){
   return !!(box && box.getAttribute("data-rueckfahrt-off")==="1");
 }
+function anfahrtOff(box){
+  return !!(box && box.getAttribute("data-anfahrt-off")==="1");
+}
+function updateRouteInfo(d){
+  const box=dayBoxEl(d);
+  const info=box?.querySelector(`#routeInfo${d}`);
+  if(!info) return;
+  const skipOut=anfahrtOff(box);
+  const skipBack=rueckfahrtOff(box);
+  if(skipOut && skipBack){
+    info.textContent="Anfahrt und Rückfahrt auf 0. Arbeitszeit bleibt.";
+    return;
+  }
+  if(skipOut){
+    info.textContent="Anfahrt auf 0. Rückfahrt und Arbeitszeit bleiben.";
+    return;
+  }
+  if(skipBack){
+    info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
+    return;
+  }
+  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
+  const pauseR=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+  const pauseShown=pauseR?pauseMinutes(pauseR.value||"0"):0;
+  info.textContent=`Kunde: ${r.km||0} km / ${fmtMin(r.minutes)} Reisezeit eine Strecke. Rückfahrt: ${fmtMin(r.minutes)} + ${pauseShown} Min Pause.`;
+}
 function clearRueckfahrtKeepRest(d){
   const box=dayBoxEl(d);
   if(!box) return;
@@ -1233,8 +1260,7 @@ function clearRueckfahrtKeepRest(d){
     ov.classList.remove("km-check");
   }
   box.setAttribute("data-rueckfahrt-off","1");
-  const info=box.querySelector(`#routeInfo${d}`);
-  if(info) info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
 }
@@ -1266,11 +1292,85 @@ function refillRueckfahrtAuto(d){
     else if(kmOut && String(kmOut.value).trim()!=="") km.value=kmOut.value;
   }
   syncWorkEndToReturnStart(d);
-  const info=box.querySelector(`#routeInfo${d}`);
-  if(info){
-    const pauseShown=pause?pauseMinutes(pause.value||"0"):0;
-    info.textContent=`Kunde: ${r.km||0} km / ${fmtMin(r.minutes)} Reisezeit eine Strecke. Rückfahrt: ${fmtMin(r.minutes)} + ${pauseShown} Min Pause.`;
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+  if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+  if(typeof recalcTimes==="function") recalcTimes();
+}
+function restoreAnfahrtAuto(box){
+  if(!box) return;
+  box.removeAttribute("data-anfahrt-off");
+}
+function clearAnfahrtKeepRest(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  const outRow=d*2-1;
+  const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
+  const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
+  const pause=box.querySelector(`[data-k="PauseRZ${outRow}"]`);
+  const km=box.querySelector(`[data-k="Kilometer${outRow}"]`);
+  const ov=box.querySelector('[data-route-override="out"]');
+  [a1,a2].forEach(el=>{
+    if(!el) return;
+    setClock(el,"");
+    el.dataset.manual="0";
+    el.removeAttribute("data-manual");
+  });
+  if(pause){
+    pause.value="0";
+    pause.dataset.pauseManual="1";
+    pause.dataset.syncing="";
   }
+  if(km){
+    km.value="";
+    km.classList.remove("km-check");
+  }
+  if(ov){
+    ov.value="";
+    ov.dataset.manual="0";
+    ov.removeAttribute("data-manual");
+    ov.classList.remove("km-check");
+  }
+  box.setAttribute("data-anfahrt-off","1");
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+  if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+  if(typeof recalcTimes==="function") recalcTimes();
+}
+function refillAnfahrtAuto(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  restoreAnfahrtAuto(box);
+  const pause=box.querySelector(`[data-k="PauseRZ${d*2-1}"]`);
+  if(pause){
+    pause.dataset.pauseManual="0";
+    pause.removeAttribute("data-pause-manual");
+  }
+  const ov=box.querySelector('[data-route-override="out"]');
+  if(ov){
+    ov.value="";
+    ov.dataset.manual="0";
+    ov.removeAttribute("data-manual");
+  }
+  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
+  const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+  const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+  if(km){
+    if(r.km) km.value=r.km;
+    else if(kmBack && String(kmBack.value).trim()!=="") km.value=kmBack.value;
+  }
+  const a1=box.querySelector(`[data-k="RZstart${d*2-1}"]`);
+  const a2=box.querySelector(`[data-k="RZende${d*2-1}"]`);
+  const az=box.querySelector(`[data-k="AZstart${d*2-1}"]`);
+  const span=anfahrtClockSpan(d);
+  if(az && az.value){
+    setClock(a2, az.value);
+    if(span) setClock(a1, addMinutesToTime(az.value,-span));
+    else if(a1) setClock(a1, az.value);
+  }else if(a2 && a2.value && span){
+    setClock(a1, addMinutesToTime(a2.value,-span));
+  }else if(a1 && a1.value && span){
+    setClock(a2, addMinutesToTime(a1.value,span));
+  }
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
 }
@@ -1288,7 +1388,7 @@ function syncReturnArrivalFromDeparture(d){
 }
 function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
-  if(!box) return;
+  if(!box || anfahrtOff(box)) return;
   const outRow=d*2-1;
   const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
   const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
@@ -1477,7 +1577,15 @@ function dayTemplate(d){
     </div>
     <div class="day-content" data-day-content="${d}">
 
-    <div class="sectiontitle">Anfahrt</div>
+    <div class="sectiontitle sectiontitle-row">
+      <span>Anfahrt</span>
+      <div class="anfahrt-tools">
+        <button type="button" class="btn-anfahrt-zero" data-anfahrt-zero="${d}" aria-label="Anfahrt auf 0" title="Auf 0">×</button>
+        <button type="button" class="btn-anfahrt-refresh" data-anfahrt-refresh="${d}" aria-label="Anfahrt automatisch" title="Automatisch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
+        </button>
+      </div>
+    </div>
     <div class="row">
       <div class="field"><label>Anfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${(d*2)-1}" aria-label="Anfahrt von"></select></div>
       <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" aria-label="Anfahrt bis"></select></div>
@@ -1761,7 +1869,7 @@ document.getElementById("times").addEventListener("change",function(e){
     el.dataset.manual="0";
     el.removeAttribute("data-manual");
 
-    if(row===outRow && a1 && a2 && outMin){
+    if(row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
       if(el===a2 && a1.value) a2.value=addMinutesToTime(a1.value,outMin);
       else if(el===a1 && a2.value) a1.value=addMinutesToTime(a2.value,-outMin);
     }
@@ -1775,7 +1883,9 @@ document.getElementById("times").addEventListener("change",function(e){
     return;
   }
 
-  if(row===outRow && outMin){
+  if(row===outRow && el.value) restoreAnfahrtAuto(dayBox);
+
+  if(row===outRow && outMin && !anfahrtOff(dayBox)){
     if(el===a1 && a1.value) a2.value=addMinutesToTime(a1.value,outMin);
     else if(el===a2 && a2.value) a1.value=addMinutesToTime(a2.value,-outMin);
 
@@ -1801,6 +1911,20 @@ document.getElementById("times").addEventListener("change",function(e){
 });
 
 document.getElementById("times").addEventListener("click",function(e){
+  const anfahrtZero=e.target.closest("[data-anfahrt-zero]");
+  if(anfahrtZero){
+    e.preventDefault();
+    const d=parseInt(anfahrtZero.getAttribute("data-anfahrt-zero"),10);
+    if(d) clearAnfahrtKeepRest(d);
+    return;
+  }
+  const anfahrtRefresh=e.target.closest("[data-anfahrt-refresh]");
+  if(anfahrtRefresh){
+    e.preventDefault();
+    const d=parseInt(anfahrtRefresh.getAttribute("data-anfahrt-refresh"),10);
+    if(d) refillAnfahrtAuto(d);
+    return;
+  }
   const zero=e.target.closest("[data-rueckfahrt-zero]");
   if(zero){
     e.preventDefault();
@@ -1889,6 +2013,8 @@ document.addEventListener("click",function(e){
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
       b.querySelectorAll("[data-rueckfahrt-zero]").forEach(x=>x.setAttribute("data-rueckfahrt-zero",String(n)));
       b.querySelectorAll("[data-rueckfahrt-refresh]").forEach(x=>x.setAttribute("data-rueckfahrt-refresh",String(n)));
+      b.querySelectorAll("[data-anfahrt-zero]").forEach(x=>x.setAttribute("data-anfahrt-zero",String(n)));
+      b.querySelectorAll("[data-anfahrt-refresh]").forEach(x=>x.setAttribute("data-anfahrt-refresh",String(n)));
       if(oldDay!==n){
         b.querySelectorAll("[data-k]").forEach(x=>{
           x.dataset.k=x.dataset.k.replace(/(\d+)$/,(_,num)=>{
@@ -2247,12 +2373,13 @@ function applyCustomerRouteDay(d){
   const r=customerRoute();
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
+  const skipOut=anfahrtOff(box);
   const skipBack=rueckfahrtOff(box);
   const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
   const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
 
   if(r.km){
-    if(km1) km1.value=r.km;
+    if(km1 && !skipOut) km1.value=r.km;
     if(km2 && !skipBack) km2.value=r.km;
   }
 
@@ -2269,7 +2396,7 @@ function applyCustomerRouteDay(d){
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
     const outSpan=outTime+pauseMinutes(box.querySelector(`[data-k="PauseRZ${2*d-1}"]`)?.value||"0");
 
-    if(a1 && a2){
+    if(!skipOut && a1 && a2){
       if(a2.value) setClock(a1,addMinutesToTime(a2.value,-outSpan));
       else if(a1.value) setClock(a2,addMinutesToTime(a1.value,outSpan));
     }
@@ -2284,12 +2411,15 @@ function applyCustomerRouteDay(d){
     }
   }
 
-  const info=box.querySelector(`#routeInfo${d}`);
-  if(info){
-    if(skipBack) info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
-    else{
-      const pauseShown=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
-      info.textContent=`Kunde: ${r.km||0} km / ${fmtMin(r.minutes)} Reisezeit eine Strecke. Rückfahrt: ${fmtMin(r.minutes)} + ${pauseShown} Min Pause.`;
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+  else{
+    const info=box.querySelector(`#routeInfo${d}`);
+    if(info){
+      if(skipBack) info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
+      else{
+        const pauseShown=pauseR ? pauseMinutes(pauseR.value||"0") : 0;
+        info.textContent=`Kunde: ${r.km||0} km / ${fmtMin(r.minutes)} Reisezeit eine Strecke. Rückfahrt: ${fmtMin(r.minutes)} + ${pauseShown} Min Pause.`;
+      }
     }
   }
   recalcTimes();
@@ -2700,6 +2830,17 @@ function bindTimeInputs(){
         const val=isEmpty ? (el.dataset.routeOverride==="out"?outDrive:backMin) : Math.max(0,parseInt(el.value,10)||0);
 
         if(el.dataset.routeOverride==="out"){
+          if(!isEmpty) restoreAnfahrtAuto(box);
+          if(anfahrtOff(box)){
+            if(isEmpty){
+              el.dataset.manual="0";
+              el.removeAttribute("data-manual");
+              el.value="";
+            }
+            recalcTimes();
+            if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+            return;
+          }
           const a1=field("RZstart",outRow), a2=field("RZende",outRow);
           const elapsed=val+anfahrtPauseMin(d);
           if(a1&&a2&&val>0){
@@ -2745,6 +2886,12 @@ function bindTimeInputs(){
         return;
       }
 
+      if(row===outRow && el.value) restoreAnfahrtAuto(box);
+      if(anfahrtOff(box) && row===outRow){
+        recalcTimes();
+        if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+        return;
+      }
       if(row===backRow && el.value) restoreRueckfahrtAuto(box);
       if(rueckfahrtOff(box) && row===backRow){
         recalcTimes();
@@ -3715,6 +3862,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       const d=box.getAttribute("data-daybox");
       data[`day${d}_collapsed`]=box.classList.contains("day-collapsed");
       data[`day${d}_rueckfahrtOff`]=box.getAttribute("data-rueckfahrt-off")==="1";
+      data[`day${d}_anfahrtOff`]=box.getAttribute("data-anfahrt-off")==="1";
     });
     return data;
   }
@@ -3758,7 +3906,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
@@ -3791,6 +3939,8 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       }
       if(data[`day${d}_rueckfahrtOff`]) box.setAttribute("data-rueckfahrt-off","1");
       else box.removeAttribute("data-rueckfahrt-off");
+      if(data[`day${d}_anfahrtOff`]) box.setAttribute("data-anfahrt-off","1");
+      else box.removeAttribute("data-anfahrt-off");
     });
     if(typeof syncDayChrome==="function") syncDayChrome();
 
@@ -4432,7 +4582,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.87";
+  const APP_VERSION=window.SB_APP_VERSION||"2.88";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
