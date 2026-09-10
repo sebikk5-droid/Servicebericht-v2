@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.83">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.84">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.83</title>
+  <title>Servicebericht v2.84</title>
 <script>
-window.SB_APP_VERSION="2.83";
+window.SB_APP_VERSION="2.84";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -133,6 +133,19 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
+.bottom-history{display:flex;align-items:center;gap:8px;order:3}
+#historySaveBottom{flex:1 1 auto;background:#163a5c;color:#fff;min-width:0}
+#historyActionOkBottom{
+  flex:0 0 auto;display:none;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:50%;color:#fff;
+  font-size:18px;font-weight:800;line-height:1;
+}
+#historyActionOkBottom.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+#historyActionOkBottom.is-ok{background:#16a34a}
+#historyActionOkBottom.is-del{background:#dc2626}
+@media (prefers-reduced-motion:reduce){
+  #historyActionOkBottom.is-on{animation:none}
+}
 .bottom-actions{display:flex;gap:8px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0}
 .email-copy-row{display:flex;align-items:center;gap:8px;order:2;position:relative}
@@ -720,7 +733,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.83</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.84</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -738,7 +751,7 @@ select.is-nudge,input.is-nudge{
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
-      <span id="historyActionOk" aria-hidden="true"></span>
+      <span id="historyActionOk" class="history-action-ok" aria-hidden="true"></span>
     </div>
   </div>
 </section>
@@ -942,6 +955,10 @@ select.is-nudge,input.is-nudge{
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="email-copy-list" id="emailCopyList"></div>
+  </div>
+  <div class="bottom-history">
+    <button type="button" id="historySaveBottom">Historie speichern</button>
+    <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
   </div>
 </div>
 <div id="pdfEmailModal" aria-hidden="true">
@@ -3868,32 +3885,36 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
   function init(){
     refresh("");
     const save=document.getElementById("historySave");
+    const saveBottom=document.getElementById("historySaveBottom");
     const fileInput=document.getElementById("historyFileInput");
     const del=document.getElementById("historyDelete");
     const input=document.getElementById("historySearch");
     const results=document.getElementById("historySearchResults");
     const combo=document.getElementById("historyCombo");
     const clearBtn=document.getElementById("historyClear");
-    const actionOk=document.getElementById("historyActionOk");
+    const actionOks=[document.getElementById("historyActionOk"), document.getElementById("historyActionOkBottom")].filter(Boolean);
     let actionOkTimer=0;
     function hideHistoryActionOk(){
-      if(!actionOk) return;
-      actionOk.classList.remove("is-on","is-ok","is-del");
-      actionOk.textContent="";
-      actionOk.removeAttribute("title");
-      actionOk.setAttribute("aria-hidden","true");
+      actionOks.forEach(actionOk=>{
+        actionOk.classList.remove("is-on","is-ok","is-del");
+        actionOk.textContent="";
+        actionOk.removeAttribute("title");
+        actionOk.setAttribute("aria-hidden","true");
+      });
     }
     function showHistoryActionOk(kind){
-      if(!actionOk) return;
+      if(!actionOks.length) return;
       hideHistoryActionOk();
       const isDel=kind==="del";
-      actionOk.textContent=isDel?"×":"✓";
-      actionOk.classList.add(isDel?"is-del":"is-ok");
-      actionOk.setAttribute("title", isDel?"Gelöscht":"Gespeichert");
-      actionOk.setAttribute("aria-label", isDel?"Gelöscht":"Gespeichert");
-      void actionOk.offsetWidth;
-      actionOk.classList.add("is-on");
-      actionOk.setAttribute("aria-hidden","false");
+      actionOks.forEach(actionOk=>{
+        actionOk.textContent=isDel?"×":"✓";
+        actionOk.classList.add(isDel?"is-del":"is-ok");
+        actionOk.setAttribute("title", isDel?"Gelöscht":"Gespeichert");
+        actionOk.setAttribute("aria-label", isDel?"Gelöscht":"Gespeichert");
+        void actionOk.offsetWidth;
+        actionOk.classList.add("is-on");
+        actionOk.setAttribute("aria-hidden","false");
+      });
       clearTimeout(actionOkTimer);
       actionOkTimer=setTimeout(hideHistoryActionOk, 4000);
     }
@@ -3967,7 +3988,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
       closeResults();
     });
 
-    save?.addEventListener("click",async()=>{
+    async function saveCurrentHistory(){
       const savedAt=new Date().toISOString();
       const data=collectForm();
       const item={
@@ -3999,7 +4020,9 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
           $("status").textContent="In der App gespeichert. Datei fehlgeschlagen.";
         }
       }
-    });
+    }
+    save?.addEventListener("click", saveCurrentHistory);
+    saveBottom?.addEventListener("click", saveCurrentHistory);
 
     fileInput?.addEventListener("change",async()=>{
       try{
@@ -4318,7 +4341,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.83";
+  const APP_VERSION=window.SB_APP_VERSION||"2.84";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
