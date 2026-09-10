@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.86">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.87">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.86</title>
+  <title>Servicebericht v2.87</title>
 <script>
-window.SB_APP_VERSION="2.86";
+window.SB_APP_VERSION="2.87";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -397,11 +397,15 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .sectiontitle-row{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
 }
-.btn-rueckfahrt-zero{
-  flex:0 0 auto;margin:0;padding:6px 10px;min-height:32px;border-radius:8px;
-  background:#e5e5ea;color:#111;font-size:13px;font-weight:750;
+.rueckfahrt-tools{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.btn-rueckfahrt-zero,.btn-rueckfahrt-refresh{
+  flex:0 0 auto;margin:0;width:32px;min-width:32px;height:32px;padding:0;
+  border-radius:8px;font-size:18px;font-weight:800;line-height:1;
 }
-.daybox[data-rueckfahrt-off="1"] .btn-rueckfahrt-zero{background:#163a5c;color:#fff}
+.btn-rueckfahrt-zero{background:#e5e5ea;color:#111}
+.btn-rueckfahrt-refresh{background:#163a5c;color:#fff}
+.btn-rueckfahrt-refresh svg{width:18px;height:18px;display:block;margin:0 auto}
+.daybox[data-rueckfahrt-off="1"] .btn-rueckfahrt-zero{background:#dc2626;color:#fff}
 .daybox .day-actions button{background:#fff}
 .daybox .day-actions .day-collapse{background:#163a5c;color:#fff}
 .daybox .day-actions .day-remove{background:#f3d6d6;color:#7a1f1f}
@@ -741,7 +745,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.86</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.87</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1238,6 +1242,38 @@ function restoreRueckfahrtAuto(box){
   if(!box) return;
   box.removeAttribute("data-rueckfahrt-off");
 }
+function refillRueckfahrtAuto(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  restoreRueckfahrtAuto(box);
+  const pause=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+  if(pause){
+    pause.dataset.pauseManual="0";
+    pause.removeAttribute("data-pause-manual");
+  }
+  const ov=box.querySelector('[data-route-override="back"]');
+  if(ov){
+    ov.value="";
+    ov.dataset.manual="0";
+    ov.removeAttribute("data-manual");
+  }
+  syncReturnPauseFromDay(box);
+  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
+  const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+  const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+  if(km){
+    if(r.km) km.value=r.km;
+    else if(kmOut && String(kmOut.value).trim()!=="") km.value=kmOut.value;
+  }
+  syncWorkEndToReturnStart(d);
+  const info=box.querySelector(`#routeInfo${d}`);
+  if(info){
+    const pauseShown=pause?pauseMinutes(pause.value||"0"):0;
+    info.textContent=`Kunde: ${r.km||0} km / ${fmtMin(r.minutes)} Reisezeit eine Strecke. Rückfahrt: ${fmtMin(r.minutes)} + ${pauseShown} Min Pause.`;
+  }
+  if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+  if(typeof recalcTimes==="function") recalcTimes();
+}
 function syncReturnArrivalFromDeparture(d){
   const box=dayBoxEl(d);
   if(!box || rueckfahrtOff(box)) return;
@@ -1467,7 +1503,12 @@ function dayTemplate(d){
 
     <div class="sectiontitle sectiontitle-row">
       <span>Rückfahrt</span>
-      <button type="button" class="btn-rueckfahrt-zero" data-rueckfahrt-zero="${d}">Auf 0</button>
+      <div class="rueckfahrt-tools">
+        <button type="button" class="btn-rueckfahrt-zero" data-rueckfahrt-zero="${d}" aria-label="Rückfahrt auf 0" title="Auf 0">×</button>
+        <button type="button" class="btn-rueckfahrt-refresh" data-rueckfahrt-refresh="${d}" aria-label="Rückfahrt automatisch" title="Automatisch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
+        </button>
+      </div>
     </div>
     <div class="row">
       <div class="field"><label>Rückfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${d*2}"></select></div>
@@ -1767,6 +1808,13 @@ document.getElementById("times").addEventListener("click",function(e){
     if(d) clearRueckfahrtKeepRest(d);
     return;
   }
+  const refresh=e.target.closest("[data-rueckfahrt-refresh]");
+  if(refresh){
+    e.preventDefault();
+    const d=parseInt(refresh.getAttribute("data-rueckfahrt-refresh"),10);
+    if(d) refillRueckfahrtAuto(d);
+    return;
+  }
   const ask=e.target.closest("[data-overnight-ask]");
   if(ask){
     e.preventDefault();
@@ -1839,6 +1887,8 @@ document.addEventListener("click",function(e){
       b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
       b.querySelectorAll("[data-overnight-ask-day]").forEach(x=>x.setAttribute("data-overnight-ask-day",String(n)));
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
+      b.querySelectorAll("[data-rueckfahrt-zero]").forEach(x=>x.setAttribute("data-rueckfahrt-zero",String(n)));
+      b.querySelectorAll("[data-rueckfahrt-refresh]").forEach(x=>x.setAttribute("data-rueckfahrt-refresh",String(n)));
       if(oldDay!==n){
         b.querySelectorAll("[data-k]").forEach(x=>{
           x.dataset.k=x.dataset.k.replace(/(\d+)$/,(_,num)=>{
@@ -4382,7 +4432,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.86";
+  const APP_VERSION=window.SB_APP_VERSION||"2.87";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
