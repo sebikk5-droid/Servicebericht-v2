@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.91">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.92">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.91</title>
+  <title>Servicebericht v2.92</title>
 <script>
-window.SB_APP_VERSION="2.91";
+window.SB_APP_VERSION="2.92";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -136,7 +136,43 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
 #historySaveBottom{flex:1.15 1 0;background:#163a5c;color:#fff}
+#pdfPreviewBottom{flex:0.95 1 0;background:#e8e8ed;color:#111}
 #generate{flex:1.2 1 0}
+.pdf-preview-btn{
+  width:100%;margin:0 0 12px;background:#163a5c;color:#fff;min-height:44px;font-size:15px;
+}
+#pdfPreviewModal{
+  display:none;position:fixed;inset:0;z-index:97;background:#d8d8de;
+  flex-direction:column;
+}
+#pdfPreviewModal.is-open{display:flex}
+.pdf-preview-top{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background:#fff;border-bottom:1px solid #ccc;flex:0 0 auto;
+}
+.pdf-preview-top h3{margin:0;font-size:17px;font-weight:750}
+.pdf-preview-top button,.pdf-preview-bottom button{
+  flex:0 0 auto;border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;
+}
+.pdf-preview-zoom{display:flex;gap:6px}
+.pdf-preview-zoom button{min-width:40px;background:#e5e5ea;color:#111;padding:8px 10px}
+.pdf-preview-body{
+  flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;
+  padding:10px 10px 8px;background:#c5c5ca;
+}
+#pdfPreviewPages{width:100%;max-width:900px;margin:0 auto;transform-origin:top center}
+#pdfPreviewPages canvas,#pdfPreviewPages iframe{
+  width:100%;height:auto;display:block;background:#fff;border-radius:4px;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);margin:0 0 10px;
+}
+#pdfPreviewPages iframe{min-height:70vh;border:0}
+.pdf-preview-bottom{
+  display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
+  background:#fff;border-top:1px solid #ccc;flex:0 0 auto;
+}
+.pdf-preview-bottom .clear{background:#e5e5ea;color:#111}
+.pdf-preview-hint{margin:0;font-size:12px;color:#666}
 #historyActionOkBottom{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
   width:28px;height:28px;border-radius:50%;color:#fff;
@@ -746,7 +782,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.91</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.92</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -929,6 +965,8 @@ select.is-nudge,input.is-nudge{
   <div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
   <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div>
 </div>
+<button type="button" class="pdf-preview-btn" id="pdfPreviewBtn">PDF-Vorschau</button>
+<p class="muted pdf-preview-hint">So sieht der Bericht aus – vor der Unterschrift prüfen.</p>
 <div class="sig-grid">
   <div class="sig-box">
     <label>Unterschrift Techniker</label>
@@ -955,6 +993,7 @@ select.is-nudge,input.is-nudge{
     <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
     <button type="button" id="historySaveBottom">Historie speichern</button>
     <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
+    <button type="button" id="pdfPreviewBottom">Vorschau</button>
     <button class="go" id="generate">PDF erstellen & speichern</button>
   </div>
   <div class="email-copy-row" id="emailCopyRow">
@@ -980,6 +1019,21 @@ select.is-nudge,input.is-nudge{
       <button type="button" class="clear" id="pdfEmailLater">Später</button>
       <button type="button" class="go" id="pdfEmailSend">Senden</button>
     </div>
+  </div>
+</div>
+<div id="pdfPreviewModal" aria-hidden="true">
+  <div class="pdf-preview-top">
+    <button type="button" class="clear" id="pdfPreviewClose">Schließen</button>
+    <h3>PDF-Vorschau</h3>
+    <div class="pdf-preview-zoom">
+      <button type="button" id="pdfPreviewZoomOut" aria-label="Verkleinern">−</button>
+      <button type="button" id="pdfPreviewZoomIn" aria-label="Vergrößern">+</button>
+    </div>
+  </div>
+  <div class="pdf-preview-body"><div id="pdfPreviewPages"></div></div>
+  <div class="pdf-preview-bottom">
+    <button type="button" class="clear" id="pdfPreviewBack">Zurück zum Formular</button>
+    <button type="button" class="go" id="pdfPreviewSave">PDF speichern</button>
   </div>
 </div>
 <div id="pdfKindModal" aria-hidden="true">
@@ -1692,7 +1746,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal","pdfEmailModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -3561,6 +3615,11 @@ function initPdfKind(){
     btn.addEventListener("click",()=>{
       setPdfKind(btn.getAttribute("data-pdf-kind"));
       closePdfKindSheet();
+      if(window.__pdfKindPurpose==="preview"){
+        window.__pdfKindPurpose="save";
+        if(typeof window.showPdfPreview==="function") window.showPdfPreview();
+        return;
+      }
       const go=$("generate");
       if(!go) return;
       go.dataset.awaitKind="1";
@@ -4612,7 +4671,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.91";
+  const APP_VERSION=window.SB_APP_VERSION||"2.92";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6090,6 +6149,107 @@ finally{ window.__pdfBuilding=false; }
     btn.dataset.shareReady="1";
     btn.textContent="PDF speichern";
   }
+  let previewZoom=1;
+  let previewObjectUrl="";
+  function previewZoomApply(){
+    const pages=$("pdfPreviewPages");
+    if(!pages) return;
+    pages.style.zoom=String(previewZoom);
+    pages.style.transform="none";
+  }
+  function closePdfPreview(){
+    const modal=$("pdfPreviewModal");
+    if(modal){
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden","true");
+    }
+    const host=$("pdfPreviewPages");
+    if(host) host.innerHTML="";
+    if(previewObjectUrl){
+      try{ URL.revokeObjectURL(previewObjectUrl); }catch(e){}
+      previewObjectUrl="";
+    }
+    previewZoom=1;
+    previewZoomApply();
+  }
+  function loadPdfJs(){
+    if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function(resolve,reject){
+      const existing=document.getElementById("pdfJsScript");
+      function ok(){
+        if(!window.pdfjsLib){ reject(new Error("PDF-Vorschau fehlt.")); return; }
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc="vendor/pdf.worker.min.js?v="+(window.SB_APP_VERSION||"");
+        resolve(window.pdfjsLib);
+      }
+      if(existing){
+        if(window.pdfjsLib){ ok(); return; }
+        existing.addEventListener("load", ok);
+        existing.addEventListener("error", function(){ reject(new Error("PDF-Vorschau fehlt.")); });
+        return;
+      }
+      const s=document.createElement("script");
+      s.id="pdfJsScript";
+      s.src="vendor/pdf.min.js?v="+(window.SB_APP_VERSION||"");
+      s.onload=ok;
+      s.onerror=function(){ reject(new Error("PDF-Vorschau fehlt.")); };
+      document.head.appendChild(s);
+    });
+  }
+  async function renderPdfPreview(blob){
+    const host=$("pdfPreviewPages");
+    if(!host) return;
+    host.innerHTML="";
+    previewZoom=1;
+    previewZoomApply();
+    try{
+      const pdfjs=await loadPdfJs();
+      const buf=await blob.arrayBuffer();
+      const pdf=await pdfjs.getDocument({data:new Uint8Array(buf)}).promise;
+      const box=host.parentElement;
+      const wrapW=Math.max(280,(box&&box.clientWidth)||host.clientWidth||window.innerWidth-24);
+      const dpr=Math.min(2, window.devicePixelRatio||1);
+      for(let i=1;i<=pdf.numPages;i++){
+        const page=await pdf.getPage(i);
+        const base=page.getViewport({scale:1});
+        const fit=wrapW/base.width;
+        const viewport=page.getViewport({scale:fit*dpr});
+        const canvas=document.createElement("canvas");
+        canvas.width=viewport.width;
+        canvas.height=viewport.height;
+        await page.render({canvasContext:canvas.getContext("2d",{alpha:false}), viewport}).promise;
+        host.appendChild(canvas);
+      }
+    }catch(e){
+      if(previewObjectUrl){ try{ URL.revokeObjectURL(previewObjectUrl); }catch(x){} }
+      previewObjectUrl=URL.createObjectURL(blob);
+      const frame=document.createElement("iframe");
+      frame.title="PDF-Vorschau";
+      frame.src=previewObjectUrl;
+      host.appendChild(frame);
+    }
+  }
+  function openPdfPreviewSheet(){
+    const modal=$("pdfPreviewModal");
+    if(!modal) return;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+  }
+  window.showPdfPreview=async function(){
+    setStatus("Vorschau wird erstellt…");
+    const ready=await window.ensurePdfForCurrentForm();
+    if(!ready || !lastPdfBlob){
+      setStatus("PDF-Vorschau konnte nicht erstellt werden.");
+      return false;
+    }
+    openPdfPreviewSheet();
+    await renderPdfPreview(lastPdfBlob);
+    setStatus("Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
+    return true;
+  };
+  function startPdfPreview(){
+    window.__pdfKindPurpose="preview";
+    if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+  }
   function bindPdfEmailUi(){
     $("emailPdfBtn")?.addEventListener("click",()=>{
       setStatus("PDF wird erstellt…");
@@ -6105,6 +6265,25 @@ finally{ window.__pdfBuilding=false; }
     $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail(); });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
+    });
+    $("pdfPreviewBtn")?.addEventListener("click", startPdfPreview);
+    $("pdfPreviewBottom")?.addEventListener("click", startPdfPreview);
+    $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
+    $("pdfPreviewBack")?.addEventListener("click", closePdfPreview);
+    $("pdfPreviewSave")?.addEventListener("click",()=>{
+      closePdfPreview();
+      window.deliverLastPdf();
+    });
+    $("pdfPreviewZoomIn")?.addEventListener("click",()=>{
+      previewZoom=Math.min(2.4, previewZoom+0.2);
+      previewZoomApply();
+    });
+    $("pdfPreviewZoomOut")?.addEventListener("click",()=>{
+      previewZoom=Math.max(0.6, previewZoom-0.2);
+      previewZoomApply();
+    });
+    $("pdfPreviewModal")?.addEventListener("click",e=>{
+      if(e.target===$("pdfPreviewModal")) closePdfPreview();
     });
     window.syncPdfEmailUi();
   }
