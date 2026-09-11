@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.92">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.93">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.92</title>
+  <title>Servicebericht v2.93</title>
 <script>
-window.SB_APP_VERSION="2.92";
+window.SB_APP_VERSION="2.93";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -136,11 +136,17 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
 #historySaveBottom{flex:1.15 1 0;background:#163a5c;color:#fff}
-#pdfPreviewBottom{flex:0.95 1 0;background:#e8e8ed;color:#111}
 #generate{flex:1.2 1 0}
-.pdf-preview-btn{
-  width:100%;margin:0 0 12px;background:#163a5c;color:#fff;min-height:44px;font-size:15px;
+.pdf-preview-row{
+  display:flex;align-items:center;gap:10px;margin:10px 0 12px;
 }
+.pdf-preview-icon-btn{
+  flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#163a5c;color:#fff;border-radius:10px;
+}
+.pdf-preview-icon-btn svg{width:20px;height:20px;display:block}
+.pdf-preview-hint{margin:0;flex:1 1 auto;font-size:12px;color:#666;line-height:1.3}
 #pdfPreviewModal{
   display:none;position:fixed;inset:0;z-index:97;background:#d8d8de;
   flex-direction:column;
@@ -172,7 +178,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   background:#fff;border-top:1px solid #ccc;flex:0 0 auto;
 }
 .pdf-preview-bottom .clear{background:#e5e5ea;color:#111}
-.pdf-preview-hint{margin:0;font-size:12px;color:#666}
 #historyActionOkBottom{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
   width:28px;height:28px;border-radius:50%;color:#fff;
@@ -782,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.92</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.93</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -965,8 +970,12 @@ select.is-nudge,input.is-nudge{
   <div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
   <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div>
 </div>
-<button type="button" class="pdf-preview-btn" id="pdfPreviewBtn">PDF-Vorschau</button>
-<p class="muted pdf-preview-hint">So sieht der Bericht aus – vor der Unterschrift prüfen.</p>
+<div class="pdf-preview-row">
+  <button type="button" class="pdf-preview-icon-btn" id="pdfPreviewBtn" aria-label="PDF-Vorschau" title="PDF-Vorschau">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.25" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.2 15.2L21 21" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>
+  <p class="muted pdf-preview-hint">PDF-Vorschau – vor der Unterschrift prüfen.</p>
+</div>
 <div class="sig-grid">
   <div class="sig-box">
     <label>Unterschrift Techniker</label>
@@ -993,13 +1002,15 @@ select.is-nudge,input.is-nudge{
     <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
     <button type="button" id="historySaveBottom">Historie speichern</button>
     <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
-    <button type="button" id="pdfPreviewBottom">Vorschau</button>
     <button class="go" id="generate">PDF erstellen & speichern</button>
   </div>
   <div class="email-copy-row" id="emailCopyRow">
     <div class="email-copy-val is-empty" id="emailCopyVal" role="status">Keine E-Mail</div>
     <button type="button" class="email-copy-more" id="emailCopyMore" hidden aria-label="E-Mail wählen" title="Weitere E-Mails">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button type="button" class="pdf-preview-icon-btn" id="pdfPreviewBottom" aria-label="PDF-Vorschau" title="PDF-Vorschau">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.25" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.2 15.2L21 21" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
     <button type="button" class="email-copy-btn" id="emailCopyBtn" disabled aria-label="E-Mail kopieren" title="Kopieren">
       <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
@@ -4671,7 +4682,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.92";
+  const APP_VERSION=window.SB_APP_VERSION||"2.93";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
