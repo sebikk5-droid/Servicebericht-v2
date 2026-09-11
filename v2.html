@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.90">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.91">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.90</title>
+  <title>Servicebericht v2.91</title>
 <script>
-window.SB_APP_VERSION="2.90";
+window.SB_APP_VERSION="2.91";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -746,7 +746,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.90</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.91</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3623,6 +3623,11 @@ $("pdfMissingModal")?.addEventListener("click",e=>{
 });
 
   $("generate").onclick=async()=>{
+if(window.__pdfBuilding){
+  while(window.__pdfBuilding) await new Promise(r=>setTimeout(r,40));
+  return;
+}
+window.__pdfBuilding=true;
 $("status").textContent="PDF wird erstellt…";
 try{
   if(!window.PDFLib){
@@ -3799,6 +3804,7 @@ if(typeof window.stashGeneratedPdf==="function"){
 }
 $("status").textContent="Fertig – das PDF ist vorbereitet.";
 }catch(e){$("status").textContent="Fehler: "+e.message}
+finally{ window.__pdfBuilding=false; }
 };
 
 </script>
@@ -3879,7 +3885,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
         if(v===false || v==="" || v==null) return;
         norm[k]=v;
       });
-      return JSON.stringify(norm);
+      if(typeof selectedPdfKind==="function") norm.__pdfKind=selectedPdfKind();
+      const raw=JSON.stringify(norm);
+      let h=2166136261>>>0;
+      for(let i=0;i<raw.length;i++){
+        h^=raw.charCodeAt(i);
+        h=Math.imul(h,16777619);
+      }
+      return (h>>>0).toString(16);
     }catch(e){ return ""; }
   };
   function findField(key){
@@ -4599,7 +4612,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.90";
+  const APP_VERSION=window.SB_APP_VERSION||"2.91";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5719,13 +5732,14 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const buf=await blob.arrayBuffer();
     return new Blob([buf],{type:"application/pdf"});
   }
-  async function idbPut(blob, filename, pending){
+  async function idbPut(blob, filename, pending, fingerprint){
     const db=await openDb();
+    const fp=fingerprint!=null ? fingerprint : (window.lastPdfFormFingerprint||"");
     await new Promise((resolve,reject)=>{
       const tx=db.transaction("pdfs","readwrite");
       tx.oncomplete=()=>resolve();
       tx.onerror=()=>reject(tx.error);
-      tx.objectStore("pdfs").put({filename, savedAt:Date.now(), blob, pending:pending!==false}, "last");
+      tx.objectStore("pdfs").put({filename, savedAt:Date.now(), blob, pending:pending!==false, fingerprint:fp}, "last");
     });
     try{ db.close(); }catch(e){}
   }
@@ -5745,7 +5759,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const rec=await idbGet();
     if(!rec || !rec.blob) return;
     rec.pending=!!pending;
-    await idbPut(rec.blob, rec.filename||"Servicebericht.pdf", rec.pending);
+    await idbPut(rec.blob, rec.filename||"Servicebericht.pdf", rec.pending, rec.fingerprint||window.lastPdfFormFingerprint||"");
   }
   async function opfsFile(blob, filename){
     try{
@@ -5788,7 +5802,7 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     const fp=currentFormFingerprint();
     window.lastPdfFormFingerprint=fp;
     setMeta(name, true, fp);
-    try{ await idbPut(copy, name, true); }catch(e){}
+    try{ await idbPut(copy, name, true, fp); }catch(e){}
     try{ await opfsFile(copy, name); }catch(e){}
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
@@ -5885,26 +5899,40 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     if(!btn) return;
     btn.disabled=false;
   };
+  let pdfEnsureWait=null;
   window.ensurePdfForCurrentForm=async function(){
     if(typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm())
       return true;
-    if(typeof window.restoreStashedPdf==="function"){
-      const restored=await window.restoreStashedPdf();
-      if(restored && typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm())
-        return true;
-    }
-    const gen=$("generate");
-    if(!gen || typeof gen.onclick!=="function") return false;
-    if(window.__pdfBuildQuiet) return false;
-    window.__pdfBuildQuiet=true;
+    if(pdfEnsureWait) return pdfEnsureWait;
+    pdfEnsureWait=(async function(){
+      if(typeof window.restoreStashedPdf==="function"){
+        const restored=await window.restoreStashedPdf();
+        if(restored && typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm())
+          return true;
+      }
+      if(window.__pdfBuilding){
+        while(window.__pdfBuilding) await new Promise(r=>setTimeout(r,40));
+        return typeof window.pdfMatchesCurrentForm==="function"
+          ? window.pdfMatchesCurrentForm()
+          : !!lastPdfBlob;
+      }
+      const gen=$("generate");
+      if(!gen || typeof gen.onclick!=="function") return false;
+      window.__pdfBuildQuiet=true;
+      try{
+        await gen.onclick();
+      }finally{
+        window.__pdfBuildQuiet=false;
+      }
+      return typeof window.pdfMatchesCurrentForm==="function"
+        ? window.pdfMatchesCurrentForm()
+        : !!lastPdfBlob;
+    })();
     try{
-      await gen.onclick();
+      return await pdfEnsureWait;
     }finally{
-      window.__pdfBuildQuiet=false;
+      pdfEnsureWait=null;
     }
-    return typeof window.pdfMatchesCurrentForm==="function"
-      ? window.pdfMatchesCurrentForm()
-      : !!lastPdfBlob;
   };
   function closePdfEmailSheet(){
     const modal=$("pdfEmailModal");
@@ -6001,7 +6029,10 @@ $("status").textContent="Fertig – das PDF ist vorbereitet.";
     let shareFile=null;
     if(typeof window.pdfShareFile==="function") shareFile=await window.pdfShareFile();
     if(!shareFile){
+      if(typeof window.pdfMatchesCurrentForm==="function" && !window.pdfMatchesCurrentForm())
+        return false;
       const filename=(typeof window.pdfFileName==="function") ? window.pdfFileName() : "Servicebericht.pdf";
+      if(!lastPdfBlob) return false;
       shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
     }
     const afterShare=function(){
