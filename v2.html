@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.93">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.94">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.93</title>
+  <title>Servicebericht v2.94</title>
 <script>
-window.SB_APP_VERSION="2.93";
+window.SB_APP_VERSION="2.94";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.93</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.94</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1154,6 +1154,32 @@ document.querySelectorAll('#choices input').forEach(el=>{
 </script>
 <script>
 const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
+window.sbOffline=function(){ return navigator.onLine===false; };
+window.sbCachedFile=async function(name, timeoutMs){
+  const urls=[name, "./"+String(name||"").replace(/^\.\//,"")];
+  async function fromCache(){
+    if(typeof caches==="undefined") return null;
+    for(const u of urls){
+      try{
+        const hit=await caches.match(u, {ignoreSearch:true}) || await caches.match(u);
+        if(hit && hit.ok) return hit;
+      }catch(e){}
+    }
+    return null;
+  }
+  if(window.sbOffline()){
+    const cached=await fromCache();
+    if(cached) return cached;
+  }
+  const ctrl=new AbortController();
+  const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, timeoutMs||2500);
+  try{
+    const res=await fetch(name, {signal:ctrl.signal, cache:"force-cache"});
+    if(res && res.ok) return res;
+  }catch(e){}
+  finally{ clearTimeout(to); }
+  return fromCache();
+};
 function layoutComboResults(results, box){
   if(!results||!box) return;
   const parts=results.id==="partsResults";
@@ -3722,13 +3748,17 @@ try{
   }
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
 let leerRes=null;
-try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
-if(!leerRes || !leerRes.ok){
-  if(typeof caches!=="undefined"){
-    leerRes=await caches.match("./Leer.pdf") || await caches.match("Leer.pdf");
+if(typeof window.sbCachedFile==="function"){
+  leerRes=await window.sbCachedFile("Leer.pdf", 2500);
+}else{
+  try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
+  if(!leerRes || !leerRes.ok){
+    if(typeof caches!=="undefined"){
+      leerRes=await caches.match("./Leer.pdf") || await caches.match("Leer.pdf");
+    }
   }
 }
-if(!leerRes) throw new Error("Leer.pdf fehlt (auch offline).");
+if(!leerRes || !leerRes.ok) throw new Error("Leer.pdf fehlt (auch offline).");
 let bytes=await leerRes.arrayBuffer(),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
@@ -4682,7 +4712,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.93";
+  const APP_VERSION=window.SB_APP_VERSION||"2.94";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -4975,6 +5005,8 @@ finally{ window.__pdfBuilding=false; }
     return parseGithubFileInWorker(buf, res.status);
   }
   async function pullFile(kind, writePath){
+    if(typeof window.sbOffline==="function" && window.sbOffline())
+      return {data:null, sha:"", status:0, reason:"network"};
     if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
     const path=FILES[kind]||kind;
     async function fromApi(withAuth){
@@ -5038,6 +5070,9 @@ finally{ window.__pdfBuilding=false; }
   async function pushMerged(kind, localData, message, mergeFn, opts){
     opts=opts||{};
     return enqueueWrite(async ()=>{
+      if(typeof window.sbOffline==="function" && window.sbOffline()){
+        return {merged:localData, result:{ok:false, reason:"network", status:0}};
+      }
       if(!token()){
         if(opts.quiet) return {merged:localData, result:{ok:false, reason:"no-token"}};
         const ok=await ensureToken();
@@ -5284,8 +5319,11 @@ finally{ window.__pdfBuilding=false; }
   }
   async function fetchSharedMap(path){
     try{
-      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
-      if(!res.ok) return {};
+      if(typeof window.sbOffline==="function" && window.sbOffline()) return {};
+      const res=typeof window.sbCachedFile==="function"
+        ? await window.sbCachedFile(path, 2500)
+        : await fetch(path+"?t="+Date.now(), {cache:"no-store"});
+      if(!res || !res.ok) return {};
       const o=await res.json();
       return o && typeof o==="object" && !Array.isArray(o) ? o : {};
     }catch(e){
@@ -6028,6 +6066,7 @@ finally{ window.__pdfBuilding=false; }
     modal.setAttribute("aria-hidden","false");
   };
   function offerPdfEmailAfterSave(){
+    if(typeof window.sbOffline==="function" && window.sbOffline()) return;
     window.syncPdfEmailUi();
     setTimeout(function(){
       window.openPdfEmailSheet();
@@ -6835,8 +6874,11 @@ finally{ window.__pdfBuilding=false; }
   }
   async function fetchSharedMap(path){
     try{
-      const res=await fetch(path+"?t="+Date.now(), {cache:"no-store"});
-      if(!res.ok) return {};
+      if(typeof window.sbOffline==="function" && window.sbOffline()) return {};
+      const res=typeof window.sbCachedFile==="function"
+        ? await window.sbCachedFile(path, 2500)
+        : await fetch(path+"?t="+Date.now(), {cache:"no-store"});
+      if(!res || !res.ok) return {};
       const o=await res.json();
       return o && typeof o==="object" && !Array.isArray(o) ? o : {};
     }catch(e){
