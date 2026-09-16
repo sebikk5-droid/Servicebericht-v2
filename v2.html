@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.94">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.95">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.94</title>
+  <title>Servicebericht v2.95</title>
 <script>
-window.SB_APP_VERSION="2.94";
+window.SB_APP_VERSION="2.95";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.94</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.95</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2834,7 +2834,8 @@ function recalcTimes(){
   if($("kmTotal"))$("kmTotal").value=String(Math.round(km*10)/10).replace(".",",");
   if($("allTotal"))$("allTotal").value=fmtMin(all);
 }
-// Auswahlfelder: innerhalb jeder Gruppe nur eine Option gleichzeitig.
+// Auswahlfelder: Betriebsbereitschaft und Neuer Einsatz nur eine Option.
+// Art des Einsatzes: mehrere gleichzeitig (z. B. El. und Mech.).
 function syncChoiceVisual(el){
   const label=el.closest(".choice-opt");
   if(label) label.classList.toggle("is-on", !!el.checked);
@@ -2864,7 +2865,7 @@ function syncIoToMaschine(){
 document.querySelectorAll('#choices input[type="checkbox"]').forEach(cb=>{
   syncChoiceVisual(cb);
   cb.addEventListener('change',()=>{
-    if(cb.name && cb.checked){
+    if(cb.name && cb.name!=="art" && cb.checked){
       document.querySelectorAll('#choices input[name="'+cb.name+'"]').forEach(x=>{
         if(x!==cb){
           x.checked=false;
@@ -3768,15 +3769,16 @@ let c=selectedCompany();
 // Auswahl -> Kontrollkästchen des Original-PDFs.
 const bet=document.querySelector('#choices input[name="betriebs"]:checked')?.value||"";
 const ein=document.querySelector('#choices input[name="einsatz"]:checked')?.value||"";
-const art=document.querySelector('#choices input[name="art"]:checked')?.value||"";
+const artOn=v=>!!document.querySelector('#choices input[name="art"][value="'+v+'"]')?.checked;
+const art=artOn("el")||artOn("mech")||artOn("anw");
 pdfCheck(form,"Kontrollkästchen162",bet==="io");
 pdfCheck(form,"Kontrollkästchen163",bet==="bedingt");
 pdfCheck(form,"Kontrollkästchen164",bet==="nicht");
 pdfCheck(form,"Kontrollkästchen165",ein==="nein");
 pdfCheck(form,"Kontrollkästchen166",ein==="ja");
-pdfCheck(form,"Kontrollkästchen167",art==="el");
-pdfCheck(form,"Kontrollkästchen168",art==="mech");
-pdfCheck(form,"Kontrollkästchen169",art==="anw");
+pdfCheck(form,"Kontrollkästchen167",artOn("el"));
+pdfCheck(form,"Kontrollkästchen168",artOn("mech"));
+pdfCheck(form,"Kontrollkästchen169",artOn("anw"));
 pdfCheck(form,"Kontrollkästchen1",document.getElementById("maschine_ok").checked);
 
 function pdfDateFromDay(dayNo){
@@ -4712,7 +4714,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.94";
+  const APP_VERSION=window.SB_APP_VERSION||"2.95";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
