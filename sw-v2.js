@@ -1,13 +1,10 @@
-const CACHE_NAME = "servicebericht-v3-00";
+const CACHE_NAME = "servicebericht-v2-99";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
   "./vendor/pdf-lib.min.js",
   "./vendor/pdf.min.js",
   "./vendor/pdf.worker.min.js",
-  "./vendor/fontkit.umd.min.js",
-  "./vendor/fonts/Roboto-Regular.ttf",
-  "./vendor/fonts/Roboto-Bold.ttf",
   "./companies.json",
   "./machine-catalog.json",
   "./Leer.pdf",
@@ -40,8 +37,6 @@ function isAppAsset(url) {
     path.endsWith("/vendor/pdf-lib.min.js") ||
     path.endsWith("/vendor/pdf.min.js") ||
     path.endsWith("/vendor/pdf.worker.min.js") ||
-    path.endsWith("/vendor/fontkit.umd.min.js") ||
-    /\/vendor\/fonts\/.+\.ttf$/.test(path) ||
     path.endsWith("/companies.json") ||
     path.endsWith("/machine-catalog.json") ||
     path.endsWith("/Leer.pdf") ||
