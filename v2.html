@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.99">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.00">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.99</title>
+  <title>Servicebericht v3.00</title>
 <script>
-window.SB_APP_VERSION="2.99";
+window.SB_APP_VERSION="3.00";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.99</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.00</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3564,6 +3564,49 @@ function isPdfAnnotDict(obj){
   if(/Annot/i.test(type)) return true;
   return /Widget|Link|Popup|Text|Highlight|Square|Circle|Line|Ink|Stamp|FileAttachment|Screen|Watermark|Redact|PrinterMark/i.test(sub);
 }
+function pdfPageForWidget(pdf, widget){
+  try{
+    const pref=widget.P();
+    const pages=pdf.getPages();
+    if(pref){
+      const hit=pages.find(p=>p.ref===pref || (p.ref && pref && p.ref.objectNumber===pref.objectNumber));
+      if(hit) return hit;
+    }
+  }catch(e){}
+  return pdf.getPages()[0];
+}
+function burnFormTextToPages(pdf, form, font){
+  if(!pdf || !form || !font) return;
+  const ink=PDFLib.rgb(0.05,0.05,0.05);
+  form.getFields().forEach(field=>{
+    if(!field || typeof field.getText!=="function") return;
+    let text="";
+    try{ text=String(field.getText()||""); }catch(e){ return; }
+    if(!text.trim()) return;
+    let size=9;
+    try{ size=Number(field.getFontSize())||9; }catch(e){}
+    if(!size) size=9;
+    try{
+      field.acroField.getWidgets().forEach(w=>{
+        const r=w.getRectangle();
+        if(!r || r.width<4 || r.height<4) return;
+        const page=pdfPageForWidget(pdf,w);
+        const sz=Math.min(size, Math.max(4.2, r.height*0.7));
+        const maxW=Math.max(4, r.width-3);
+        let draw=text;
+        while(draw.length>1 && font.widthOfTextAtSize(draw, sz)>maxW) draw=draw.slice(0,-1);
+        page.drawText(draw,{
+          x:r.x+1.6,
+          y:r.y+Math.max(1.1,(r.height-sz)*0.3),
+          size:sz,
+          font,
+          color:ink
+        });
+      });
+      field.setText("");
+    }catch(e){}
+  });
+}
 function forceWinAnsiHelvetica(pdf){
   try{
     const Name=PDFLib.PDFName;
@@ -3806,6 +3849,55 @@ $("pdfMissingModal")?.addEventListener("click",e=>{
   if(e.target===$("pdfMissingModal")) closePdfMissingSheet(false);
 });
 
+async function loadScriptOnce(id, src){
+  if(id==="fontkitScript" && window.fontkit) return;
+  if(id==="pdfLibScript" && window.PDFLib) return;
+  await new Promise(function(resolve,reject){
+    const existing=document.getElementById(id);
+    function ok(){ resolve(); }
+    if(existing){
+      if((id==="fontkitScript" && window.fontkit) || (id==="pdfLibScript" && window.PDFLib)){ ok(); return; }
+      existing.addEventListener("load", ok);
+      existing.addEventListener("error", function(){ reject(new Error(src+" fehlt")); });
+      return;
+    }
+    const s=document.createElement("script");
+    s.id=id;
+    s.src=src;
+    s.onload=ok;
+    s.onerror=function(){ reject(new Error(src+" fehlt")); };
+    document.head.appendChild(s);
+  });
+}
+async function fetchPdfAsset(path){
+  if(typeof window.sbCachedFile==="function"){
+    const r=await window.sbCachedFile(path, 4000);
+    if(r && r.ok) return r.arrayBuffer();
+  }
+  const r=await fetch(path);
+  if(!r || !r.ok) throw new Error(path+" fehlt");
+  return r.arrayBuffer();
+}
+async function embedReportFonts(pdf){
+  try{
+    await loadScriptOnce("fontkitScript","vendor/fontkit.umd.min.js?v="+(window.SB_APP_VERSION||""));
+    if(window.fontkit && typeof pdf.registerFontkit==="function") pdf.registerFontkit(window.fontkit);
+    const [reg,bold]=await Promise.all([
+      fetchPdfAsset("vendor/fonts/Roboto-Regular.ttf"),
+      fetchPdfAsset("vendor/fonts/Roboto-Bold.ttf")
+    ]);
+    return {
+      regular: await pdf.embedFont(reg, {subset:true}),
+      heavy: await pdf.embedFont(bold, {subset:true})
+    };
+  }catch(e){
+    return {
+      regular: await pdf.embedFont(PDFLib.StandardFonts.Helvetica),
+      heavy: await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold)
+    };
+  }
+}
+
   $("generate").onclick=async()=>{
 if(window.__pdfBuilding){
   while(window.__pdfBuilding) await new Promise(r=>setTimeout(r,40));
@@ -3848,8 +3940,9 @@ if(typeof window.sbCachedFile==="function"){
 }
 if(!leerRes || !leerRes.ok) throw new Error("Leer.pdf fehlt (auch offline).");
 let bytes=await leerRes.arrayBuffer(),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
-pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
-const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+const reportFonts=await embedReportFonts(pdf);
+pdfFitFont=reportFonts.regular;
+const pdfFitFontBold=reportFonts.heavy;
 forceWinAnsiHelvetica(pdf);
 bindPdfFormFont(form, pdfFitFont);
 clearPdfForm(form);
@@ -3965,7 +4058,7 @@ for(let d=1;d<=dayBoxes.length;d++){
     const row=(d-1)*2+1;
     const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
     const y=centers[Math.min(row-1,centers.length-1)];
-    page.drawText("X",{x:overnightX,y:y-3,size:9});
+    page.drawText("X",{x:overnightX,y:y-3,size:9,font:pdfFitFont});
   }
 }
 try{
@@ -3973,13 +4066,16 @@ try{
     w.getOrCreateBorderStyle().setWidth(0);
   });
 }catch(e){}
-if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
-else form.updateFieldAppearances();
+burnFormTextToPages(pdf, form, pdfFitFont);
+try{
+  if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
+  else form.updateFieldAppearances();
+}catch(e){}
 const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
-form.flatten({updateFieldAppearances:false});
+try{ form.flatten({updateFieldAppearances:false}); }catch(e){}
 forceWinAnsiHelvetica(pdf);
 if(selectedPdfKind()==="new"){
   drawPdfTotalsRow(page, pdfFitFont, {
@@ -4807,7 +4903,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.99";
+  const APP_VERSION=window.SB_APP_VERSION||"3.00";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7696,6 +7792,7 @@ finally{ window.__pdfBuilding=false; }
 </script>
 
 <script src="vendor/pdf-lib.min.js" id="pdfLibScript" async></script>
+<script src="vendor/fontkit.umd.min.js" id="fontkitScript" async></script>
 
 </body>
 </html>
