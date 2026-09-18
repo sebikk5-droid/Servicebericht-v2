@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v2-98";
+const CACHE_NAME = "servicebericht-v2-99";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -45,9 +45,20 @@ function isAppAsset(url) {
   );
 }
 
+function isVersionAsset(url) {
+  const path = pathOf(url);
+  return (
+    path.endsWith("/v2.html") ||
+    path.endsWith("/servicebericht-v2.html") ||
+    path.endsWith("/sw-v2.js") ||
+    path.endsWith("/manifest-v2.webmanifest")
+  );
+}
+
 function timeoutFetch(req, ms) {
+  const init = isVersionAsset(req.url) ? { cache: "no-store" } : undefined;
   return Promise.race([
-    fetch(req),
+    fetch(req, init),
     new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
   ]);
 }
@@ -84,6 +95,19 @@ self.addEventListener("fetch", event => {
   }
 
   if (!isAppAsset(req.url)) return;
+
+  if (isVersionAsset(req.url)) {
+    event.respondWith(
+      timeoutFetch(req, 2500).then(res => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req, { ignoreSearch: true }))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then(cached => {
