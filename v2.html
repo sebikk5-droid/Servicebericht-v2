@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.98">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.99">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.98</title>
+  <title>Servicebericht v2.99</title>
 <script>
-window.SB_APP_VERSION="2.98";
+window.SB_APP_VERSION="2.99";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -50,7 +50,7 @@ window.SB_APP_VERSION="2.98";
         });
       }).catch(function(){});
       const had=navigator.serviceWorker.controller;
-      navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION).catch(function(){});
+      navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
         try{ if(sessionStorage.getItem("sb_sw_reload")) return; sessionStorage.setItem("sb_sw_reload","1"); }catch(e){}
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.98</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.99</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4807,7 +4807,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.98";
+  const APP_VERSION=window.SB_APP_VERSION||"2.99";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
