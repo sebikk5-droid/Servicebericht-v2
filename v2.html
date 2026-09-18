@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.97">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.98">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.97</title>
+  <title>Servicebericht v2.98</title>
 <script>
-window.SB_APP_VERSION="2.97";
+window.SB_APP_VERSION="2.98";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.97</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.98</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2729,14 +2729,19 @@ function wrapIntoFields(form, names, text, font){
     if(line) setFit(form,n,line,size);
   });
 }
+function pdfFieldFontName(){
+  return (pdfFitFont && pdfFitFont.name) ? pdfFitFont.name : "Helvetica";
+}
 function ensureFieldDA(field){
+  const da="0 g /"+pdfFieldFontName()+" 0 Tf";
   try{
-    if(!field.acroField.getDefaultAppearance()){
-      field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g");
-    }
-  }catch(e){
-    try{ field.acroField.setDefaultAppearance("/Helv 0 Tf 0 g"); }catch(e2){}
-  }
+    field.acroField.setDefaultAppearance(da);
+  }catch(e){}
+  try{
+    field.acroField.getWidgets().forEach(w=>{
+      try{ w.setDefaultAppearance(da); }catch(e2){}
+    });
+  }catch(e){}
 }
 function set(form,n,v){try{form.getTextField(n).setText(v==null?"":String(v))}catch(e){}}
 function setSize(form,n,size){
@@ -2795,7 +2800,10 @@ function clearPdfForm(form){
         else if(typeof field.uncheck==="function") field.uncheck();
       }catch(e){}
     });
-    try{ form.updateFieldAppearances(); }catch(e){}
+    try{
+      if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
+      else form.updateFieldAppearances();
+    }catch(e){}
   }catch(e){}
 }
 function ls(t){return t.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean)}
@@ -3556,6 +3564,37 @@ function isPdfAnnotDict(obj){
   if(/Annot/i.test(type)) return true;
   return /Widget|Link|Popup|Text|Highlight|Square|Circle|Line|Ink|Stamp|FileAttachment|Screen|Watermark|Redact|PrinterMark/i.test(sub);
 }
+function forceWinAnsiHelvetica(pdf){
+  try{
+    const Name=PDFLib.PDFName;
+    pdf.context.enumerateIndirectObjects().forEach(function(pair){
+      const obj=pair[1];
+      if(!obj || typeof obj.get!=="function") return;
+      const type=pdfNameStr(obj.get(Name.of("Type")));
+      const subtype=pdfNameStr(obj.get(Name.of("Subtype")));
+      if(!/Font/i.test(type) && !/Type1|TrueType/i.test(subtype)) return;
+      const base=pdfNameStr(obj.get(Name.of("BaseFont")));
+      const fname=pdfNameStr(obj.get(Name.of("Name")));
+      if(!/Helvetica/i.test(base) && !/Helv/i.test(base) && !/Helv/i.test(fname)) return;
+      try{ obj.set(Name.of("Encoding"), Name.of("WinAnsiEncoding")); }catch(e){}
+      try{ obj.delete(Name.of("Differences")); }catch(e){}
+    });
+  }catch(e){}
+}
+function bindPdfFormFont(form, font){
+  if(!form || !font) return;
+  const da="0 g /"+font.name+" 0 Tf";
+  try{
+    form.getFields().forEach(field=>{
+      try{ field.acroField.setDefaultAppearance(da); }catch(e){}
+      try{
+        field.acroField.getWidgets().forEach(w=>{
+          try{ w.setDefaultAppearance(da); }catch(e2){}
+        });
+      }catch(e){}
+    });
+  }catch(e){}
+}
 function scrubPdfForAdobePrint(pdf){
   try{
     const Name=PDFLib.PDFName;
@@ -3811,6 +3850,8 @@ if(!leerRes || !leerRes.ok) throw new Error("Leer.pdf fehlt (auch offline).");
 let bytes=await leerRes.arrayBuffer(),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+forceWinAnsiHelvetica(pdf);
+bindPdfFormFont(form, pdfFitFont);
 clearPdfForm(form);
 let c=selectedCompany();
 
@@ -3938,7 +3979,8 @@ const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
-form.flatten();
+form.flatten({updateFieldAppearances:false});
+forceWinAnsiHelvetica(pdf);
 if(selectedPdfKind()==="new"){
   drawPdfTotalsRow(page, pdfFitFont, {
     km, travel, work, all,
@@ -3949,7 +3991,8 @@ if(selectedPdfKind()==="new"){
 }
 await embedSignatures(pdf, sigBoxes);
 scrubPdfForAdobePrint(pdf);
-let out=await pdf.save({useObjectStreams:false});
+forceWinAnsiHelvetica(pdf);
+let out=await pdf.save({useObjectStreams:false, updateFieldAppearances:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
@@ -4764,7 +4807,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.97";
+  const APP_VERSION=window.SB_APP_VERSION||"2.98";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
