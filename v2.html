@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v2.96">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v2.97">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v2.96</title>
+  <title>Servicebericht v2.97</title>
 <script>
-window.SB_APP_VERSION="2.96";
+window.SB_APP_VERSION="2.97";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v2.96</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v2.97</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1297,6 +1297,52 @@ function rueckfahrtOff(box){
 function anfahrtOff(box){
   return !!(box && box.getAttribute("data-anfahrt-off")==="1");
 }
+function hasAnfahrtAnkunft(box,d){
+  if(!box || anfahrtOff(box)) return false;
+  const a2=box.querySelector(`[data-k="RZende${d*2-1}"]`);
+  return filledTime(a2?.value);
+}
+function hasRueckfahrtClock(box,d){
+  if(!box || rueckfahrtOff(box)) return false;
+  const b=d*2;
+  const b1=box.querySelector(`[data-k="RZstart${b}"]`);
+  const b2=box.querySelector(`[data-k="RZende${b}"]`);
+  return filledTime(b1?.value) || filledTime(b2?.value);
+}
+function kmFieldManual(el){
+  return !!(el && el.dataset && el.dataset.kmManual==="1");
+}
+function applyListKmIfNeeded(el, km){
+  if(!el || !km) return;
+  if(String(el.value||"").trim()!=="") return;
+  el.value=km;
+  el.dataset.kmManual="0";
+}
+function syncKmFieldsForDay(d){
+  const box=dayBoxEl(d);
+  if(!box) return;
+  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
+  const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
+  const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
+  if(km1){
+    if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km);
+    else if(!kmFieldManual(km1)){
+      km1.value="";
+      km1.classList.remove("km-check");
+    }
+  }
+  if(km2){
+    if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km);
+    else if(!kmFieldManual(km2)){
+      km2.value="";
+      km2.classList.remove("km-check");
+    }
+  }
+}
+function countedKmValue(el, include){
+  if(!include || !el) return 0;
+  return parseFloat(String(el.value||"").replace(",","."))||0;
+}
 function updateRouteInfo(d){
   const box=dayBoxEl(d);
   const info=box?.querySelector(`#routeInfo${d}`);
@@ -1342,6 +1388,7 @@ function clearRueckfahrtKeepRest(d){
   }
   if(km){
     km.value="";
+    km.dataset.kmManual="0";
     km.classList.remove("km-check");
   }
   if(ov){
@@ -1375,14 +1422,15 @@ function refillRueckfahrtAuto(d){
     ov.removeAttribute("data-manual");
   }
   syncReturnPauseFromDay(box);
+  syncWorkEndToReturnStart(d);
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
   const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
-  if(km){
+  if(km && hasRueckfahrtClock(box,d)){
     if(r.km) km.value=r.km;
     else if(kmOut && String(kmOut.value).trim()!=="") km.value=kmOut.value;
+    km.dataset.kmManual="0";
   }
-  syncWorkEndToReturnStart(d);
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
@@ -1413,6 +1461,7 @@ function clearAnfahrtKeepRest(d){
   }
   if(km){
     km.value="";
+    km.dataset.kmManual="0";
     km.classList.remove("km-check");
   }
   if(ov){
@@ -1441,13 +1490,6 @@ function refillAnfahrtAuto(d){
     ov.dataset.manual="0";
     ov.removeAttribute("data-manual");
   }
-  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
-  const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
-  const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
-  if(km){
-    if(r.km) km.value=r.km;
-    else if(kmBack && String(kmBack.value).trim()!=="") km.value=kmBack.value;
-  }
   const a1=box.querySelector(`[data-k="RZstart${d*2-1}"]`);
   const a2=box.querySelector(`[data-k="RZende${d*2-1}"]`);
   const az=box.querySelector(`[data-k="AZstart${d*2-1}"]`);
@@ -1460,6 +1502,14 @@ function refillAnfahrtAuto(d){
     setClock(a1, addMinutesToTime(a2.value,-span));
   }else if(a1 && a1.value && span){
     setClock(a2, addMinutesToTime(a1.value,span));
+  }
+  const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
+  const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+  const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+  if(km && hasAnfahrtAnkunft(box,d)){
+    if(r.km) km.value=r.km;
+    else if(kmBack && String(kmBack.value).trim()!=="") km.value=kmBack.value;
+    km.dataset.kmManual="0";
   }
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -2469,14 +2519,6 @@ function applyCustomerRouteDay(d){
   if(!box) return;
   const skipOut=anfahrtOff(box);
   const skipBack=rueckfahrtOff(box);
-  const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
-  const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
-
-  if(r.km){
-    if(km1 && !skipOut) km1.value=r.km;
-    if(km2 && !skipBack) km2.value=r.km;
-  }
-
   const a1=box.querySelector(`[data-k="RZstart${2*d-1}"]`);
   const a2=box.querySelector(`[data-k="RZende${2*d-1}"]`);
   const b1=box.querySelector(`[data-k="RZstart${2*d}"]`);
@@ -2516,6 +2558,7 @@ function applyCustomerRouteDay(d){
       }
     }
   }
+  syncKmFieldsForDay(d);
   recalcTimes();
 }
 function finishCompaniesLoad(list, opts){
@@ -2798,6 +2841,7 @@ function recalcTimes(){
   for(let d=1;d<=Math.max(1,Number(visibleDays)||1);d++){
     const a=d*2-1,b=d*2;
     const box=dayBoxEl(d);
+    syncKmFieldsForDay(d);
     const q=k=>box?.querySelector(`[data-k="${k}"]`)||{value:""};
     const outOverride=box?.querySelector('[data-route-override="out"]');
     const backOverride=box?.querySelector('[data-route-override="back"]');
@@ -2824,8 +2868,8 @@ function recalcTimes(){
 
     travel+=rt+rr; work+=wt;
     all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
-    km+=(parseFloat(String(q(`Kilometer${a}`).value).replace(",","."))||0);
-    km+=(parseFloat(String(q(`Kilometer${b}`).value).replace(",","."))||0);
+    km+=countedKmValue(q(`Kilometer${a}`), hasAnfahrtAnkunft(box,d));
+    km+=countedKmValue(q(`Kilometer${b}`), hasRueckfahrtClock(box,d));
 
     const sc=(name,val)=>{const el=box?.querySelector(`[data-calc="${name}"]`)||document.querySelector(`[data-calc="${name}"]`);if(el)el.value=fmtMin(val);};
     sc(`rt${d}`,rt); sc(`wt${d}`,wt); sc(`wt2${d}`,wt); sc(`rr${d}`,rr); sc(`total${d}`,rt+pauseOut+wt+pauseWork+rr+pauseBack);
@@ -3027,6 +3071,9 @@ function bindTimeInputs(){
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
+      if(/^Kilometer/.test(key)){
+        el.dataset.kmManual=String(el.value||"").trim()==="" ? "0" : "1";
+      }
       recalcTimes();
       if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
     };
@@ -3821,8 +3868,10 @@ for(let d=1;d<=dayBoxes.length;d++){
   if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
   if(pauseBack) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
   const kmA=q(`Kilometer${a}`).value, kmB=q(`Kilometer${b}`).value;
-  if(String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
-  if(String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
+  const countOut=hasAnfahrtAnkunft(box,d);
+  const countBack=hasRueckfahrtClock(box,d);
+  if(countOut && String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
+  if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const outOv=box.querySelector('[data-route-override="out"]');
   const backOv=box.querySelector('[data-route-override="back"]');
   const rt=outOv && String(outOv.value).trim()!==""
@@ -3835,8 +3884,8 @@ for(let d=1;d<=dayBoxes.length;d++){
   if(rt) setFit(form,`RZ${a}`,fmtMinPdf(rt),8);
   if(wt) setFit(form,`AZ${a}`,fmtMinPdf(wt),8);
   if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),8);
-  km+=(parseFloat((kmA||"").replace(",","."))||0);
-  km+=(parseFloat((kmB||"").replace(",","."))||0);
+  km+=countOut ? (parseFloat((kmA||"").replace(",","."))||0) : 0;
+  km+=countBack ? (parseFloat((kmB||"").replace(",","."))||0) : 0;
   travel+=rt+rr;work+=wt;
   pauseRzSum+=pauseOut+pauseBack;
   pauseAzSum+=pauseWork;
@@ -4715,7 +4764,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"2.96";
+  const APP_VERSION=window.SB_APP_VERSION||"2.97";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
