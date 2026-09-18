@@ -3591,10 +3591,13 @@ function burnFormTextToPages(pdf, form, font){
         const r=w.getRectangle();
         if(!r || r.width<4 || r.height<4) return;
         const page=pdfPageForWidget(pdf,w);
-        const sz=Math.min(size, Math.max(4.2, r.height*0.7));
+        let sz=Math.min(size, Math.max(4.2, r.height*0.7));
         const maxW=Math.max(4, r.width-3);
+        while(sz>4.2 && font.widthOfTextAtSize(text, sz)>maxW) sz-=0.12;
         let draw=text;
-        while(draw.length>1 && font.widthOfTextAtSize(draw, sz)>maxW) draw=draw.slice(0,-1);
+        if(font.widthOfTextAtSize(draw, sz)>maxW){
+          while(draw.length>1 && font.widthOfTextAtSize(draw, sz)>maxW) draw=draw.slice(0,-1);
+        }
         page.drawText(draw,{
           x:r.x+1.6,
           y:r.y+Math.max(1.1,(r.height-sz)*0.3),
