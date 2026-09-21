@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.06">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.07">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.06</title>
+  <title>Servicebericht v3.07</title>
 <script>
-window.SB_APP_VERSION="3.06";
+window.SB_APP_VERSION="3.07";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -794,7 +794,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.06</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.07</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4193,6 +4193,13 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return "";
   }
+  function formatDeTime(iso){
+    try{
+      const d=new Date(iso);
+      if(Number.isNaN(d.getTime())) return "";
+      return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+    }catch(e){ return ""; }
+  }
   function historyDate(item){
     const data=historyItemData(item)||{};
     return formatDeDate(data.date || data.day1_date) || formatDeDate(item?.savedAt);
@@ -4201,14 +4208,34 @@ finally{ window.__pdfBuilding=false; }
     const data=historyItemData(item)||{};
     const typed=String(data.customerSearch||"").trim();
     if(typed && !typed.startsWith("—")) return typed;
-    const stripped=String(item?.name||"").replace(/^\d{1,2}\.\d{1,2}\.\d{4}\s*[–\-]\s*/,"").trim();
+    // Strip leading "dd.mm.yyyy[ hh:mm] – " and trailing " – Nr. …" from saved names.
+    let stripped=String(item?.name||"")
+      .replace(/^\d{1,2}\.\d{1,2}\.\d{4}(?:\s+\d{1,2}:\d{2})?\s*[–\-]\s*/,"")
+      .trim();
+    const cut=stripped.match(/^(.*)\s*[–\-]\s*Nr\.\s+.+$/);
+    if(cut && cut[1].trim()) stripped=cut[1].trim();
     if(stripped && stripped!=="Bericht") return stripped;
     return "Servicebericht";
   }
+  function historyMachine(item){
+    const data=historyItemData(item)||{};
+    const nr=String(data.machineNo||"").trim();
+    if(nr) return "Nr. "+nr;
+    const typ=String(data.type||"").trim();
+    return typ;
+  }
   function historyLabel(item){
     const date=historyDate(item);
+    const time=formatDeTime(item?.savedAt);
     const client=historyClient(item);
-    return date ? date+" – "+client : client;
+    const machine=historyMachine(item);
+    const parts=[];
+    if(date && time) parts.push(date+" "+time);
+    else if(date) parts.push(date);
+    else if(time) parts.push(time);
+    parts.push(client);
+    if(machine) parts.push(machine);
+    return parts.join(" – ");
   }
   let selectedHistory=null;
   function syncComboValue(box, input){
@@ -4278,8 +4305,14 @@ finally{ window.__pdfBuilding=false; }
   }
   function reportPayload(item){
     const datePart=(historyDate(item)||formatDeDate(new Date().toISOString())||"Bericht").replace(/[\\/:*?"<>|]/g,"_");
+    const timePart=(formatDeTime(item?.savedAt)||"").replace(":","-");
     const companyName=historyClient(item).trim().replace(/[\\/:*?"<>|]/g,"_").replace(/\s+/g,"_");
-    const filename=`${datePart}_${companyName}.json`;
+    const machinePart=String((historyItemData(item)||{}).machineNo||"").trim().replace(/[\\/:*?"<>|]/g,"_");
+    const bits=[datePart];
+    if(timePart) bits.push(timePart);
+    bits.push(companyName||"Servicebericht");
+    if(machinePart) bits.push(machinePart);
+    const filename=bits.join("_")+".json";
     const json=JSON.stringify({
       format:"Servicebericht-Historie",
       version:1,
@@ -4448,9 +4481,17 @@ finally{ window.__pdfBuilding=false; }
       };
       try{
         const list=loadHistory();
-        list.unshift(item);
-        saveHistory(list);
-        setSelectedHistory(0, item);
+        const idx=selectedHistory;
+        // Updating the open entry avoids two identical Historie rows.
+        if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
+          list[Number(idx)]=item;
+          saveHistory(list);
+          setSelectedHistory(Number(idx), item);
+        }else{
+          list.unshift(item);
+          saveHistory(list);
+          setSelectedHistory(0, item);
+        }
         showHistoryActionOk("ok");
       }catch(e){
         alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
@@ -4791,7 +4832,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.06";
+  const APP_VERSION=window.SB_APP_VERSION||"3.07";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
