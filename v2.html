@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.05">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.06">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.05</title>
+  <title>Servicebericht v3.06</title>
 <script>
-window.SB_APP_VERSION="3.05";
+window.SB_APP_VERSION="3.06";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -253,24 +253,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .email-pdf-btn svg{width:20px;height:20px;display:block}
 .email-pdf-btn:disabled{opacity:.4;background:#8a8a90}
-#pdfKindModal{
-  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
-  align-items:flex-end;justify-content:center;
-}
-#pdfKindModal.is-open{display:flex}
-.pdf-kind-sheet{
-  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
-  padding:18px 16px calc(16px + env(safe-area-inset-bottom));
-  box-shadow:0 -8px 24px rgba(0,0,0,.18);
-}
-.pdf-kind-sheet h3{margin:0 0 14px;font-size:18px;text-align:center}
-.pdf-kind-picks{display:flex;gap:12px;margin:0 0 12px}
-.pdf-kind-num{
-  flex:1;min-height:96px;border:1px solid #c9c9ce;border-radius:16px;
-  background:#f4f4f6;color:#111;font-size:40px;font-weight:800;padding:0;
-}
-.pdf-kind-num.is-on{background:#163a5c;border-color:#163a5c;color:#fff}
-#pdfKindCancel{width:100%}
 #pdfEmailModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -812,7 +794,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.05</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.06</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1070,16 +1052,6 @@ select.is-nudge,input.is-nudge{
   <div class="pdf-preview-bottom">
     <button type="button" class="clear" id="pdfPreviewBack">Zurück zum Formular</button>
     <button type="button" class="go" id="pdfPreviewSave">PDF speichern</button>
-  </div>
-</div>
-<div id="pdfKindModal" aria-hidden="true">
-  <div class="pdf-kind-sheet">
-    <h3>PDF</h3>
-    <div class="pdf-kind-picks">
-      <button type="button" class="pdf-kind-num" data-pdf-kind="old">1</button>
-      <button type="button" class="pdf-kind-num" data-pdf-kind="new">2</button>
-    </div>
-    <button type="button" class="clear" id="pdfKindCancel">Abbrechen</button>
   </div>
 </div>
 <div id="pdfMissingModal" aria-hidden="true">
@@ -1858,7 +1830,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfKindModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -3732,56 +3704,20 @@ function drawPdfTotalsRow(page, font, t, boldFont){
 }
 initSignaturePads();
 
-const PDF_KIND_KEY="servicebericht_pdf_kind_v2";
-let pdfKindChoice="new";
-function selectedPdfKind(){
-  return pdfKindChoice==="old" ? "old" : "new";
-}
-function setPdfKind(kind){
-  pdfKindChoice=kind==="old" ? "old" : "new";
-  try{ localStorage.setItem(PDF_KIND_KEY, pdfKindChoice); }catch(e){}
-  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
-    btn.classList.toggle("is-on", btn.getAttribute("data-pdf-kind")===pdfKindChoice);
-  });
-}
+// PDF layout 2 only (totals row). Layout 1 / kind picker removed.
+function selectedPdfKind(){ return "new"; }
 function openPdfKindSheet(){
-  const modal=$("pdfKindModal");
-  if(!modal) return;
-  setPdfKind(selectedPdfKind());
-  modal.classList.add("is-open");
-  modal.setAttribute("aria-hidden","false");
+  // No picker: continue the same flow the old "2" button used.
+  if(window.__pdfKindPurpose==="preview"){
+    window.__pdfKindPurpose="save";
+    if(typeof window.showPdfPreview==="function") window.showPdfPreview();
+    return;
+  }
+  const go=$("generate");
+  if(!go) return;
+  go.dataset.awaitKind="1";
+  go.click();
 }
-function closePdfKindSheet(){
-  const modal=$("pdfKindModal");
-  if(!modal) return;
-  modal.classList.remove("is-open");
-  modal.setAttribute("aria-hidden","true");
-}
-function initPdfKind(){
-  let kind="new";
-  try{ kind=localStorage.getItem(PDF_KIND_KEY)||"new"; }catch(e){}
-  setPdfKind(kind);
-  document.querySelectorAll("[data-pdf-kind]").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      setPdfKind(btn.getAttribute("data-pdf-kind"));
-      closePdfKindSheet();
-      if(window.__pdfKindPurpose==="preview"){
-        window.__pdfKindPurpose="save";
-        if(typeof window.showPdfPreview==="function") window.showPdfPreview();
-        return;
-      }
-      const go=$("generate");
-      if(!go) return;
-      go.dataset.awaitKind="1";
-      go.click();
-    });
-  });
-  $("pdfKindCancel")?.addEventListener("click", closePdfKindSheet);
-  $("pdfKindModal")?.addEventListener("click",e=>{
-    if(e.target===$("pdfKindModal")) closePdfKindSheet();
-  });
-}
-initPdfKind();
 
 function pdfMissingChoices(){
   const miss=[];
@@ -4030,14 +3966,13 @@ const sigBoxes=signatureFieldBoxes(form);
 });
 form.flatten({updateFieldAppearances:false});
 forceWinAnsiHelvetica(pdf);
-if(selectedPdfKind()==="new"){
-  drawPdfTotalsRow(page, pdfFitFont, {
-    km, travel, work, all,
-    pauseRz:pauseRzSum,
-    pauseAz:pauseAzSum,
-    overnight:overnightN
-  }, pdfFitFontBold);
-}
+// Layout 2: totals row under the times table.
+drawPdfTotalsRow(page, pdfFitFont, {
+  km, travel, work, all,
+  pauseRz:pauseRzSum,
+  pauseAz:pauseAzSum,
+  overnight:overnightN
+}, pdfFitFontBold);
 await embedSignatures(pdf, sigBoxes);
 scrubPdfForAdobePrint(pdf);
 forceWinAnsiHelvetica(pdf);
@@ -4856,7 +4791,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.05";
+  const APP_VERSION=window.SB_APP_VERSION||"3.06";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6559,8 +6494,7 @@ finally{ window.__pdfBuilding=false; }
     return true;
   };
   function startPdfPreview(){
-    window.__pdfKindPurpose="preview";
-    if(typeof openPdfKindSheet==="function") openPdfKindSheet();
+    if(typeof window.showPdfPreview==="function") window.showPdfPreview();
   }
   function bindPdfEmailUi(){
     $("emailPdfBtn")?.addEventListener("click",()=>{
