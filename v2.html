@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.04">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.05">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.04</title>
+  <title>Servicebericht v3.05</title>
 <script>
-window.SB_APP_VERSION="3.04";
+window.SB_APP_VERSION="3.05";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -71,6 +71,22 @@ window.SB_APP_VERSION="3.04";
   checkLive();
   document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
   window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+
+  // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
+  function warmPdfCache(){
+    const files=[
+      "vendor/pdf-lib.min.js",
+      "vendor/pdf.min.js",
+      "vendor/pdf.worker.min.js",
+      "Leer.pdf"
+    ];
+    files.forEach(function(u){
+      try{ fetch(u+"?v="+(window.SB_APP_VERSION||""), {cache:"reload"}).catch(function(){}); }catch(e){}
+    });
+  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", warmPdfCache);
+  else warmPdfCache();
+  window.addEventListener("online", warmPdfCache);
 })();
 </script>
 <style>
@@ -796,7 +812,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.04</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.05</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3827,20 +3843,36 @@ try{
     $("status").textContent="PDF-Bibliothek wird geladen…";
     await new Promise(function(resolve,reject){
       const t=setTimeout(function(){ reject(new Error("PDF-Bibliothek nicht geladen. Seite neu laden.")); }, 20000);
+      function done(){ clearTimeout(t); resolve(); }
+      function fail(){ clearTimeout(t); reject(new Error("PDF-Bibliothek fehlt (offline?). Einmal mit Internet öffnen.")); }
+      function inject(src, fromBlob){
+        const s=document.createElement("script");
+        s.id="pdfLibScript";
+        s.src=src;
+        s.onload=done;
+        s.onerror=function(){
+          if(fromBlob){ fail(); return; }
+          if(typeof caches==="undefined"){ fail(); return; }
+          caches.match("vendor/pdf-lib.min.js", {ignoreSearch:true}).then(function(res){
+            if(!res || !res.ok){ fail(); return; }
+            return res.blob().then(function(blob){
+              inject(URL.createObjectURL(blob), true);
+            });
+          }).catch(fail);
+        };
+        document.head.appendChild(s);
+      }
       const existing=document.getElementById("pdfLibScript");
-      function ok(){ clearTimeout(t); resolve(); }
       if(existing){
-        if(window.PDFLib){ ok(); return; }
-        existing.addEventListener("load", ok);
-        existing.addEventListener("error", function(){ clearTimeout(t); reject(new Error("PDF-Bibliothek fehlt.")); });
+        if(window.PDFLib){ done(); return; }
+        existing.addEventListener("load", done);
+        existing.addEventListener("error", function(){
+          existing.remove();
+          inject("vendor/pdf-lib.min.js", false);
+        });
         return;
       }
-      const s=document.createElement("script");
-      s.id="pdfLibScript";
-      s.src="vendor/pdf-lib.min.js";
-      s.onload=ok;
-      s.onerror=function(){ clearTimeout(t); reject(new Error("PDF-Bibliothek fehlt.")); };
-      document.head.appendChild(s);
+      inject("vendor/pdf-lib.min.js", false);
     });
   }
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
@@ -4824,7 +4856,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.04";
+  const APP_VERSION=window.SB_APP_VERSION||"3.05";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6351,6 +6383,39 @@ finally{ window.__pdfBuilding=false; }
     previewZoom=1;
     previewZoomApply();
   }
+  function loadScriptFromCacheOrNet(id, url){
+    if(document.getElementById(id)){
+      return new Promise(function(resolve,reject){
+        const existing=document.getElementById(id);
+        if(id==="pdfJsScript" && window.pdfjsLib){ resolve(); return; }
+        if(id==="pdfJsWorkerScript" && window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler){ resolve(); return; }
+        if(id==="pdfLibScript" && window.PDFLib){ resolve(); return; }
+        existing.addEventListener("load", function(){ resolve(); });
+        existing.addEventListener("error", function(){ reject(new Error("script")); });
+      });
+    }
+    return new Promise(function(resolve,reject){
+      function inject(src, isBlob){
+        const s=document.createElement("script");
+        s.id=id;
+        s.src=src;
+        s.onload=function(){ resolve(); };
+        s.onerror=function(){
+          if(isBlob){ reject(new Error("script")); return; }
+          // Offline cold start: read from Cache API and inject as blob URL.
+          if(typeof caches==="undefined"){ reject(new Error("script")); return; }
+          caches.match(url, {ignoreSearch:true}).then(function(res){
+            if(!res || !res.ok){ reject(new Error("script")); return; }
+            return res.blob().then(function(blob){
+              inject(URL.createObjectURL(blob), true);
+            });
+          }).catch(function(){ reject(new Error("script")); });
+        };
+        document.head.appendChild(s);
+      }
+      inject(url, false);
+    });
+  }
   function pdfWorkerSrc(){
     return "vendor/pdf.worker.min.js?v="+(window.SB_APP_VERSION||"");
   }
@@ -6361,53 +6426,20 @@ finally{ window.__pdfBuilding=false; }
     if(window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler)
       return Promise.resolve();
     if(pdfWorkerScriptReady) return pdfWorkerScriptReady;
-    pdfWorkerScriptReady=new Promise(function(resolve,reject){
-      const existing=document.getElementById("pdfJsWorkerScript");
-      function ok(){
-        if(window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler){
-          resolve();
-          return;
-        }
-        reject(new Error("PDF-Worker fehlt."));
-      }
-      if(existing){
-        if(window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler){ resolve(); return; }
-        existing.addEventListener("load", ok);
-        existing.addEventListener("error", function(){ reject(new Error("PDF-Worker fehlt.")); });
-        return;
-      }
-      const s=document.createElement("script");
-      s.id="pdfJsWorkerScript";
-      s.src=pdfWorkerSrc();
-      s.onload=ok;
-      s.onerror=function(){
-        pdfWorkerScriptReady=null;
-        reject(new Error("PDF-Worker fehlt."));
-      };
-      document.head.appendChild(s);
+    pdfWorkerScriptReady=loadScriptFromCacheOrNet("pdfJsWorkerScript", pdfWorkerSrc()).then(function(){
+      if(!(window.pdfjsWorker && window.pdfjsWorker.WorkerMessageHandler))
+        throw new Error("PDF-Worker fehlt.");
+    }).catch(function(err){
+      pdfWorkerScriptReady=null;
+      throw err;
     });
     return pdfWorkerScriptReady;
   }
   function loadPdfJs(){
     if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    return new Promise(function(resolve,reject){
-      const existing=document.getElementById("pdfJsScript");
-      function ok(){
-        if(!window.pdfjsLib){ reject(new Error("PDF-Vorschau fehlt.")); return; }
-        resolve(window.pdfjsLib);
-      }
-      if(existing){
-        if(window.pdfjsLib){ ok(); return; }
-        existing.addEventListener("load", ok);
-        existing.addEventListener("error", function(){ reject(new Error("PDF-Vorschau fehlt.")); });
-        return;
-      }
-      const s=document.createElement("script");
-      s.id="pdfJsScript";
-      s.src="vendor/pdf.min.js?v="+(window.SB_APP_VERSION||"");
-      s.onload=ok;
-      s.onerror=function(){ reject(new Error("PDF-Vorschau fehlt.")); };
-      document.head.appendChild(s);
+    return loadScriptFromCacheOrNet("pdfJsScript", "vendor/pdf.min.js?v="+(window.SB_APP_VERSION||"")).then(function(){
+      if(!window.pdfjsLib) throw new Error("PDF-Vorschau fehlt.");
+      return window.pdfjsLib;
     });
   }
   function previewPaintError(host, msg){
