@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.01">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.02">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.01</title>
+  <title>Servicebericht v3.02</title>
 <script>
-window.SB_APP_VERSION="3.01";
+window.SB_APP_VERSION="3.02";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -168,11 +168,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   padding:10px 10px 8px;background:#c5c5ca;
 }
 #pdfPreviewPages{width:100%;max-width:900px;margin:0 auto;transform-origin:top center}
-#pdfPreviewPages canvas,#pdfPreviewPages iframe{
+#pdfPreviewPages canvas,#pdfPreviewPages iframe,#pdfPreviewPages object{
   width:100%;height:auto;display:block;background:#fff;border-radius:4px;
   box-shadow:0 2px 10px rgba(0,0,0,.18);margin:0 0 10px;
 }
-#pdfPreviewPages iframe{min-height:70vh;border:0}
+#pdfPreviewPages iframe,#pdfPreviewPages object{min-height:70vh;border:0}
 .pdf-preview-bottom{
   display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
   background:#fff;border-top:1px solid #ccc;flex:0 0 auto;
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.01</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.02</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3835,19 +3835,27 @@ try{
     });
   }
 if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
-let leerRes=null;
-if(typeof window.sbCachedFile==="function"){
-  leerRes=await window.sbCachedFile("Leer.pdf", 2500);
+let bytes=null;
+if(window.__leerPdfBytes instanceof ArrayBuffer && window.__leerPdfBytes.byteLength){
+  bytes=window.__leerPdfBytes.slice(0);
 }else{
-  try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
-  if(!leerRes || !leerRes.ok){
-    if(typeof caches!=="undefined"){
-      leerRes=await caches.match("./Leer.pdf") || await caches.match("Leer.pdf");
+  let leerRes=null;
+  if(typeof window.sbCachedFile==="function"){
+    leerRes=await window.sbCachedFile("Leer.pdf", 2500);
+  }else{
+    try{ leerRes=await fetch("Leer.pdf"); }catch(e){ leerRes=null; }
+    if(!leerRes || !leerRes.ok){
+      if(typeof caches!=="undefined"){
+        leerRes=await caches.match("./Leer.pdf") || await caches.match("Leer.pdf");
+      }
     }
   }
+  if(!leerRes || !leerRes.ok) throw new Error("Leer.pdf fehlt (auch offline).");
+  const raw=await leerRes.arrayBuffer();
+  try{ window.__leerPdfBytes=raw.slice(0); }catch(e){ window.__leerPdfBytes=raw; }
+  bytes=window.__leerPdfBytes.slice(0);
 }
-if(!leerRes || !leerRes.ok) throw new Error("Leer.pdf fehlt (auch offline).");
-let bytes=await leerRes.arrayBuffer(),pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
+let pdf=await PDFLib.PDFDocument.load(bytes),form=pdf.getForm();
 pdfFitFont=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
 const pdfFitFontBold=await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
 forceWinAnsiHelvetica(pdf);
@@ -4807,7 +4815,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.01";
+  const APP_VERSION=window.SB_APP_VERSION||"3.02";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6299,8 +6307,9 @@ finally{ window.__pdfBuilding=false; }
   let previewPdf=null;
   let previewGen=0;
   let previewRenderTasks=[];
+  let pdfWorkerBytes=null;
   let pdfWorkerBlobUrl="";
-  let pdfWorkerReady=null;
+  let pdfWorkerBytesReady=null;
   function previewZoomApply(){
     const pages=$("pdfPreviewPages");
     if(!pages) return;
@@ -6337,38 +6346,44 @@ finally{ window.__pdfBuilding=false; }
   function pdfWorkerFallbackSrc(){
     return "vendor/pdf.worker.min.js?v="+(window.SB_APP_VERSION||"");
   }
-  function applyPdfWorkerSrc(pdfjs){
-    pdfjs.GlobalWorkerOptions.workerSrc=pdfWorkerBlobUrl||pdfWorkerFallbackSrc();
-  }
-  function ensurePdfWorkerSrc(pdfjs){
-    if(pdfWorkerBlobUrl){
-      applyPdfWorkerSrc(pdfjs);
-      return Promise.resolve();
-    }
-    if(pdfWorkerReady){
-      return pdfWorkerReady.then(function(){ applyPdfWorkerSrc(pdfjs); });
-    }
+  function loadPdfWorkerBytes(){
+    if(pdfWorkerBytes) return Promise.resolve(pdfWorkerBytes);
+    if(pdfWorkerBytesReady) return pdfWorkerBytesReady;
     const workerPath=pdfWorkerFallbackSrc();
-    pdfWorkerReady=fetch(workerPath).then(function(res){
+    pdfWorkerBytesReady=fetch(workerPath).then(function(res){
       if(!res || !res.ok) throw new Error("PDF-Worker fehlt.");
-      return res.blob();
-    }).then(function(blob){
-      pdfWorkerBlobUrl=URL.createObjectURL(blob);
-      applyPdfWorkerSrc(pdfjs);
-    }).catch(function(){
-      applyPdfWorkerSrc(pdfjs);
+      return res.arrayBuffer();
+    }).then(function(buf){
+      pdfWorkerBytes=buf;
+      return buf;
+    }).catch(function(err){
+      pdfWorkerBytesReady=null;
+      throw err;
     });
-    return pdfWorkerReady;
+    return pdfWorkerBytesReady;
+  }
+  // Safari/iOS: after PDFWorker.terminate(), the same blob: URL often cannot
+  // start another Worker. Mint a fresh blob URL for every getDocument().
+  async function preparePdfWorkerSrc(pdfjs){
+    try{
+      await loadPdfWorkerBytes();
+      if(pdfWorkerBlobUrl){
+        try{ URL.revokeObjectURL(pdfWorkerBlobUrl); }catch(e){}
+        pdfWorkerBlobUrl="";
+      }
+      pdfWorkerBlobUrl=URL.createObjectURL(new Blob([pdfWorkerBytes],{type:"application/javascript"}));
+      pdfjs.GlobalWorkerOptions.workerSrc=pdfWorkerBlobUrl;
+    }catch(e){
+      pdfjs.GlobalWorkerOptions.workerSrc=pdfWorkerFallbackSrc();
+    }
   }
   function loadPdfJs(){
-    if(window.pdfjsLib){
-      return ensurePdfWorkerSrc(window.pdfjsLib).then(function(){ return window.pdfjsLib; });
-    }
+    if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
     return new Promise(function(resolve,reject){
       const existing=document.getElementById("pdfJsScript");
       function ok(){
         if(!window.pdfjsLib){ reject(new Error("PDF-Vorschau fehlt.")); return; }
-        ensurePdfWorkerSrc(window.pdfjsLib).then(function(){ resolve(window.pdfjsLib); }, reject);
+        resolve(window.pdfjsLib);
       }
       if(existing){
         if(window.pdfjsLib){ ok(); return; }
@@ -6384,6 +6399,13 @@ finally{ window.__pdfBuilding=false; }
       document.head.appendChild(s);
     });
   }
+  function previewPaintError(host, msg){
+    host.innerHTML="";
+    const p=document.createElement("p");
+    p.style.cssText="margin:24px 12px;text-align:center;color:#333;font-size:15px;line-height:1.4";
+    p.textContent=msg||"Vorschau fehlgeschlagen. Bitte erneut tippen.";
+    host.appendChild(p);
+  }
   async function renderPdfPreview(blob){
     const host=$("pdfPreviewPages");
     if(!host || !blob) return;
@@ -6396,15 +6418,18 @@ finally{ window.__pdfBuilding=false; }
     try{
       const pdfjs=await loadPdfJs();
       if(gen!==previewGen) return;
+      await preparePdfWorkerSrc(pdfjs);
+      if(gen!==previewGen) return;
       const buf=await blob.arrayBuffer();
       if(gen!==previewGen) return;
-      // Copy bytes: pdf.js transfers the buffer to the worker and neuters it.
-      const data=new Uint8Array(buf.slice(0));
+      // Own copy: pdf.js transfers the buffer into the worker and neuters it.
+      const data=Uint8Array.from(new Uint8Array(buf));
       const loadingTask=pdfjs.getDocument({
         data:data,
         useWorkerFetch:false,
         isEvalSupported:false,
-        disableFontFace:false
+        disableFontFace:false,
+        verbosity:0
       });
       const pdf=await loadingTask.promise;
       if(gen!==previewGen){
@@ -6437,27 +6462,65 @@ finally{ window.__pdfBuilding=false; }
         }
         if(gen!==previewGen) return;
         host.appendChild(canvas);
+        try{ page.cleanup(); }catch(e){}
       }
     }catch(e){
       if(gen!==previewGen) return;
       const msg=String((e&&e.message)||e||"");
       if(e&&(e.name==="RenderingCancelledException"||e.name==="AbortException"||/cancel/i.test(msg))) return;
+      // Second try: mint another worker blob and render again (Safari worker reuse).
+      try{
+        const pdfjs=await loadPdfJs();
+        if(gen!==previewGen) return;
+        await preparePdfWorkerSrc(pdfjs);
+        const buf=await blob.arrayBuffer();
+        const data=Uint8Array.from(new Uint8Array(buf));
+        const pdf=await pdfjs.getDocument({
+          data:data,
+          useWorkerFetch:false,
+          isEvalSupported:false,
+          verbosity:0
+        }).promise;
+        if(gen!==previewGen){
+          try{ await pdf.destroy(); }catch(x){}
+          return;
+        }
+        previewPdf=pdf;
+        host.innerHTML="";
+        const box=host.parentElement;
+        const wrapW=Math.max(280,(box&&box.clientWidth)||host.clientWidth||window.innerWidth-24);
+        const dpr=Math.min(2, window.devicePixelRatio||1);
+        for(let i=1;i<=pdf.numPages;i++){
+          if(gen!==previewGen) return;
+          const page=await pdf.getPage(i);
+          const base=page.getViewport({scale:1});
+          const viewport=page.getViewport({scale:(wrapW/base.width)*dpr});
+          const canvas=document.createElement("canvas");
+          canvas.width=viewport.width;
+          canvas.height=viewport.height;
+          canvas.style.width=Math.round(viewport.width/dpr)+"px";
+          canvas.style.height=Math.round(viewport.height/dpr)+"px";
+          await page.render({canvasContext:canvas.getContext("2d",{alpha:false}), viewport}).promise;
+          if(gen!==previewGen) return;
+          host.appendChild(canvas);
+        }
+        return;
+      }catch(e2){}
+      // Last resort: object/embed (iframe is often blank on iPad PWA).
       host.innerHTML="";
       if(previewObjectUrl){ try{ URL.revokeObjectURL(previewObjectUrl); }catch(x){} }
       previewObjectUrl=URL.createObjectURL(blob);
-      const frame=document.createElement("iframe");
-      frame.title="PDF-Vorschau";
-      frame.src=previewObjectUrl+"#toolbar=0&navpanes=0";
-      host.appendChild(frame);
-      // iPad/Safari sometimes paints a blank iframe once; retry once with a fresh blob URL.
+      const obj=document.createElement("object");
+      obj.type="application/pdf";
+      obj.data=previewObjectUrl;
+      obj.title="PDF-Vorschau";
+      obj.style.cssText="width:100%;min-height:70vh;border:0;background:#fff";
+      host.appendChild(obj);
       setTimeout(function(){
-        if(gen!==previewGen || !frame.isConnected) return;
-        try{
-          if(previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
-        }catch(x){}
-        previewObjectUrl=URL.createObjectURL(blob);
-        frame.src=previewObjectUrl+"#toolbar=0&navpanes=0";
-      }, 400);
+        if(gen!==previewGen || !obj.isConnected) return;
+        if(obj.getBoundingClientRect().height>40) return;
+        previewPaintError(host, "Vorschau fehlgeschlagen. Bitte lupka erneut tippen.");
+      }, 800);
     }
   }
   function openPdfPreviewSheet(){
