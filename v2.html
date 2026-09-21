@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.00">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.01">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.00</title>
+  <title>Servicebericht v3.01</title>
 <script>
-window.SB_APP_VERSION="3.00";
+window.SB_APP_VERSION="3.01";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -787,7 +787,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.00</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.01</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4807,7 +4807,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.00";
+  const APP_VERSION=window.SB_APP_VERSION||"3.01";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6296,13 +6296,29 @@ finally{ window.__pdfBuilding=false; }
   }
   let previewZoom=1;
   let previewObjectUrl="";
+  let previewPdf=null;
+  let previewGen=0;
+  let previewRenderTasks=[];
+  let pdfWorkerBlobUrl="";
+  let pdfWorkerReady=null;
   function previewZoomApply(){
     const pages=$("pdfPreviewPages");
     if(!pages) return;
     pages.style.zoom=String(previewZoom);
     pages.style.transform="none";
   }
+  async function destroyPdfPreviewDoc(){
+    previewRenderTasks.forEach(function(task){
+      try{ task.cancel(); }catch(e){}
+    });
+    previewRenderTasks=[];
+    if(previewPdf){
+      try{ await previewPdf.destroy(); }catch(e){}
+      previewPdf=null;
+    }
+  }
   function closePdfPreview(){
+    previewGen++;
     const modal=$("pdfPreviewModal");
     if(modal){
       modal.classList.remove("is-open");
@@ -6310,6 +6326,7 @@ finally{ window.__pdfBuilding=false; }
     }
     const host=$("pdfPreviewPages");
     if(host) host.innerHTML="";
+    destroyPdfPreviewDoc();
     if(previewObjectUrl){
       try{ URL.revokeObjectURL(previewObjectUrl); }catch(e){}
       previewObjectUrl="";
@@ -6317,14 +6334,41 @@ finally{ window.__pdfBuilding=false; }
     previewZoom=1;
     previewZoomApply();
   }
+  function pdfWorkerFallbackSrc(){
+    return "vendor/pdf.worker.min.js?v="+(window.SB_APP_VERSION||"");
+  }
+  function applyPdfWorkerSrc(pdfjs){
+    pdfjs.GlobalWorkerOptions.workerSrc=pdfWorkerBlobUrl||pdfWorkerFallbackSrc();
+  }
+  function ensurePdfWorkerSrc(pdfjs){
+    if(pdfWorkerBlobUrl){
+      applyPdfWorkerSrc(pdfjs);
+      return Promise.resolve();
+    }
+    if(pdfWorkerReady){
+      return pdfWorkerReady.then(function(){ applyPdfWorkerSrc(pdfjs); });
+    }
+    const workerPath=pdfWorkerFallbackSrc();
+    pdfWorkerReady=fetch(workerPath).then(function(res){
+      if(!res || !res.ok) throw new Error("PDF-Worker fehlt.");
+      return res.blob();
+    }).then(function(blob){
+      pdfWorkerBlobUrl=URL.createObjectURL(blob);
+      applyPdfWorkerSrc(pdfjs);
+    }).catch(function(){
+      applyPdfWorkerSrc(pdfjs);
+    });
+    return pdfWorkerReady;
+  }
   function loadPdfJs(){
-    if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if(window.pdfjsLib){
+      return ensurePdfWorkerSrc(window.pdfjsLib).then(function(){ return window.pdfjsLib; });
+    }
     return new Promise(function(resolve,reject){
       const existing=document.getElementById("pdfJsScript");
       function ok(){
         if(!window.pdfjsLib){ reject(new Error("PDF-Vorschau fehlt.")); return; }
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc="vendor/pdf.worker.min.js?v="+(window.SB_APP_VERSION||"");
-        resolve(window.pdfjsLib);
+        ensurePdfWorkerSrc(window.pdfjsLib).then(function(){ resolve(window.pdfjsLib); }, reject);
       }
       if(existing){
         if(window.pdfjsLib){ ok(); return; }
@@ -6342,35 +6386,78 @@ finally{ window.__pdfBuilding=false; }
   }
   async function renderPdfPreview(blob){
     const host=$("pdfPreviewPages");
-    if(!host) return;
+    if(!host || !blob) return;
+    const gen=++previewGen;
+    await destroyPdfPreviewDoc();
+    if(gen!==previewGen) return;
     host.innerHTML="";
     previewZoom=1;
     previewZoomApply();
     try{
       const pdfjs=await loadPdfJs();
+      if(gen!==previewGen) return;
       const buf=await blob.arrayBuffer();
-      const pdf=await pdfjs.getDocument({data:new Uint8Array(buf)}).promise;
+      if(gen!==previewGen) return;
+      // Copy bytes: pdf.js transfers the buffer to the worker and neuters it.
+      const data=new Uint8Array(buf.slice(0));
+      const loadingTask=pdfjs.getDocument({
+        data:data,
+        useWorkerFetch:false,
+        isEvalSupported:false,
+        disableFontFace:false
+      });
+      const pdf=await loadingTask.promise;
+      if(gen!==previewGen){
+        try{ await pdf.destroy(); }catch(e){}
+        return;
+      }
+      previewPdf=pdf;
       const box=host.parentElement;
       const wrapW=Math.max(280,(box&&box.clientWidth)||host.clientWidth||window.innerWidth-24);
       const dpr=Math.min(2, window.devicePixelRatio||1);
       for(let i=1;i<=pdf.numPages;i++){
+        if(gen!==previewGen) return;
         const page=await pdf.getPage(i);
+        if(gen!==previewGen) return;
         const base=page.getViewport({scale:1});
         const fit=wrapW/base.width;
         const viewport=page.getViewport({scale:fit*dpr});
         const canvas=document.createElement("canvas");
         canvas.width=viewport.width;
         canvas.height=viewport.height;
-        await page.render({canvasContext:canvas.getContext("2d",{alpha:false}), viewport}).promise;
+        canvas.style.width=Math.round(viewport.width/dpr)+"px";
+        canvas.style.height=Math.round(viewport.height/dpr)+"px";
+        const task=page.render({canvasContext:canvas.getContext("2d",{alpha:false}), viewport});
+        previewRenderTasks.push(task);
+        try{
+          await task.promise;
+        }catch(renderErr){
+          if(gen!==previewGen) return;
+          throw renderErr;
+        }
+        if(gen!==previewGen) return;
         host.appendChild(canvas);
       }
     }catch(e){
+      if(gen!==previewGen) return;
+      const msg=String((e&&e.message)||e||"");
+      if(e&&(e.name==="RenderingCancelledException"||e.name==="AbortException"||/cancel/i.test(msg))) return;
+      host.innerHTML="";
       if(previewObjectUrl){ try{ URL.revokeObjectURL(previewObjectUrl); }catch(x){} }
       previewObjectUrl=URL.createObjectURL(blob);
       const frame=document.createElement("iframe");
       frame.title="PDF-Vorschau";
-      frame.src=previewObjectUrl;
+      frame.src=previewObjectUrl+"#toolbar=0&navpanes=0";
       host.appendChild(frame);
+      // iPad/Safari sometimes paints a blank iframe once; retry once with a fresh blob URL.
+      setTimeout(function(){
+        if(gen!==previewGen || !frame.isConnected) return;
+        try{
+          if(previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+        }catch(x){}
+        previewObjectUrl=URL.createObjectURL(blob);
+        frame.src=previewObjectUrl+"#toolbar=0&navpanes=0";
+      }, 400);
     }
   }
   function openPdfPreviewSheet(){
