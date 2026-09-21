@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.03">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.04">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.03</title>
+  <title>Servicebericht v3.04</title>
 <script>
-window.SB_APP_VERSION="3.03";
+window.SB_APP_VERSION="3.04";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -24,13 +24,15 @@ window.SB_APP_VERSION="3.03";
     return x?x[1]:"";
   }
   function go(ver){
-    try{
-      if(sessionStorage.getItem("sb_loaded_"+ver)==="1") return;
-      sessionStorage.setItem("sb_loaded_"+ver,"1");
-    }catch(e){}
+    if(!ver || ver===window.SB_APP_VERSION) return;
     const u=new URL(location.href);
-    if(u.searchParams.get("v")===ver) return;
     u.searchParams.set("v", ver);
+    // Bust iOS Home Screen / SW shell that otherwise sticks on an old HTML.
+    u.searchParams.set("_sb", String(Date.now()));
+    try{
+      sessionStorage.removeItem("sb_sw_reload");
+      sessionStorage.removeItem("sb_loaded_"+ver);
+    }catch(e){}
     location.replace(u.pathname+u.search+u.hash);
   }
   function checkLive(){
@@ -40,6 +42,13 @@ window.SB_APP_VERSION="3.03";
       const ver=remoteVersion(m);
       if(ver && ver!==window.SB_APP_VERSION) go(ver);
     }).catch(function(){});
+    try{
+      if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
+        navigator.serviceWorker.getRegistration().then(function(reg){
+          if(reg && reg.update) reg.update().catch(function(){});
+        }).catch(function(){});
+      }
+    }catch(e){}
   }
   try{
     if(navigator.serviceWorker){
@@ -787,7 +796,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.03</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.04</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4815,7 +4824,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.03";
+  const APP_VERSION=window.SB_APP_VERSION||"3.04";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){

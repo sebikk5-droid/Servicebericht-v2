@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v3-03";
+const CACHE_NAME = "servicebericht-v3-04";
 const APP_SHELL = [
   "./v2.html",
   "./manifest-v2.webmanifest",
@@ -63,6 +63,13 @@ function timeoutFetch(req, ms) {
   ]);
 }
 
+// Only read from the current cache — never from leftover v3.01/v3.02 shells.
+function matchCurrent(req, ignoreSearch) {
+  return caches.open(CACHE_NAME).then(cache =>
+    cache.match(req, ignoreSearch ? { ignoreSearch: true } : undefined)
+  );
+}
+
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
@@ -72,7 +79,13 @@ self.addEventListener("install", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME && /servicebericht-v2/i.test(k)).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          // Old bug: only /servicebericht-v2/ was deleted, so v3.01/v3.02 caches stayed
+          // and iPad Home Screen kept serving the broken shell offline.
+          .filter(k => k !== CACHE_NAME && /servicebericht/i.test(k))
+          .map(k => caches.delete(k))
+      )
     ).then(() => self.clients.claim())
   );
 });
@@ -83,13 +96,13 @@ self.addEventListener("fetch", event => {
 
   if (isV2Navigation(req)) {
     event.respondWith(
-      timeoutFetch(req, 2500).then(res => {
+      timeoutFetch(req, 4000).then(res => {
         if (res && res.ok) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then(c => c.put("./v2.html", copy)).catch(() => {});
         }
         return res;
-      }).catch(() => caches.match("./v2.html", { ignoreSearch: true }))
+      }).catch(() => matchCurrent("./v2.html", true))
     );
     return;
   }
@@ -98,19 +111,19 @@ self.addEventListener("fetch", event => {
 
   if (isVersionAsset(req.url)) {
     event.respondWith(
-      timeoutFetch(req, 2500).then(res => {
+      timeoutFetch(req, 4000).then(res => {
         if (res && res.ok) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
         }
         return res;
-      }).catch(() => caches.match(req, { ignoreSearch: true }))
+      }).catch(() => matchCurrent(req, true))
     );
     return;
   }
 
   event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then(cached => {
+    matchCurrent(req, true).then(cached => {
       if (cached) return cached;
       return timeoutFetch(req, 4000).then(res => {
         if (res && res.ok) {
