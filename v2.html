@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.07">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.08">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.07</title>
+  <title>Servicebericht v3.08</title>
 <script>
-window.SB_APP_VERSION="3.07";
+window.SB_APP_VERSION="3.08";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -794,7 +794,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.07</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.08</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1311,6 +1311,9 @@ function kmFieldManual(el){
 }
 function applyListKmIfNeeded(el, km){
   if(!el || !km) return;
+  // Never overwrite a value the user typed (or cleared on purpose).
+  if(kmFieldManual(el)) return;
+  if(document.activeElement===el) return;
   if(String(el.value||"").trim()!=="") return;
   el.value=km;
   el.dataset.kmManual="0";
@@ -1321,14 +1324,14 @@ function syncKmFieldsForDay(d){
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
   const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
-  if(km1){
+  if(km1 && document.activeElement!==km1){
     if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km);
     else if(!kmFieldManual(km1)){
       km1.value="";
       km1.classList.remove("km-check");
     }
   }
-  if(km2){
+  if(km2 && document.activeElement!==km2){
     if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km);
     else if(!kmFieldManual(km2)){
       km2.value="";
@@ -2840,13 +2843,16 @@ function syncVisibleDaysFromDOM(){
   const maxDay=boxes.reduce((m,b)=>Math.max(m,Number(b.getAttribute("data-daybox"))||0),0);
   if(maxDay>0) visibleDays=Math.max(Number(visibleDays)||1,maxDay);
 }
-function recalcTimes(){
+function recalcTimes(opts){
+  opts=opts||{};
   syncVisibleDaysFromDOM();
   let travel=0,work=0,km=0,all=0;
   for(let d=1;d<=Math.max(1,Number(visibleDays)||1);d++){
     const a=d*2-1,b=d*2;
     const box=dayBoxEl(d);
-    syncKmFieldsForDay(d);
+    // Skip auto KM sync while the user is typing in a KM field — otherwise
+    // iPad clears/refills the value on every keystroke and it cannot be edited.
+    if(!opts.skipKmSync) syncKmFieldsForDay(d);
     const q=k=>box?.querySelector(`[data-k="${k}"]`)||{value:""};
     const outOverride=box?.querySelector('[data-route-override="out"]');
     const backOverride=box?.querySelector('[data-route-override="back"]');
@@ -3077,7 +3083,13 @@ function bindTimeInputs(){
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
       if(/^Kilometer/.test(key)){
-        el.dataset.kmManual=String(el.value||"").trim()==="" ? "0" : "1";
+        // Any user edit (including clearing) is manual and must not be
+        // overwritten by customer-list auto-fill on the next recalc.
+        el.dataset.kmManual="1";
+        el.classList.remove("km-check");
+        recalcTimes({skipKmSync:true});
+        if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+        return;
       }
       recalcTimes();
       if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -4832,7 +4844,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.07";
+  const APP_VERSION=window.SB_APP_VERSION||"3.08";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5343,8 +5355,8 @@ finally{ window.__pdfBuilding=false; }
       rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
       const km1=document.querySelector('[data-k="Kilometer1"]');
       const km2=document.querySelector('[data-k="Kilometer2"]');
-      if(km1) km1.value=route.km;
-      if(km2) km2.value=route.km;
+      if(km1){ km1.value=route.km; km1.dataset.kmManual="0"; }
+      if(km2){ km2.value=route.km; km2.dataset.kmManual="0"; }
       function keepLocal(){
         if(typeof mergeCompanyRecord!=="function") return;
         const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
