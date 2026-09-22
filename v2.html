@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.08">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.09">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.08</title>
+  <title>Servicebericht v3.09</title>
 <script>
-window.SB_APP_VERSION="3.08";
+window.SB_APP_VERSION="3.09";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -794,7 +794,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.08</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.09</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1535,7 +1535,7 @@ function syncAnfahrtStartFromArrival(d){
   const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
   const span=anfahrtClockSpan(d);
   if(!a1||!a2||!span||!a2.value) return;
-  a1.value=addMinutesToTime(a2.value,-span);
+  setClock(a1,addMinutesToTime(a2.value,-span));
 }
 function syncWorkEndToReturnStart(d){
   const box=dayBoxEl(d);
@@ -1547,7 +1547,7 @@ function syncWorkEndToReturnStart(d){
   if(!azEnd||!abreise) return;
   const t=azEnd.value;
   if(!t) return;
-  abreise.value=t;
+  setClock(abreise,t);
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
   setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
@@ -1882,6 +1882,7 @@ function resetOpenForm(){
     hs.value="";
     hs.dataset.index="";
   }
+  if(typeof window.clearSelectedHistory==="function") window.clearSelectedHistory();
   ["customerSearchBox","customerEmailBox","manufacturerBox","typeBox","machineNoBox","techBox","historyCombo"].forEach(id=>{
     const b=$(id);
     if(b) b.classList.remove("has-value");
@@ -2013,13 +2014,13 @@ document.getElementById("times").addEventListener("change",function(e){
     el.removeAttribute("data-manual");
 
     if(row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
-      if(el===a2 && a1.value) a2.value=addMinutesToTime(a1.value,outMin);
-      else if(el===a1 && a2.value) a1.value=addMinutesToTime(a2.value,-outMin);
+      if(el===a2 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
+      else if(el===a1 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
     }
 
     if(row===backRow && b1 && b2 && backMin && !rueckfahrtOff(dayBox)){
-      if(el===b2 && b1.value) b2.value=addMinutesToTime(b1.value,backSpan);
-      else if(el===b1 && b2.value) b1.value=addMinutesToTime(b2.value,-backSpan);
+      if(el===b2 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
+      else if(el===b1 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
     }
 
     recalcTimes(); updateDayRouteNetto(d);
@@ -2029,11 +2030,11 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===outRow && el.value) restoreAnfahrtAuto(dayBox);
 
   if(row===outRow && outMin && !anfahrtOff(dayBox)){
-    if(el===a1 && a1.value) a2.value=addMinutesToTime(a1.value,outMin);
-    else if(el===a2 && a2.value) a1.value=addMinutesToTime(a2.value,-outMin);
+    if(el===a1 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
+    else if(el===a2 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
 
     const az=field("AZstart",outRow);
-    if(az && a2.value && az.dataset.manual!=="1") az.value=a2.value;
+    if(az && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
   }
 
   if(m[1]==="AZende"){
@@ -2043,11 +2044,11 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===backRow && el.value) restoreRueckfahrtAuto(dayBox);
 
   if(row===backRow && backMin && !rueckfahrtOff(dayBox)){
-    if(el===b1 && b1.value) b2.value=addMinutesToTime(b1.value,backSpan);
-    else if(el===b2 && b2.value) b1.value=addMinutesToTime(b2.value,-backSpan);
+    if(el===b1 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
+    else if(el===b2 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
 
     const azEnd=field("AZende",outRow);
-    if(azEnd && b1.value && azEnd.dataset.manual!=="1") azEnd.value=b1.value;
+    if(azEnd && b1.value && azEnd.dataset.manual!=="1") setClock(azEnd,b1.value);
   }
 
   recalcTimes(); updateDayRouteNetto(d);
@@ -2994,8 +2995,8 @@ function bindTimeInputs(){
           const a1=field("RZstart",outRow), a2=field("RZende",outRow);
           const elapsed=val+anfahrtPauseMin(d);
           if(a1&&a2&&val>0){
-            if(a2.value) a1.value=addMinutesToTime(a2.value,-elapsed);
-            else if(a1.value) a2.value=addMinutesToTime(a1.value,elapsed);
+            if(a2.value) setClock(a1,addMinutesToTime(a2.value,-elapsed));
+            else if(a1.value) setClock(a2,addMinutesToTime(a1.value,elapsed));
           }
           if(isEmpty){
             el.dataset.manual="0";
@@ -3019,8 +3020,8 @@ function bindTimeInputs(){
           const b1=field("RZstart",backRow), b2=field("RZende",backRow);
           const elapsed=val+rueckfahrtPauseMin(d);
           if(b1&&b2&&val>0){
-            if(b1.value) b2.value=addMinutesToTime(b1.value,elapsed);
-            else if(b2.value) b1.value=addMinutesToTime(b2.value,-elapsed);
+            if(b1.value) setClock(b2,addMinutesToTime(b1.value,elapsed));
+            else if(b2.value) setClock(b1,addMinutesToTime(b2.value,-elapsed));
           }
           if(isEmpty){
             el.dataset.manual="0";
@@ -3053,10 +3054,10 @@ function bindTimeInputs(){
         const a1=field("RZstart",outRow),a2=field("RZende",outRow);
         const b1=field("RZstart",backRow),b2=field("RZende",backRow);
         if(row===outRow && a1&&a2&&el.value){
-          if(el===a1)a2.value=addMinutesToTime(el.value,outMin);
-          else a1.value=addMinutesToTime(el.value,-outMin);
+          if(el===a1) setClock(a2,addMinutesToTime(el.value,outMin));
+          else setClock(a1,addMinutesToTime(el.value,-outMin));
           const az=field("AZstart",outRow);
-          if(az&&a2.value&&az.dataset.manual!=="1")az.value=a2.value;
+          if(az&&a2.value&&az.dataset.manual!=="1") setClock(az,a2.value);
         }
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
@@ -3071,7 +3072,7 @@ function bindTimeInputs(){
 
       if(key===`RZende${outRow}`){
         const az=field("AZstart",outRow);
-        if(az&&el.value&&az.dataset.manual!=="1")az.value=el.value;
+        if(az&&el.value&&az.dataset.manual!=="1") setClock(az,el.value);
       }
       if(key===`AZende${outRow}`){
         syncWorkEndToReturnStart(d);
@@ -4130,6 +4131,7 @@ finally{ window.__pdfBuilding=false; }
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
+      else if(el.matches && el.matches("select.quarter-time")) setClock(el, data[key] ?? "");
       else el.value=data[key] ?? "";
     });
 
@@ -4264,6 +4266,10 @@ finally{ window.__pdfBuilding=false; }
     }
     syncComboValue(document.getElementById("historyCombo"), input);
   }
+  function clearSelectedHistory(){
+    setSelectedHistory(null, null);
+  }
+  window.clearSelectedHistory=clearSelectedHistory;
   function refresh(keepValue){
     const list=loadHistory();
     const prev=keepValue!=null && keepValue!=="" ? Number(keepValue) : selectedHistory;
@@ -4457,8 +4463,17 @@ finally{ window.__pdfBuilding=false; }
     input?.addEventListener("focus",()=>showResults(filtered()));
     input?.addEventListener("click",()=>showResults(filtered()));
     input?.addEventListener("input",()=>{
-      selectedHistory=null;
-      if(input) input.dataset.index="";
+      // Keep selection while the field still matches the open entry's label;
+      // only drop it when the user actually edits away from that label.
+      if(selectedHistory!=null){
+        const list=loadHistory();
+        const item=list[selectedHistory];
+        const label=item ? historyLabel(item) : "";
+        if(!item || String(input.value||"")!==label){
+          selectedHistory=null;
+          input.dataset.index="";
+        }
+      }
       syncComboValue(combo, input);
       showResults(filtered());
     });
@@ -4844,7 +4859,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.08";
+  const APP_VERSION=window.SB_APP_VERSION||"3.09";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
