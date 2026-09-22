@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.09">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.09</title>
+  <title>Servicebericht v3.10</title>
 <script>
-window.SB_APP_VERSION="3.09";
+window.SB_APP_VERSION="3.10";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -794,7 +794,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.09</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.10</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1309,30 +1309,30 @@ function hasRueckfahrtClock(box,d){
 function kmFieldManual(el){
   return !!(el && el.dataset && el.dataset.kmManual==="1");
 }
-function applyListKmIfNeeded(el, km){
+function applyListKmIfNeeded(el, km, opts){
   if(!el || !km) return;
   // Never overwrite a value the user typed (or cleared on purpose).
   if(kmFieldManual(el)) return;
   if(document.activeElement===el) return;
-  if(String(el.value||"").trim()!=="") return;
+  if(!(opts && opts.force) && String(el.value||"").trim()!=="") return;
   el.value=km;
   el.dataset.kmManual="0";
 }
-function syncKmFieldsForDay(d){
+function syncKmFieldsForDay(d, opts){
   const box=dayBoxEl(d);
   if(!box) return;
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
   const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
   if(km1 && document.activeElement!==km1){
-    if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km);
+    if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km, opts);
     else if(!kmFieldManual(km1)){
       km1.value="";
       km1.classList.remove("km-check");
     }
   }
   if(km2 && document.activeElement!==km2){
-    if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km);
+    if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km, opts);
     else if(!kmFieldManual(km2)){
       km2.value="";
       km2.classList.remove("km-check");
@@ -1426,7 +1426,7 @@ function refillRueckfahrtAuto(d){
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
   const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
-  if(km && hasRueckfahrtClock(box,d)){
+  if(km && hasRueckfahrtClock(box,d) && !kmFieldManual(km)){
     if(r.km) km.value=r.km;
     else if(kmOut && String(kmOut.value).trim()!=="") km.value=kmOut.value;
     km.dataset.kmManual="0";
@@ -1506,7 +1506,7 @@ function refillAnfahrtAuto(d){
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
   const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
-  if(km && hasAnfahrtAnkunft(box,d)){
+  if(km && hasAnfahrtAnkunft(box,d) && !kmFieldManual(km)){
     if(r.km) km.value=r.km;
     else if(kmBack && String(kmBack.value).trim()!=="") km.value=kmBack.value;
     km.dataset.kmManual="0";
@@ -2280,8 +2280,9 @@ function bindCompanySelect(){
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
-    applyCustomerRouteDay1();
-    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d);
+    // Force KM from the new customer (unless the user marked KM as manual).
+    applyCustomerRouteDay1({forceKm:true});
+    for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d, {forceKm:true});
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     recalcTimes();
     if(typeof window.clearMachineFields==="function") window.clearMachineFields();
@@ -2511,10 +2512,10 @@ function customerRoute(){
   if(!Array.isArray(companies)) return {km:0,minutes:0};
   return parseRoute(selectedCompany());
 }
-function applyCustomerRouteDay1(){
-  applyCustomerRouteDay(1);
+function applyCustomerRouteDay1(opts){
+  applyCustomerRouteDay(1, opts);
 }
-function applyCustomerRouteDay(d){
+function applyCustomerRouteDay(d, opts){
   const r=customerRoute();
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
@@ -2559,7 +2560,7 @@ function applyCustomerRouteDay(d){
       }
     }
   }
-  syncKmFieldsForDay(d);
+  syncKmFieldsForDay(d, opts && opts.forceKm ? {force:true} : undefined);
   recalcTimes();
 }
 function finishCompaniesLoad(list, opts){
@@ -3783,7 +3784,9 @@ $("pdfMissingModal")?.addEventListener("click",e=>{
   $("generate").onclick=async()=>{
 if(window.__pdfBuilding){
   while(window.__pdfBuilding) await new Promise(r=>setTimeout(r,40));
-  return;
+  // Another build finished while we waited — only skip if it matches the form.
+  if(typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm())
+    return;
 }
 window.__pdfBuilding=true;
 $("status").textContent="PDF wird erstellt…";
@@ -4055,6 +4058,9 @@ finally{ window.__pdfBuilding=false; }
       if(!key) return;
       if(el.type==="checkbox" || el.type==="radio") data[key]=!!el.checked;
       else data[key]=el.value;
+      if(el.dataset && el.dataset.kmManual==="1") data["__kmManual_"+key]=true;
+      if(el.dataset && el.dataset.pauseManual==="1") data["__pauseManual_"+key]=true;
+      if(el.dataset && el.dataset.manual==="1") data["__timeManual_"+key]=true;
     });
     data.__visibleDays=(typeof visibleDays==="number") ? visibleDays : 1;
     if(typeof window.exportSignatureData==="function") Object.assign(data, window.exportSignatureData());
@@ -4069,7 +4075,7 @@ finally{ window.__pdfBuilding=false; }
   window.currentPdfFingerprint=function(){
     try{
       const data=collectForm();
-      const skip=/^(__visibleDays|customerEmail)$|_collapsed$|_rueckfahrtOff$|_anfahrtOff$/;
+      const skip=/^(__visibleDays|customerEmail|__kmManual_|__pauseManual_|__timeManual_)/|_collapsed$|_rueckfahrtOff$|_anfahrtOff$/;
       const keys=Object.keys(data).filter(k=>!skip.test(k)).sort();
       const norm={};
       keys.forEach(k=>{
@@ -4088,7 +4094,10 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){ return ""; }
   };
   function findField(key){
-    let el=document.querySelector(`[data-k="${CSS.escape(key)}"]`);
+    const esc=(typeof CSS!=="undefined" && CSS.escape)
+      ? CSS.escape(key)
+      : String(key).replace(/\\/g,"\\\\").replace(/"/g,"\\\"");
+    let el=document.querySelector(`[data-k="${esc}"]`);
     if(el) return el;
     el=document.getElementById(key);
     if(el) return el;
@@ -4127,12 +4136,30 @@ finally{ window.__pdfBuilding=false; }
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="company" || key==="__visibleDays" || key.startsWith("__sig") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="__visibleDays" || key.startsWith("__") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
       else if(el.matches && el.matches("select.quarter-time")) setClock(el, data[key] ?? "");
       else el.value=data[key] ?? "";
+    });
+
+    // Restore manual flags so sync/recalc does not overwrite user values.
+    Object.keys(data).forEach(key=>{
+      const m=key.match(/^__(kmManual|pauseManual|timeManual)_(.+)$/);
+      if(!m || !data[key]) return;
+      const el=findField(m[2]);
+      if(!el || !el.dataset) return;
+      if(m[1]==="kmManual") el.dataset.kmManual="1";
+      else if(m[1]==="pauseManual") el.dataset.pauseManual="1";
+      else if(m[1]==="timeManual") el.dataset.manual="1";
+    });
+    // Older Historie entries lack pauseManual — keep restored Pause RZ Rückfahrt.
+    document.querySelectorAll("[data-daybox]").forEach(box=>{
+      const d=parseInt(box.getAttribute("data-daybox"),10);
+      if(!d) return;
+      const pause=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+      if(pause && String(pause.value||"").trim()!=="") pause.dataset.pauseManual="1";
     });
 
     const searchName=String(data.customerSearch||"").trim();
@@ -4170,7 +4197,15 @@ finally{ window.__pdfBuilding=false; }
     document.querySelectorAll("input.to-check, select.to-check").forEach(el=>el.classList.remove("to-check"));
     if(typeof markExtraDaysKmToCheck==="function") markExtraDaysKmToCheck();
     document.querySelectorAll("[data-daybox]").forEach(box=>{
-      if(typeof markReturnPauseToCheck==="function") markReturnPauseToCheck(box);
+      // Highlight only — do not recalculate saved Pause RZ Rückfahrt.
+      const d=parseInt(box.getAttribute("data-daybox"),10);
+      if(d){
+        const pause=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
+        if(pause){
+          if(String(pause.value||"").trim()==="") pause.value="45";
+          pause.classList.add("to-check");
+        }
+      }
       if(typeof markArrivalWorkEndToCheck==="function") markArrivalWorkEndToCheck(box, true);
     });
     if(typeof recalcTimes==="function") recalcTimes();
@@ -4285,7 +4320,6 @@ finally{ window.__pdfBuilding=false; }
       return;
     }
     applyForm(data);
-    if(typeof window.clearSignatures==="function") window.clearSignatures();
     setSelectedHistory(index, item);
     if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
     $("status").textContent="Bericht wurde geöffnet.";
@@ -4310,7 +4344,6 @@ finally{ window.__pdfBuilding=false; }
     refresh(imported ? "0" : "");
     if(imported){
       applyForm(historyItemData(imported));
-      if(typeof window.clearSignatures==="function") window.clearSignatures();
       $("status").textContent="Bericht wurde geöffnet.";
     }else{
       $("status").textContent="Historie wurde importiert.";
@@ -4859,7 +4892,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.09";
+  const APP_VERSION=window.SB_APP_VERSION||"3.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5368,10 +5401,17 @@ finally{ window.__pdfBuilding=false; }
       }
       rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
       rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
+      const day1=document.querySelector('[data-daybox="1"]');
       const km1=document.querySelector('[data-k="Kilometer1"]');
       const km2=document.querySelector('[data-k="Kilometer2"]');
-      if(km1){ km1.value=route.km; km1.dataset.kmManual="0"; }
-      if(km2){ km2.value=route.km; km2.dataset.kmManual="0"; }
+      // Only fill KM when the matching trip clocks are present — otherwise
+      // applyCustomerRouteDay → syncKmFieldsForDay would clear them again.
+      if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
+        km1.value=route.km; km1.dataset.kmManual="0";
+      }
+      if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
+        km2.value=route.km; km2.dataset.kmManual="0";
+      }
       function keepLocal(){
         if(typeof mergeCompanyRecord!=="function") return;
         const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
@@ -6167,9 +6207,9 @@ finally{ window.__pdfBuilding=false; }
       }
       if(window.__pdfBuilding){
         while(window.__pdfBuilding) await new Promise(r=>setTimeout(r,40));
-        return typeof window.pdfMatchesCurrentForm==="function"
-          ? window.pdfMatchesCurrentForm()
-          : !!lastPdfBlob;
+        if(typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm())
+          return true;
+        // Stale/mismatched build — fall through and rebuild.
       }
       const gen=$("generate");
       if(!gen || typeof gen.onclick!=="function") return false;
