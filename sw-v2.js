@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v3-08";
+const CACHE_NAME = "servicebericht-v3-10";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
@@ -45,6 +45,10 @@ function isAppAsset(url) {
     path.endsWith("/favicon.png") ||
     /\/icons\/icon-\d+\.png$/.test(path)
   );
+}
+
+function isManifest(url) {
+  return pathOf(url).endsWith("/manifest-v2.webmanifest");
 }
 
 function isVersionAsset(url) {
@@ -150,6 +154,27 @@ self.addEventListener("fetch", event => {
   }
 
   if (!isAppAsset(req.url)) return;
+
+  // Manifest drives Home Screen updates — prefer network, fall back to cache offline.
+  if (isManifest(req.url)) {
+    event.respondWith(
+      timeoutFetch(req, 2500)
+        .then(res => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
+            return res;
+          }
+          return null;
+        })
+        .catch(() => null)
+        .then(res => {
+          if (res) return res;
+          return matchCurrent(req, true).then(cached => cached || Response.error());
+        })
+    );
+    return;
+  }
 
   if (isVersionAsset(req.url)) {
     event.respondWith(
