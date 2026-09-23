@@ -547,10 +547,16 @@ select.to-check{
   margin:10px 0 0;padding:10px 12px;border-top:1px solid #b7cde3;border-radius:12px;
 }
 .overnight-end .check{font-size:13px;font-weight:650;margin:0}
-.field .overnight-mark{
+.field-reisezeit-aendern{
+  display:flex;flex-direction:column;gap:6px;
+}
+.field-reisezeit-aendern .overnight-mark{
   width:100%;
   font-size:13px;font-weight:650;height:32px;padding:4px 8px;
   border:1px solid #c5c5c5;border-radius:8px;background:#fff;
+}
+.field-reisezeit-aendern .overnight-mark-label{
+  font-size:12px;font-weight:650;color:#555;margin:0;
 }
 .overnight-ask-btns{display:none;align-items:center;gap:8px;margin-left:auto}
 .overnight-end.is-ask .overnight-ask-btns{display:inline-flex}
@@ -1739,8 +1745,12 @@ function dayTemplate(d){
     <div class="row">
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
-      <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90"></div>
-      <div class="field"><label>PDF z. B. Stau</label><input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text"></div>
+      <div class="field field-reisezeit-aendern">
+        <label>Reisezeit ändern (Minuten)</label>
+        <input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90">
+        <label class="overnight-mark-label" for="overnightMarkOut${d}">PDF z. B. Stau</label>
+        <input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text">
+      </div>
     </div>
     <div class="row">
       <div class="field"><label>KM Anfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${(d*2)-1}" placeholder="KM Anfahrt"></div>
@@ -1772,8 +1782,12 @@ function dayTemplate(d){
     <div class="row">
       <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="45" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
-      <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
-      <div class="field"><label>PDF z. B. Stau</label><input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text"></div>
+      <div class="field field-reisezeit-aendern">
+        <label>Reisezeit ändern (Minuten)</label>
+        <input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90">
+        <label class="overnight-mark-label" for="overnightMarkBack${d}">PDF z. B. Stau</label>
+        <input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text">
+      </div>
     </div>
     <div class="row">
       <div class="field"><label>KM Rückfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${d*2}" placeholder="KM Rückfahrt"></div>
