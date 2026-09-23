@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.10">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.11">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.10</title>
+  <title>Servicebericht v3.11</title>
 <script>
-window.SB_APP_VERSION="3.10";
+window.SB_APP_VERSION="3.11";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -805,7 +805,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.10</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.11</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1749,7 +1749,7 @@ function dayTemplate(d){
         <label>Reisezeit ändern (Minuten)</label>
         <input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90">
         <label class="overnight-mark-label" for="overnightMarkOut${d}">PDF z. B. Stau</label>
-        <input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text">
+        <input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="out" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text">
       </div>
     </div>
     <div class="row">
@@ -1786,7 +1786,7 @@ function dayTemplate(d){
         <label>Reisezeit ändern (Minuten)</label>
         <input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90">
         <label class="overnight-mark-label" for="overnightMarkBack${d}">PDF z. B. Stau</label>
-        <input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text">
+        <input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="back" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text">
       </div>
     </div>
     <div class="row">
@@ -2125,23 +2125,6 @@ document.getElementById("times").addEventListener("change",function(e){
   const d=parseInt(cb.getAttribute("data-overnight-day"),10);
   if(d) answerOvernightAsk(d, true);
 });
-document.getElementById("times").addEventListener("input",function(e){
-  const mark=e.target.closest("[data-overnight-mark]");
-  if(!mark || mark!==e.target) return;
-  const d=parseInt(mark.getAttribute("data-overnight-mark"),10);
-  if(!d) return;
-  const box=document.querySelector(`[data-daybox="${d}"]`);
-  if(!box) return;
-  const val=String(mark.value||"");
-  box.querySelectorAll("[data-overnight-mark]").forEach(el=>{
-    if(el!==mark) el.value=val;
-  });
-  const cb=box.querySelector("[data-overnight-day]");
-  if(cb && val.trim()){
-    cb.checked=true;
-    clearOvernightAsk(d);
-  }
-});
 document.getElementById("times").addEventListener("focusin",function(e){
   const mark=e.target.closest("[data-overnight-mark]");
   if(!mark || mark!==e.target) return;
@@ -2195,10 +2178,14 @@ document.addEventListener("click",function(e){
         dateEl.setAttribute("aria-label",`Datum Tag ${n}`);
       }
       b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
-      b.querySelectorAll("[data-overnight-mark]").forEach((x,i)=>{
+      b.querySelectorAll("[data-overnight-mark]").forEach(x=>{
+        const dir=x.getAttribute("data-overnight-mark-dir")||"out";
         x.setAttribute("data-overnight-mark",String(n));
-        x.setAttribute("aria-label",`PDF-Text statt X Tag ${n} ${i===0?"Anfahrt":"Rückfahrt"}`);
+        x.id=(dir==="back"?"overnightMarkBack":"overnightMarkOut")+n;
+        x.setAttribute("aria-label",`PDF-Text statt X Tag ${n} ${dir==="back"?"Rückfahrt":"Anfahrt"}`);
       });
+      b.querySelectorAll("label[for^='overnightMarkOut']").forEach(lab=>lab.setAttribute("for","overnightMarkOut"+n));
+      b.querySelectorAll("label[for^='overnightMarkBack']").forEach(lab=>lab.setAttribute("for","overnightMarkBack"+n));
       b.querySelectorAll("[data-overnight-ask-day]").forEach(x=>x.setAttribute("data-overnight-ask-day",String(n)));
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
       b.querySelectorAll("[data-rueckfahrt-zero]").forEach(x=>x.setAttribute("data-rueckfahrt-zero",String(n)));
@@ -3996,37 +3983,51 @@ if(pdfHasContent){
   }
 }
 
-// Übern.-kosten: calibrated directly against the actual Leer.pdf table.
-// The first data row is around y=296 pt from the bottom; each row is
-// approximately 14.2 pt lower. Column ~513–567; default mark is "X",
-// optional per-day text (e.g. Stau) replaces X when provided.
+// Übern.-kosten / Stau in the times table overnight column.
+// - Übern.-kosten checkbox → "X" on Anfahrt row and counts in Gesamt
+// - Stau (or other text) on Anfahrt / Rückfahrt → text in that row, does NOT count in Gesamt
 const page=pdf.getPages()[0];
 const overnightColLeft=513.071, overnightColRight=566.929, overnightColW=overnightColRight-overnightColLeft;
 const overnightX=548;
+const overnightCenters=[296,282,268,253,239,225,211,197,182,168,154,140];
+function cleanOvernightMark(v){
+  return String(v||"").trim().replace(/[^\x20-\x7E\xA0-\xFF]/g,"").slice(0,12);
+}
+function drawOvernightCell(mark, rowIndex){
+  if(!mark) return;
+  const y=overnightCenters[Math.min(rowIndex,overnightCenters.length-1)];
+  if(mark==="X" || !pdfFitFont){
+    page.drawText("X",{x:overnightX,y:y-3,size:9});
+    return;
+  }
+  let sz=8;
+  while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
+  const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
+  page.drawText(mark,{
+    x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
+    y:y-3+(9-sz)*0.35,
+    size:sz,
+    font:pdfFitFont
+  });
+}
 let overnightN=0;
 for(let d=1;d<=dayBoxes.length;d++){
   const cb=document.querySelector(`[data-overnight-day="${d}"]`);
-  if(!(cb && cb.checked)) continue;
-  const markEl=document.querySelector(`[data-overnight-mark="${d}"]`);
-  const custom=String(markEl?.value||"").trim().replace(/[^\x20-\x7E\xA0-\xFF]/g,"").slice(0,12);
-  overnightN++;
-  const row=(d-1)*2+1;
-  const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
-  const y=centers[Math.min(row-1,centers.length-1)];
-  const mark=custom || "X";
-  if(mark==="X" || !pdfFitFont){
-    page.drawText("X",{x:overnightX,y:y-3,size:9});
-  }else{
-    let sz=8;
-    while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
-    const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
-    page.drawText(mark,{
-      x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
-      y:y-3+(9-sz)*0.35,
-      size:sz,
-      font:pdfFitFont
-    });
+  const outMark=cleanOvernightMark(
+    document.querySelector(`[data-overnight-mark="${d}"][data-overnight-mark-dir="out"]`)?.value
+  );
+  const backMark=cleanOvernightMark(
+    document.querySelector(`[data-overnight-mark="${d}"][data-overnight-mark-dir="back"]`)?.value
+  );
+  const outRow=(d-1)*2;
+  const backRow=(d-1)*2+1;
+  if(outMark){
+    drawOvernightCell(outMark, outRow);
+  }else if(cb && cb.checked){
+    drawOvernightCell("X", outRow);
+    overnightN++;
   }
+  if(backMark) drawOvernightCell(backMark, backRow);
 }
 try{
   form.getTextField("Kilometer gesamt").acroField.getWidgets().forEach(w=>{
@@ -4101,7 +4102,10 @@ finally{ window.__pdfBuilding=false; }
     if(day){
       if(el.classList.contains("daydate")) return `day${day}_date`;
       if(el.hasAttribute("data-overnight-day")) return `day${day}_overnight`;
-      if(el.hasAttribute("data-overnight-mark")) return `day${day}_overnight_mark`;
+      if(el.hasAttribute("data-overnight-mark")){
+        const dir=el.getAttribute("data-overnight-mark-dir")||"out";
+        return `day${day}_overnight_mark_${dir}`;
+      }
       if(el.hasAttribute("data-route-override"))
         return `day${day}_reisezeit_${el.getAttribute("data-route-override")}`;
     }
@@ -4155,12 +4159,15 @@ finally{ window.__pdfBuilding=false; }
     if(el) return el;
     el=document.getElementById(key);
     if(el) return el;
-    const day=key.match(/^day(\d+)_(date|overnight_mark|overnight|reisezeit_(out|back))$/);
+    const day=key.match(/^day(\d+)_(date|overnight_mark_out|overnight_mark_back|overnight_mark|overnight|reisezeit_(out|back))$/);
     if(day){
       const box=document.querySelector(`[data-daybox="${day[1]}"]`);
       if(!box) return null;
       if(day[2]==="date") return box.querySelector(".daydate");
-      if(day[2]==="overnight_mark") return box.querySelector("[data-overnight-mark]");
+      if(day[2]==="overnight_mark_out" || day[2]==="overnight_mark")
+        return box.querySelector('[data-overnight-mark-dir="out"]') || box.querySelector("[data-overnight-mark]");
+      if(day[2]==="overnight_mark_back")
+        return box.querySelector('[data-overnight-mark-dir="back"]');
       if(day[2]==="overnight") return box.querySelector("[data-overnight-day]");
       return box.querySelector(`[data-route-override="${day[3]}"]`);
     }
@@ -4195,14 +4202,7 @@ finally{ window.__pdfBuilding=false; }
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
-      else{
-        el.value=data[key] ?? "";
-        if(/_overnight_mark$/.test(key)){
-          const box=el.closest("[data-daybox]");
-          const val=String(el.value||"");
-          box?.querySelectorAll("[data-overnight-mark]").forEach(m=>{ m.value=val; });
-        }
-      }
+      else el.value=data[key] ?? "";
     });
 
     const searchName=String(data.customerSearch||"").trim();
@@ -4916,7 +4916,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.10";
+  const APP_VERSION=window.SB_APP_VERSION||"3.11";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
