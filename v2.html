@@ -3984,8 +3984,9 @@ if(pdfHasContent){
 }
 
 // Übern.-kosten / Stau in the times table overnight column.
-// - Übern.-kosten checkbox → "X" on Anfahrt row and counts in Gesamt
-// - Stau (or other text) on Anfahrt / Rückfahrt → text in that row, does NOT count in Gesamt
+// - Morning (Anfahrt): only optional Stau text (never X)
+// - Afternoon (Rückfahrt): Übern.-kosten → "X"; with Stau → "X, Stau"
+// - Gesamt overnight count: only when Übern.-kosten is checked
 const page=pdf.getPages()[0];
 const overnightColLeft=513.071, overnightColRight=566.929, overnightColW=overnightColRight-overnightColLeft;
 const overnightX=548;
@@ -3996,12 +3997,13 @@ function cleanOvernightMark(v){
 function drawOvernightCell(mark, rowIndex){
   if(!mark) return;
   const y=overnightCenters[Math.min(rowIndex,overnightCenters.length-1)];
-  if(mark==="X" || !pdfFitFont){
+  if(mark==="X"){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
     return;
   }
+  if(!pdfFitFont) return;
   let sz=8;
-  while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
+  while(sz>4.5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
   const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
   page.drawText(mark,{
     x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
@@ -4021,13 +4023,13 @@ for(let d=1;d<=dayBoxes.length;d++){
   );
   const outRow=(d-1)*2;
   const backRow=(d-1)*2+1;
-  if(outMark){
-    drawOvernightCell(outMark, outRow);
-  }else if(cb && cb.checked){
-    drawOvernightCell("X", outRow);
+  if(outMark) drawOvernightCell(outMark, outRow);
+  if(cb && cb.checked){
     overnightN++;
+    drawOvernightCell(backMark ? ("X, "+backMark) : "X", backRow);
+  }else if(backMark){
+    drawOvernightCell(backMark, backRow);
   }
-  if(backMark) drawOvernightCell(backMark, backRow);
 }
 try{
   form.getTextField("Kilometer gesamt").acroField.getWidgets().forEach(w=>{
