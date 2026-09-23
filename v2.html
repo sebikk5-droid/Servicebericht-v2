@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.09">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.09</title>
+  <title>Servicebericht v3.10</title>
 <script>
-window.SB_APP_VERSION="3.09";
+window.SB_APP_VERSION="3.10";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -547,8 +547,8 @@ select.to-check{
   margin:10px 0 0;padding:10px 12px;border-top:1px solid #b7cde3;border-radius:12px;
 }
 .overnight-end .check{font-size:13px;font-weight:650;margin:0}
-.overnight-mark{
-  flex:1 1 7em;min-width:5.5em;max-width:11em;width:auto;
+.field .overnight-mark{
+  width:100%;
   font-size:13px;font-weight:650;height:32px;padding:4px 8px;
   border:1px solid #c5c5c5;border-radius:8px;background:#fff;
 }
@@ -799,7 +799,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.09</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.10</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1740,6 +1740,7 @@ function dayTemplate(d){
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90"></div>
+      <div class="field"><label>PDF z. B. Stau</label><input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text"></div>
     </div>
     <div class="row">
       <div class="field"><label>KM Anfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${(d*2)-1}" placeholder="KM Anfahrt"></div>
@@ -1772,6 +1773,7 @@ function dayTemplate(d){
       <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="45" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
+      <div class="field"><label>PDF z. B. Stau</label><input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text"></div>
     </div>
     <div class="row">
       <div class="field"><label>KM Rückfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${d*2}" placeholder="KM Rückfahrt"></div>
@@ -1780,7 +1782,6 @@ function dayTemplate(d){
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
       <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
-      <input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="PDF z. B. Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d}" autocomplete="off" inputmode="text">
       <div class="overnight-ask-btns">
         <button type="button" class="overnight-ask-ok" data-overnight-ask="yes" data-overnight-ask-day="${d}" aria-label="Übernachtungskosten übernehmen" title="Ja">✓</button>
         <button type="button" class="overnight-ask-no" data-overnight-ask="no" data-overnight-ask-day="${d}" aria-label="Ohne Übernachtungskosten" title="Nein">×</button>
@@ -2116,8 +2117,13 @@ document.getElementById("times").addEventListener("input",function(e){
   const d=parseInt(mark.getAttribute("data-overnight-mark"),10);
   if(!d) return;
   const box=document.querySelector(`[data-daybox="${d}"]`);
-  const cb=box?.querySelector("[data-overnight-day]");
-  if(cb && String(mark.value||"").trim()){
+  if(!box) return;
+  const val=String(mark.value||"");
+  box.querySelectorAll("[data-overnight-mark]").forEach(el=>{
+    if(el!==mark) el.value=val;
+  });
+  const cb=box.querySelector("[data-overnight-day]");
+  if(cb && val.trim()){
     cb.checked=true;
     clearOvernightAsk(d);
   }
@@ -2175,9 +2181,9 @@ document.addEventListener("click",function(e){
         dateEl.setAttribute("aria-label",`Datum Tag ${n}`);
       }
       b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
-      b.querySelectorAll("[data-overnight-mark]").forEach(x=>{
+      b.querySelectorAll("[data-overnight-mark]").forEach((x,i)=>{
         x.setAttribute("data-overnight-mark",String(n));
-        x.setAttribute("aria-label",`PDF-Text statt X Tag ${n}`);
+        x.setAttribute("aria-label",`PDF-Text statt X Tag ${n} ${i===0?"Anfahrt":"Rückfahrt"}`);
       });
       b.querySelectorAll("[data-overnight-ask-day]").forEach(x=>x.setAttribute("data-overnight-ask-day",String(n)));
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
@@ -4175,7 +4181,14 @@ finally{ window.__pdfBuilding=false; }
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
-      else el.value=data[key] ?? "";
+      else{
+        el.value=data[key] ?? "";
+        if(/_overnight_mark$/.test(key)){
+          const box=el.closest("[data-daybox]");
+          const val=String(el.value||"");
+          box?.querySelectorAll("[data-overnight-mark]").forEach(m=>{ m.value=val; });
+        }
+      }
     });
 
     const searchName=String(data.customerSearch||"").trim();
@@ -4889,7 +4902,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.09";
+  const APP_VERSION=window.SB_APP_VERSION||"3.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
