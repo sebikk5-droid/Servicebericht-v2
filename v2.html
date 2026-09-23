@@ -1780,7 +1780,7 @@ function dayTemplate(d){
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
       <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
-      <input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="PDF z. B. Korek" maxlength="12" aria-label="PDF-Text statt X Tag ${d}" autocomplete="off" inputmode="text">
+      <input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="PDF z. B. Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d}" autocomplete="off" inputmode="text">
       <div class="overnight-ask-btns">
         <button type="button" class="overnight-ask-ok" data-overnight-ask="yes" data-overnight-ask-day="${d}" aria-label="Übernachtungskosten übernehmen" title="Ja">✓</button>
         <button type="button" class="overnight-ask-no" data-overnight-ask="no" data-overnight-ask-day="${d}" aria-label="Ohne Übernachtungskosten" title="Nein">×</button>
@@ -3979,7 +3979,7 @@ if(pdfHasContent){
 // Übern.-kosten: calibrated directly against the actual Leer.pdf table.
 // The first data row is around y=296 pt from the bottom; each row is
 // approximately 14.2 pt lower. Column ~513–567; default mark is "X",
-// optional per-day text (e.g. Korek) replaces X when provided.
+// optional per-day text (e.g. Stau) replaces X when provided.
 const page=pdf.getPages()[0];
 const overnightColLeft=513.071, overnightColRight=566.929, overnightColW=overnightColRight-overnightColLeft;
 const overnightX=548;
