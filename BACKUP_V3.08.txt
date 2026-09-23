@@ -1,0 +1,14 @@
+BACKUP V3.08
+=============
+Aktualna apka na main: v3.09
+
+Ten backup to pełna kopia plików z commita a8fab3e (ostatnie main przed v3.09).
+Plik: BACKUP_V3.08.zip
+
+Zawiera m.in.:
+- v2.html (SB_APP_VERSION=3.08)
+- manifest-v2.webmanifest
+- servicebericht-v2.html, v2/index.html, 404.html
+- Leer.pdf, vendor/, sw-v2.js, …
+
+v3.09 dodało: pole „PDF z. B. Stau” przy Übern.-kosten (tekst w PDF zamiast X).
