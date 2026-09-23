@@ -1,3 +1,7 @@
+Servicebericht – aktualnie v3.09 (main).
+Kopia v3.08: BACKUP_V3.08.zip (stan sprzed Übern.-kosten PDF-Text / Stau).
+Przywrócenie: rozpakować zip i podmienić pliki apki (v2.html, manifest-v2.webmanifest, …).
+
 Servicebericht – V27.6.50
 Date fix:
 - Einsatzdatum -> PDF field „Datum Einsatzbeginn“
