@@ -3986,27 +3986,26 @@ const overnightX=548;
 let overnightN=0;
 for(let d=1;d<=dayBoxes.length;d++){
   const cb=document.querySelector(`[data-overnight-day="${d}"]`);
+  if(!(cb && cb.checked)) continue;
   const markEl=document.querySelector(`[data-overnight-mark="${d}"]`);
   const custom=String(markEl?.value||"").trim().replace(/[^\x20-\x7E\xA0-\xFF]/g,"").slice(0,12);
-  if((cb && cb.checked) || custom){
-    overnightN++;
-    const row=(d-1)*2+1;
-    const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
-    const y=centers[Math.min(row-1,centers.length-1)];
-    const mark=custom || "X";
-    if(mark==="X" || !pdfFitFont){
-      page.drawText("X",{x:overnightX,y:y-3,size:9});
-    }else{
-      let sz=8;
-      while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
-      const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
-      page.drawText(mark,{
-        x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
-        y:y-3+(9-sz)*0.35,
-        size:sz,
-        font:pdfFitFont
-      });
-    }
+  overnightN++;
+  const row=(d-1)*2+1;
+  const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
+  const y=centers[Math.min(row-1,centers.length-1)];
+  const mark=custom || "X";
+  if(mark==="X" || !pdfFitFont){
+    page.drawText("X",{x:overnightX,y:y-3,size:9});
+  }else{
+    let sz=8;
+    while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
+    const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
+    page.drawText(mark,{
+      x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
+      y:y-3+(9-sz)*0.35,
+      size:sz,
+      font:pdfFitFont
+    });
   }
 }
 try{
