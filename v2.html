@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.08">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.09">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.08</title>
+  <title>Servicebericht v3.09</title>
 <script>
-window.SB_APP_VERSION="3.08";
+window.SB_APP_VERSION="3.09";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -547,6 +547,11 @@ select.to-check{
   margin:10px 0 0;padding:10px 12px;border-top:1px solid #b7cde3;border-radius:12px;
 }
 .overnight-end .check{font-size:13px;font-weight:650;margin:0}
+.overnight-mark{
+  flex:1 1 7em;min-width:5.5em;max-width:11em;width:auto;
+  font-size:13px;font-weight:650;height:32px;padding:4px 8px;
+  border:1px solid #c5c5c5;border-radius:8px;background:#fff;
+}
 .overnight-ask-btns{display:none;align-items:center;gap:8px;margin-left:auto}
 .overnight-end.is-ask .overnight-ask-btns{display:inline-flex}
 .overnight-ask-ok,.overnight-ask-no{
@@ -794,7 +799,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.08</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.09</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1775,6 +1780,7 @@ function dayTemplate(d){
     <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
       <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
+      <input type="text" class="overnight-mark" data-overnight-mark="${d}" value="" placeholder="PDF z. B. Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d}" autocomplete="off" inputmode="text">
       <div class="overnight-ask-btns">
         <button type="button" class="overnight-ask-ok" data-overnight-ask="yes" data-overnight-ask-day="${d}" aria-label="Übernachtungskosten übernehmen" title="Ja">✓</button>
         <button type="button" class="overnight-ask-no" data-overnight-ask="no" data-overnight-ask-day="${d}" aria-label="Ohne Übernachtungskosten" title="Nein">×</button>
@@ -2104,6 +2110,23 @@ document.getElementById("times").addEventListener("change",function(e){
   const d=parseInt(cb.getAttribute("data-overnight-day"),10);
   if(d) answerOvernightAsk(d, true);
 });
+document.getElementById("times").addEventListener("input",function(e){
+  const mark=e.target.closest("[data-overnight-mark]");
+  if(!mark || mark!==e.target) return;
+  const d=parseInt(mark.getAttribute("data-overnight-mark"),10);
+  if(!d) return;
+  const box=document.querySelector(`[data-daybox="${d}"]`);
+  const cb=box?.querySelector("[data-overnight-day]");
+  if(cb && String(mark.value||"").trim()){
+    cb.checked=true;
+    clearOvernightAsk(d);
+  }
+});
+document.getElementById("times").addEventListener("focusin",function(e){
+  const mark=e.target.closest("[data-overnight-mark]");
+  if(!mark || mark!==e.target) return;
+  try{ mark.select(); }catch(err){}
+});
 
 // Day controls: collapse or remove a day that was added by mistake.
 document.addEventListener("click",function(e){
@@ -2152,6 +2175,10 @@ document.addEventListener("click",function(e){
         dateEl.setAttribute("aria-label",`Datum Tag ${n}`);
       }
       b.querySelectorAll("[data-overnight-day]").forEach(x=>x.setAttribute("data-overnight-day",String(n)));
+      b.querySelectorAll("[data-overnight-mark]").forEach(x=>{
+        x.setAttribute("data-overnight-mark",String(n));
+        x.setAttribute("aria-label",`PDF-Text statt X Tag ${n}`);
+      });
       b.querySelectorAll("[data-overnight-ask-day]").forEach(x=>x.setAttribute("data-overnight-ask-day",String(n)));
       b.querySelectorAll("[data-collapse-day]").forEach(x=>x.setAttribute("data-collapse-day",String(n)));
       b.querySelectorAll("[data-rueckfahrt-zero]").forEach(x=>x.setAttribute("data-rueckfahrt-zero",String(n)));
@@ -3951,18 +3978,34 @@ if(pdfHasContent){
 
 // Übern.-kosten: calibrated directly against the actual Leer.pdf table.
 // The first data row is around y=296 pt from the bottom; each row is
-// approximately 14.2 pt lower. The overnight column is around x=548 pt.
+// approximately 14.2 pt lower. Column ~513–567; default mark is "X",
+// optional per-day text (e.g. Stau) replaces X when provided.
 const page=pdf.getPages()[0];
+const overnightColLeft=513.071, overnightColRight=566.929, overnightColW=overnightColRight-overnightColLeft;
 const overnightX=548;
 let overnightN=0;
 for(let d=1;d<=dayBoxes.length;d++){
   const cb=document.querySelector(`[data-overnight-day="${d}"]`);
-  if(cb && cb.checked){
-    overnightN++;
-    const row=(d-1)*2+1;
-    const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
-    const y=centers[Math.min(row-1,centers.length-1)];
+  if(!(cb && cb.checked)) continue;
+  const markEl=document.querySelector(`[data-overnight-mark="${d}"]`);
+  const custom=String(markEl?.value||"").trim().replace(/[^\x20-\x7E\xA0-\xFF]/g,"").slice(0,12);
+  overnightN++;
+  const row=(d-1)*2+1;
+  const centers=[296,282,268,253,239,225,211,197,182,168,154,140];
+  const y=centers[Math.min(row-1,centers.length-1)];
+  const mark=custom || "X";
+  if(mark==="X" || !pdfFitFont){
     page.drawText("X",{x:overnightX,y:y-3,size:9});
+  }else{
+    let sz=8;
+    while(sz>5 && pdfFitFont.widthOfTextAtSize(mark,sz)>overnightColW-2.2) sz-=0.5;
+    const tw=pdfFitFont.widthOfTextAtSize(mark,sz);
+    page.drawText(mark,{
+      x:overnightColLeft+Math.max(1,(overnightColW-tw)/2),
+      y:y-3+(9-sz)*0.35,
+      size:sz,
+      font:pdfFitFont
+    });
   }
 }
 try{
@@ -4038,6 +4081,7 @@ finally{ window.__pdfBuilding=false; }
     if(day){
       if(el.classList.contains("daydate")) return `day${day}_date`;
       if(el.hasAttribute("data-overnight-day")) return `day${day}_overnight`;
+      if(el.hasAttribute("data-overnight-mark")) return `day${day}_overnight_mark`;
       if(el.hasAttribute("data-route-override"))
         return `day${day}_reisezeit_${el.getAttribute("data-route-override")}`;
     }
@@ -4091,11 +4135,12 @@ finally{ window.__pdfBuilding=false; }
     if(el) return el;
     el=document.getElementById(key);
     if(el) return el;
-    const day=key.match(/^day(\d+)_(date|overnight|reisezeit_(out|back))$/);
+    const day=key.match(/^day(\d+)_(date|overnight_mark|overnight|reisezeit_(out|back))$/);
     if(day){
       const box=document.querySelector(`[data-daybox="${day[1]}"]`);
       if(!box) return null;
       if(day[2]==="date") return box.querySelector(".daydate");
+      if(day[2]==="overnight_mark") return box.querySelector("[data-overnight-mark]");
       if(day[2]==="overnight") return box.querySelector("[data-overnight-day]");
       return box.querySelector(`[data-route-override="${day[3]}"]`);
     }
@@ -4844,7 +4889,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.08";
+  const APP_VERSION=window.SB_APP_VERSION||"3.09";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
