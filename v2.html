@@ -1106,11 +1106,11 @@ select.is-nudge,input.is-nudge{
     <div class="route-grid">
       <div>
         <label for="routeModalKm">Kilometer</label>
-        <input id="routeModalKm" inputmode="decimal" placeholder="z. B. 85" autocomplete="off">
+        <input id="routeModalKm" inputmode="decimal" placeholder="z. B. 0 oder 85" autocomplete="off">
       </div>
       <div>
         <label for="routeModalTime">Reisezeit</label>
-        <input id="routeModalTime" inputmode="decimal" placeholder="1:15 oder 1,25" autocomplete="off">
+        <input id="routeModalTime" inputmode="decimal" placeholder="0:00 / 1:15 oder 1,25" autocomplete="off">
       </div>
     </div>
     <p class="muted" id="routeModalErr"></p>
@@ -2379,15 +2379,24 @@ function companyRecordByName(name){
   if(!k || !Array.isArray(companies)) return null;
   return companies.find(c=>companyNameKey(c)===k)||null;
 }
+function companyNoteText(c){
+  if(!c) return "";
+  const keys=Object.keys(c);
+  const noteKey=keys.find(k=>/notatki|notatka|note/i.test(k));
+  return noteKey!=null ? String(c[noteKey]||"").trim() : "";
+}
+function companyHasListedRoute(c){
+  // "0km" is a valid saved route (local customers).
+  return /\d+(?:[.,]\d+)?\s*km\b/i.test(companyNoteText(c));
+}
 function companyRouteIncomplete(c){
-  const r=typeof parseRoute==="function"?parseRoute(c):{km:0,minutes:0};
-  return !r.km || !r.minutes;
+  return !companyHasListedRoute(c);
 }
 function formatListedRoute(c){
   const r=typeof parseRoute==="function"?parseRoute(c):{km:0,minutes:0};
-  if(!r.km && !r.minutes) return "In der Liste: noch ohne km / Reisezeit";
-  const kmTxt=r.km ? String(r.km).replace(".",",")+" km" : "— km";
-  const tTxt=r.minutes && typeof formatMinutesClock==="function" ? formatMinutesClock(r.minutes) : "—";
+  if(!companyHasListedRoute(c)) return "In der Liste: noch ohne km / Reisezeit";
+  const kmTxt=String(Number(r.km)||0).replace(".",",")+" km";
+  const tTxt=typeof formatMinutesClock==="function" ? formatMinutesClock(r.minutes) : "0:00";
   return "In der Liste: "+kmTxt+" / "+tTxt+" Reisezeit";
 }
 function syncCompanySaveButton(){
@@ -2456,12 +2465,12 @@ function mergeCompanyRecord(remote, rec){
   return arr;
 }
 function formatRouteNote(km, minutes){
-  const kmN=Number(km)||0;
+  const kmN=Number.isFinite(Number(km)) ? Number(km) : 0;
   const minN=Math.max(0, Math.round(Number(minutes)||0));
-  const kmPart=kmN?String(kmN).replace(".",",")+"km":"";
+  const kmPart=String(kmN).replace(".",",")+"km";
   const h=Math.round((minN/60)*100)/100;
-  const hPart=h?String(h).replace(".",","):"";
-  return kmPart&&hPart?kmPart+", "+hPart:(kmPart||hPart);
+  const hPart=String(h).replace(".",",");
+  return kmPart+", "+hPart;
 }
 function parseTravelToMinutes(s){
   const raw=String(s||"").trim();
@@ -2473,7 +2482,6 @@ function parseTravelToMinutes(s){
 }
 function formatMinutesClock(min){
   const m=Math.max(0, Math.round(Number(min)||0));
-  if(!m) return "";
   return String(Math.floor(m/60))+":"+String(m%60).padStart(2,"0");
 }
 function companyRecordFromForm(route){
@@ -5354,12 +5362,15 @@ finally{ window.__pdfBuilding=false; }
     const listR=fromList && typeof parseRoute==="function" ? parseRoute(fromList) : {km:0,minutes:0};
     const formTime=rtTxt && /^\d+:\d{2}$/.test(rtTxt) && rtTxt!=="00:00" && rtTxt!=="0:00" ? rtTxt : "";
     if(updating){
-      kmEl.value=listR.km ? String(listR.km).replace(".",",") : (kmNow && kmNow!=="0" ? kmNow : "");
-      timeEl.value=listR.minutes && typeof formatMinutesClock==="function"
+      const hasListRoute=typeof companyHasListedRoute==="function" && companyHasListedRoute(fromList);
+      kmEl.value=hasListRoute
+        ? String(listR.km).replace(".",",")
+        : (kmNow!=="" ? kmNow : "");
+      timeEl.value=hasListRoute && typeof formatMinutesClock==="function"
         ? formatMinutesClock(listR.minutes)
         : formTime;
     }else{
-      kmEl.value=kmNow && kmNow!=="0" ? kmNow : "";
+      kmEl.value=kmNow!=="" ? kmNow : "";
       timeEl.value=formTime;
     }
     modal.classList.add("is-open");
@@ -5372,17 +5383,18 @@ finally{ window.__pdfBuilding=false; }
     const kmRaw=String($("routeModalKm")?.value||"").trim();
     const timeRaw=String($("routeModalTime")?.value||"").trim();
     if(!kmRaw || !timeRaw){
-      if(err) err.textContent="Kilometer und Reisezeit eintragen.";
+      if(err) err.textContent="Kilometer und Reisezeit eintragen (auch 0 km möglich).";
       return null;
     }
     const km=parseFloat(kmRaw.replace(",","."));
+    const validTime=/^\d{1,2}:\d{2}$/.test(timeRaw) || Number.isFinite(parseFloat(timeRaw.replace(",",".")));
     const minutes=parseTravelToMinutes(timeRaw);
     if(!Number.isFinite(km) || km<0){
-      if(err) err.textContent="Kilometer prüfen.";
+      if(err) err.textContent="Kilometer prüfen (0 km ist erlaubt).";
       return null;
     }
-    if(!minutes){
-      if(err) err.textContent="Reisezeit als 1:15 oder 1,25 eintragen.";
+    if(!validTime || minutes<0){
+      if(err) err.textContent="Reisezeit als 1:15, 0:00 oder 1,25 eintragen.";
       return null;
     }
     return {km, minutes};
