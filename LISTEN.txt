@@ -24,6 +24,8 @@ Uwagi (lista z Servicebericht-listen + Excel):
 - 2× „Müller” → „Müller (Lichte)” / „Müller (Gefrees)”
 - dopisano: Schweißfachbetrieb Gerloff GmbH (z Excela)
 - z Excela km/czas: Adolf Steinbach (120km, 2), CNC Metallbearbeitung Penig (190km, 2,25)
+- poprawki adresów/nazw: Steinbach (Str. 18), HKB/Spaceoptix (spacja PLZ),
+  2 KM Maschinenbau, Borbet Österreich
 - 8 firm bez km/czasu → puste notatki
 - notatki ujednolicone do formatu apki: „290km, 4”
 
