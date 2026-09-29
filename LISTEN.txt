@@ -19,10 +19,11 @@ Wgrywanie listy firm (companies.json):
 - W apce: GitHub an · Token (Contents: Read and write na Servicebericht-listen)
 - Po wgraniu: w apce odśwież / Pull listę firm
 
-Uwagi konwersji:
-- 2× „Müller” → „Müller (Lichte)” i „Müller (Gefrees)” (apeka rozróżnia po nazwie)
-- 8 firm bez km/czasu → puste notatki (trasa przy zapisie w apce)
-- e-maile / maszyny nie były w Excelu → zostają puste (aktualna lista prywatna
-  potrzebna tylko jeśli chcesz zachować stare e-maile i maszyny)
+Uwagi (lista z Servicebericht-listen + Excel):
+- bazą jest aktualne companies.json (e-maile zachowane: 86)
+- 2× „Müller” → „Müller (Lichte)” / „Müller (Gefrees)”
+- dopisano: Schweißfachbetrieb Gerloff GmbH (z Excela)
+- 8 firm bez km/czasu → puste notatki
+- notatki ujednolicone do formatu apki: „290km, 4”
 
 Created by S. Pawlina
