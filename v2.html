@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.13">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.14">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.13</title>
+  <title>Servicebericht v3.14</title>
 <script>
-window.SB_APP_VERSION="3.13";
+window.SB_APP_VERSION="3.14";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -805,7 +805,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.13</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.14</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2535,11 +2535,6 @@ function fileDatePart(iso){
   const t=String(today).match(/^(\d{4})-(\d{2})-(\d{2})/);
   return t ? t[3]+"-"+t[2]+"-"+t[1] : today;
 }
-function pdfEmailLabel(){
-  const iso=$("date")?.value || isoDateLocal(new Date());
-  return "Servicebericht "+fileDatePart(iso);
-}
-window.pdfEmailLabel=pdfEmailLabel;
 function pdfFileName(){
   const iso=$("date")?.value || isoDateLocal(new Date());
   const initials=techInitials($("tech")?.value);
@@ -2548,6 +2543,12 @@ function pdfFileName(){
   return ["Servicebericht", fileDatePart(iso), initials, nr, firma].filter(Boolean).join("_")+".pdf";
 }
 window.pdfFileName=pdfFileName;
+function pdfEmailLabel(){
+  // Same format as saved PDF (without .pdf) – subject, share title, attachment basename.
+  const name=typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf";
+  return String(name).replace(/\.pdf$/i,"");
+}
+window.pdfEmailLabel=pdfEmailLabel;
 function customerRoute(){
   if(!Array.isArray(companies)) return {km:0,minutes:0};
   return parseRoute(selectedCompany());
@@ -4926,7 +4927,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.13";
+  const APP_VERSION=window.SB_APP_VERSION||"3.14";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6322,7 +6323,9 @@ finally{ window.__pdfBuilding=false; }
     const shareFile=await pdfFileForShare();
     if(!shareFile) return false;
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
-    const emailName=String(label).replace(/[\\/:*?"<>|]+/g," ").trim()+".pdf";
+    const emailName=(typeof window.pdfFileName==="function")
+      ? window.pdfFileName()
+      : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
     const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
     closePdfEmailSheet();
     try{
