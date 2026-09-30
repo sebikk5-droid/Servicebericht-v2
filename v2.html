@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.14">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.15">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.14</title>
+  <title>Servicebericht v3.15</title>
 <script>
-window.SB_APP_VERSION="3.14";
+window.SB_APP_VERSION="3.15";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -805,7 +805,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.14</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.15</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1817,6 +1817,26 @@ function syncDayDatesFromMainDate(){
     if(d>1 && !el.value) el.value=isoAddDays(main,d-1);
   });
 }
+/** After Tag N date changes, keep following days consecutive (N+1, N+2, …). */
+function cascadeFollowingDayDates(fromDay){
+  const start=Number(fromDay)||0;
+  if(start<1) return;
+  const fromEl=document.querySelector(`[data-daybox="${start}"] .daydate`);
+  if(!fromEl || !fromEl.value) return;
+  let base=fromEl.value;
+  for(let d=start+1;d<=6;d++){
+    const el=document.querySelector(`[data-daybox="${d}"] .daydate`);
+    if(!el) break;
+    base=isoAddDays(base,1);
+    if(!base) break;
+    el.value=base;
+  }
+}
+window.cascadeFollowingDayDates=cascadeFollowingDayDates;
+function previousDayDateValue(d){
+  const prev=document.querySelector(`[data-daybox="${Number(d)-1}"] .daydate`);
+  return prev && prev.value ? prev.value : "";
+}
 function syncTag1ToEinsatzdatum(){
   const tag1=document.querySelector('[data-daybox="1"] .daydate');
   if(tag1?.value && $("date")) $("date").value=tag1.value;
@@ -1930,8 +1950,10 @@ $("resetForm")?.addEventListener("click",()=>{
   resetOpenForm();
 });
 $("times").addEventListener("change",e=>{
-  if(e.target.classList.contains("daydate") && e.target.getAttribute("data-day")==="1")
-    syncTag1ToEinsatzdatum();
+  if(!e.target.classList.contains("daydate")) return;
+  const day=Number(e.target.getAttribute("data-day")||0);
+  if(day===1) syncTag1ToEinsatzdatum();
+  if(day>=1) cascadeFollowingDayDates(day);
 });
 $("addDay").onclick=()=>{
   if(visibleDays>=6)return;
@@ -1941,7 +1963,12 @@ $("addDay").onclick=()=>{
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(box)box.setAttribute("data-day-active","1"); 
    const newDayDate=box?.querySelector(".daydate");
-   if(newDayDate && !newDayDate.value) newDayDate.value=isoAddDays($("date")?.value||"",d-1);
+   if(newDayDate && !newDayDate.value){
+     const prev=previousDayDateValue(d);
+     newDayDate.value=prev
+       ? isoAddDays(prev,1)
+       : isoAddDays($("date")?.value||"",d-1);
+   }
   visibleDays=Math.max(1,d);
   bindTimeInputs();
   applyCustomerRouteDay(d);
@@ -4927,7 +4954,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.14";
+  const APP_VERSION=window.SB_APP_VERSION||"3.15";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
