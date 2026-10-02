@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.16">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.17">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.16</title>
+  <title>Servicebericht v3.17</title>
 <script>
-window.SB_APP_VERSION="3.16";
+window.SB_APP_VERSION="3.17";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -25,12 +25,16 @@ window.SB_APP_VERSION="3.16";
   }
   function go(ver){
     if(!ver || ver===window.SB_APP_VERSION) return;
+    try{
+      // Prevent endless replace when SW still serves a stale HTML shell.
+      if(sessionStorage.getItem("sb_ver_go")==="1") return;
+      sessionStorage.setItem("sb_ver_go","1");
+    }catch(e){}
     const u=new URL(location.href);
     u.searchParams.set("v", ver);
     // Bust iOS Home Screen / SW shell that otherwise sticks on an old HTML.
     u.searchParams.set("_sb", String(Date.now()));
     try{
-      sessionStorage.removeItem("sb_sw_reload");
       sessionStorage.removeItem("sb_loaded_"+ver);
     }catch(e){}
     location.replace(u.pathname+u.search+u.hash);
@@ -41,6 +45,9 @@ window.SB_APP_VERSION="3.16";
     }).then(function(m){
       const ver=remoteVersion(m);
       if(ver && ver!==window.SB_APP_VERSION) go(ver);
+      else{
+        try{ sessionStorage.removeItem("sb_ver_go"); }catch(e){}
+      }
     }).catch(function(){});
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
@@ -62,7 +69,10 @@ window.SB_APP_VERSION="3.16";
       navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
-        try{ if(sessionStorage.getItem("sb_sw_reload")) return; sessionStorage.setItem("sb_sw_reload","1"); }catch(e){}
+        try{
+          if(sessionStorage.getItem("sb_sw_reload")) return;
+          sessionStorage.setItem("sb_sw_reload","1");
+        }catch(e){}
         location.reload();
       });
     }
@@ -805,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.16</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.17</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4954,7 +4964,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.16";
+  const APP_VERSION=window.SB_APP_VERSION||"3.17";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){

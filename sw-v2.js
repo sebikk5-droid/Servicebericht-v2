@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v3-08";
+const CACHE_NAME = "servicebericht-v3-17";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
@@ -81,6 +81,30 @@ function matchCurrent(req, ignoreSearch) {
   );
 }
 
+function putCache(url, res) {
+  if (!res || !res.ok) return;
+  const copy = res.clone();
+  caches.open(CACHE_NAME).then(c => c.put(url, copy)).catch(() => {});
+}
+
+// Network-first for HTML/manifest/SW: avoids freeze loop when cached HTML
+// version lags behind manifest (checkLive → endless location.replace).
+function networkFirst(req, cacheKey, ignoreSearch, ms) {
+  return timeoutFetch(req, ms)
+    .then(res => {
+      if (res && res.ok) {
+        putCache(cacheKey || req, res);
+        return res;
+      }
+      return null;
+    })
+    .catch(() => null)
+    .then(res => {
+      if (res) return res;
+      return matchCurrent(cacheKey || req, ignoreSearch).then(cached => cached || Response.error());
+    });
+}
+
 // Cache each file on its own — one 404 must not abort the whole install.
 function precacheShell() {
   return caches.open(CACHE_NAME).then(cache =>
@@ -116,61 +140,19 @@ self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
 
-  // Offline-first for the app shell: serve cache immediately when present,
-  // refresh from network in the background when possible.
   if (isV2Navigation(req)) {
-    event.respondWith(
-      matchCurrent("./v2.html", true).then(cached => {
-        const net = timeoutFetch(req, cached ? 2500 : 4000)
-          .then(res => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_NAME).then(c => c.put("./v2.html", copy)).catch(() => {});
-              return res;
-            }
-            return null;
-          })
-          .catch(() => null);
-
-        if (cached) {
-          // Return cached shell right away (cold start offline), update when online.
-          net.catch(() => {});
-          return cached;
-        }
-        return net.then(res => {
-          if (res) return res;
-          return matchCurrent("./v2.html", true).then(again => {
-            if (again) return again;
-            return Response.error();
-          });
-        });
-      })
-    );
+    event.respondWith(networkFirst(req, "./v2.html", true, 4000));
     return;
   }
 
   if (!isAppAsset(req.url)) return;
 
   if (isVersionAsset(req.url)) {
-    event.respondWith(
-      matchCurrent(req, true).then(cached => {
-        const net = timeoutFetch(req, cached ? 2500 : 4000)
-          .then(res => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
-              return res;
-            }
-            return null;
-          })
-          .catch(() => null);
-        if (cached) {
-          net.catch(() => {});
-          return cached;
-        }
-        return net.then(res => res || Response.error());
-      })
-    );
+    const path = pathOf(req.url);
+    const key = path.endsWith("/v2.html") ? "./v2.html"
+      : path.endsWith("/manifest-v2.webmanifest") ? "./manifest-v2.webmanifest"
+      : req;
+    event.respondWith(networkFirst(req, key, true, 4000));
     return;
   }
 
@@ -180,10 +162,7 @@ self.addEventListener("fetch", event => {
       matchCurrent(req, true).then(cached => {
         if (cached) return cached;
         return timeoutFetch(req, 4000).then(res => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
-          }
+          if (res && res.ok) putCache(req, res);
           return res;
         });
       })
@@ -195,10 +174,7 @@ self.addEventListener("fetch", event => {
     matchCurrent(req, true).then(cached => {
       if (cached) return cached;
       return timeoutFetch(req, 4000).then(res => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(() => {});
-        }
+        if (res && res.ok) putCache(req, res);
         return res;
       });
     })
