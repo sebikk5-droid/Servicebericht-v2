@@ -6328,16 +6328,6 @@ finally{ window.__pdfBuilding=false; }
     if(!lastPdfBlob) return null;
     return new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
   }
-  async function copyEmailQuiet(email){
-    if(!email) return false;
-    try{
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        await navigator.clipboard.writeText(email);
-        return true;
-      }
-    }catch(e){}
-    return false;
-  }
   window.sendPdfByEmail=async function(){
     setStatus("PDF wird erstellt…");
     const ready=await window.ensurePdfForCurrentForm();
@@ -6346,36 +6336,42 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
     const email=customerPdfEmail();
-    const copied=await copyEmailQuiet(email);
-    const shareFile=await pdfFileForShare();
-    if(!shareFile) return false;
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
       ? window.pdfFileName()
       : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
-    const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
+    const body=label+"\n\n"+emailName;
+    const mailtoHref="mailto:"+(email?encodeURIComponent(email):"")
+      +"?subject="+encodeURIComponent(label)
+      +"&body="+encodeURIComponent(body);
     closePdfEmailSheet();
-    try{
-      const shareData={files:[emailFile], title:label, text:label};
-      if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
-        await navigator.share(shareData);
-        setStatus(email
-          ? (copied ? "Mail öffnen – Empfänger liegt in der Zwischenablage." : "Mail öffnen und Empfänger eintragen: "+email)
-          : "Mail öffnen und Empfänger eintragen.");
-        return true;
+
+    // iOS Share→Mail leaves Betreff empty; mailto fills subject (and To) reliably.
+    // On other devices keep Share first (attachment + title as subject where supported).
+    if(!isIosPdfDevice()){
+      try{
+        const shareFile=await pdfFileForShare();
+        if(shareFile){
+          const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
+          const shareData={files:[emailFile], title:label, text:label};
+          if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
+            await navigator.share(shareData);
+            setStatus(email
+              ? "Mail öffnen und Empfänger eintragen: "+email
+              : "Mail öffnen und Empfänger eintragen.");
+            return true;
+          }
+        }
+      }catch(e){
+        if(e && e.name==="AbortError") return false;
       }
-    }catch(e){
-      if(e && e.name==="AbortError") return false;
     }
-    if(email){
-      location.href="mailto:"+encodeURIComponent(email)
-        +"?subject="+encodeURIComponent(label)
-        +"&body="+encodeURIComponent(label);
-      setStatus("Mail geöffnet. PDF ist gespeichert – bitte als Anhang hinzufügen.");
-      return true;
-    }
-    setStatus("Kein E-Mail-Programm mit Anhang. PDF ist gespeichert.");
-    return false;
+
+    location.href=mailtoHref;
+    setStatus(email
+      ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
+      : "Mail geöffnet – Betreff ausgefüllt. Empfänger eintragen und PDF anhängen.");
+    return true;
   };
   window.deliverLastPdf=async function(){
     const ready=await window.ensurePdfForCurrentForm();
