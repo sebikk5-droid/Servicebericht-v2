@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.20">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.21">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.20</title>
+  <title>Servicebericht v3.21</title>
 <script>
-window.SB_APP_VERSION="3.20";
+window.SB_APP_VERSION="3.21";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -83,16 +83,26 @@ window.SB_APP_VERSION="3.20";
   window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
+  // Skip cache:"reload" — it re-downloads ~4MB on every visit even when SW already has them.
   function warmPdfCache(){
-    const files=[
-      "vendor/pdf-lib.min.js",
-      "vendor/pdf.min.js",
-      "vendor/pdf.worker.min.js",
-      "Leer.pdf"
-    ];
-    files.forEach(function(u){
-      try{ fetch(u+"?v="+(window.SB_APP_VERSION||""), {cache:"reload"}).catch(function(){}); }catch(e){}
-    });
+    const urgent=["vendor/pdf-lib.min.js","Leer.pdf"];
+    const later=["vendor/pdf.min.js","vendor/pdf.worker.min.js"];
+    function warmOne(u){
+      try{
+        if(typeof caches==="undefined"){
+          fetch(u,{cache:"force-cache"}).catch(function(){});
+          return;
+        }
+        caches.match(u,{ignoreSearch:true}).then(function(hit){
+          if(hit) return;
+          return fetch(u,{cache:"force-cache"}).catch(function(){});
+        }).catch(function(){
+          fetch(u,{cache:"force-cache"}).catch(function(){});
+        });
+      }catch(e){}
+    }
+    urgent.forEach(warmOne);
+    setTimeout(function(){ later.forEach(warmOne); }, 2500);
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", warmPdfCache);
   else warmPdfCache();
@@ -815,7 +825,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.20</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.21</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1172,6 +1182,7 @@ document.querySelectorAll('#choices input').forEach(el=>{
 </script>
 <script>
 const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
+window.getCompanies=function(){ return companies; };
 window.sbOffline=function(){ return navigator.onLine===false; };
 window.sbCachedFile=async function(name, timeoutMs){
   const urls=[name, "./"+String(name||"").replace(/^\.\//,"")];
@@ -4131,30 +4142,63 @@ finally{ window.__pdfBuilding=false; }
   const HISTORY_LEGACY_KEY="servicebericht_history_v26";
   const LIVE_KEY="servicebericht_live_draft_v2";
   const RESET_FLAG="servicebericht_reset_v2";
+  const HISTORY_MAX=80;
   const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
+  let historyCache=null;
 
+  // Signatures are PNG data-URLs — keep them out of Historie (open clears them anyway).
+  function slimHistoryData(data){
+    if(!data || typeof data!=="object") return data;
+    const slim={};
+    for(const k in data){
+      if(!Object.prototype.hasOwnProperty.call(data,k)) continue;
+      if(k.indexOf("__sig")===0) continue;
+      slim[k]=data[k];
+    }
+    return slim;
+  }
+  function slimHistoryItem(item){
+    if(!item || typeof item!=="object") return item;
+    const copy=Object.assign({}, item);
+    if(copy.data && typeof copy.data==="object") copy.data=slimHistoryData(copy.data);
+    if(copy.formData && typeof copy.formData==="object") copy.formData=slimHistoryData(copy.formData);
+    return copy;
+  }
   function loadHistory(){
+    if(historyCache) return historyCache;
     try {
       const raw=localStorage.getItem(HISTORY_KEY);
       if(raw!=null){
         const list=JSON.parse(raw||"[]");
-        return Array.isArray(list) ? list : [];
+        historyCache=Array.isArray(list) ? list : [];
+        return historyCache;
       }
       const legacy=localStorage.getItem(HISTORY_LEGACY_KEY);
-      if(!legacy) return [];
+      if(!legacy){ historyCache=[]; return historyCache; }
       const list=JSON.parse(legacy||"[]");
-      const migrated=Array.isArray(list) ? list : [];
-      try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(migrated.slice(0,100))); }catch(e){}
-      return migrated;
+      const migrated=(Array.isArray(list) ? list : []).slice(0,HISTORY_MAX).map(slimHistoryItem);
+      historyCache=migrated;
+      try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(migrated)); }catch(e){}
+      return historyCache;
     }
-    catch(e){ return []; }
+    catch(e){ historyCache=[]; return historyCache; }
   }
   function saveHistory(list){
-    try{
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0,100)));
-    }catch(e){
-      throw new Error("Speicher auf diesem Gerät ist voll oder blockiert.");
+    let next=(Array.isArray(list)?list:[]).slice(0,HISTORY_MAX).map(slimHistoryItem);
+    for(let attempt=0; attempt<10; attempt++){
+      try{
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+        historyCache=next;
+        return;
+      }catch(e){
+        if(!next.length)
+          throw new Error("Speicher auf diesem Gerät ist voll oder blockiert.");
+        // Drop oldest ~20% and retry — Safari ~5MB quota with fat drafts.
+        const drop=Math.max(1, Math.ceil(next.length*0.2));
+        next=next.slice(0, Math.max(0, next.length-drop));
+      }
     }
+    throw new Error("Speicher auf diesem Gerät ist voll oder blockiert.");
   }
   function fieldKey(el){
     if(el.id && SKIP_IDS[el.id]) return "";
@@ -4176,7 +4220,8 @@ finally{ window.__pdfBuilding=false; }
     }
     return el.dataset.k || el.id || "";
   }
-  function collectForm(){
+  function collectForm(opts){
+    const includeSignatures=!opts || opts.includeSignatures!==false;
     const data={};
     document.querySelectorAll("input, textarea, select").forEach(el=>{
       const key=fieldKey(el);
@@ -4185,7 +4230,8 @@ finally{ window.__pdfBuilding=false; }
       else data[key]=el.value;
     });
     data.__visibleDays=(typeof visibleDays==="number") ? visibleDays : 1;
-    if(typeof window.exportSignatureData==="function") Object.assign(data, window.exportSignatureData());
+    if(includeSignatures && typeof window.exportSignatureData==="function")
+      Object.assign(data, window.exportSignatureData());
     document.querySelectorAll("[data-daybox]").forEach(box=>{
       const d=box.getAttribute("data-daybox");
       data[`day${d}_collapsed`]=box.classList.contains("day-collapsed");
@@ -4196,7 +4242,7 @@ finally{ window.__pdfBuilding=false; }
   }
   window.currentPdfFingerprint=function(){
     try{
-      const data=collectForm();
+      const data=collectForm({includeSignatures:false});
       const skip=/^(__visibleDays|customerEmail)$|_collapsed$|_rueckfahrtOff$|_anfahrtOff$/;
       const keys=Object.keys(data).filter(k=>!skip.test(k)).sort();
       const norm={};
@@ -4547,6 +4593,8 @@ finally{ window.__pdfBuilding=false; }
       actionOkTimer=setTimeout(hideHistoryActionOk, 4000);
     }
 
+    const HISTORY_RESULT_CAP=25;
+    let historyFilterTimer=0;
     function closeResults(){
       if(!results) return;
       results.hidden=true;
@@ -4562,7 +4610,8 @@ finally{ window.__pdfBuilding=false; }
         empty.textContent="Kein Bericht in der Historie.";
         results.appendChild(empty);
       }else{
-        items.forEach(({item,i})=>{
+        const shown=items.slice(0, HISTORY_RESULT_CAP);
+        shown.forEach(({item,i})=>{
           const pick=document.createElement("div");
           pick.className="combo-pick";
           pick.setAttribute("role","option");
@@ -4574,6 +4623,12 @@ finally{ window.__pdfBuilding=false; }
           });
           results.appendChild(pick);
         });
+        if(items.length>HISTORY_RESULT_CAP){
+          const more=document.createElement("div");
+          more.className="combo-empty";
+          more.textContent="… "+(items.length-HISTORY_RESULT_CAP)+" weitere – Suche verfeinern";
+          results.appendChild(more);
+        }
       }
       results.hidden=false;
       openComboResults(results, combo);
@@ -4593,7 +4648,8 @@ finally{ window.__pdfBuilding=false; }
       selectedHistory=null;
       if(input) input.dataset.index="";
       syncComboValue(combo, input);
-      showResults(filtered());
+      clearTimeout(historyFilterTimer);
+      historyFilterTimer=setTimeout(()=>showResults(filtered()), 120);
     });
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
@@ -4618,7 +4674,8 @@ finally{ window.__pdfBuilding=false; }
 
     async function saveCurrentHistory(){
       const savedAt=new Date().toISOString();
-      const data=collectForm();
+      // Historie does not keep signatures (open clears them); omit PNG bloat from localStorage.
+      const data=collectForm({includeSignatures:false});
       const item={
         name:historyLabel({savedAt, data}),
         savedAt,
@@ -4691,6 +4748,8 @@ finally{ window.__pdfBuilding=false; }
 
     let saveTimer=null;
     let liveDraftApplied=false;
+    let lastLivePersistAt=0;
+    const COMBO_DRAFT_IDS={customerSearch:1,historySearch:1,manufacturer:1,type:1,machineNo:1};
     function resetting(){
       try{ return sessionStorage.getItem(RESET_FLAG)==="1"; }catch(e){ return false; }
     }
@@ -4713,12 +4772,21 @@ finally{ window.__pdfBuilding=false; }
       liveDraftApplied=true;
       clearFormPersistence();
     }
-    function saveLiveDraft(){
+    function saveLiveDraft(opts){
       if(resetting()) return;
       try{
-        const payload=JSON.stringify({savedAt:Date.now(), data:collectForm()});
-        localStorage.setItem(LIVE_KEY, payload);
+        const withSigs=!!(opts&&opts.includeSignatures);
+        const forcePersist=!!(opts&&opts.persist);
+        const data=collectForm({includeSignatures:withSigs});
+        const payload=JSON.stringify({savedAt:Date.now(), data});
         sessionStorage.setItem(LIVE_KEY, payload);
+        // Signature PNGs + dual writes are expensive; durable localStorage only when
+        // leaving the page or every ~8s while editing.
+        const now=Date.now();
+        if(withSigs || forcePersist || now-lastLivePersistAt>8000){
+          localStorage.setItem(LIVE_KEY, payload);
+          lastLivePersistAt=now;
+        }
       }catch(e){}
     }
     function readLiveDraft(){
@@ -4767,14 +4835,20 @@ finally{ window.__pdfBuilding=false; }
       consumeResetFlag();
       if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
     };
-    document.addEventListener("input",()=>{
+    document.addEventListener("input",(ev)=>{
       if(resetting()) return;
+      const id=ev&&ev.target&&ev.target.id;
+      const delay=id && COMBO_DRAFT_IDS[id] ? 1600 : 1200;
       clearTimeout(saveTimer);
-      saveTimer=setTimeout(saveLiveDraft, 700);
+      saveTimer=setTimeout(()=>saveLiveDraft({includeSignatures:false}), delay);
     }, true);
-    document.addEventListener("change",()=>{ if(!resetting()) saveLiveDraft(); }, true);
-    window.addEventListener("pagehide", saveLiveDraft);
-    document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveLiveDraft(); });
+    document.addEventListener("change",()=>{
+      if(!resetting()) saveLiveDraft({includeSignatures:false});
+    }, true);
+    window.addEventListener("pagehide",()=>saveLiveDraft({includeSignatures:true, persist:true}));
+    document.addEventListener("visibilitychange",()=>{
+      if(document.hidden) saveLiveDraft({includeSignatures:true, persist:true});
+    });
     window.addEventListener("pageshow",ev=>{
       if(ev.persisted) return;
       restoreLiveDraft(false);
@@ -4798,21 +4872,45 @@ finally{ window.__pdfBuilding=false; }
     const clearBtn=document.getElementById("customerClear");
     if(!input||!results||!select||input.dataset.bound==="1") return;
     input.dataset.bound="1";
+    const RESULT_CAP=40;
+    let showTimer=0;
 
     function sync(){
       if(box) box.classList.toggle("has-value", String(input.value||"").trim()!=="");
       if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
     }
-    function getOptions(){
-      return Array.from(select.options).filter(o=>o.value!=="" && !o.disabled);
+    function companyHits(q){
+      // Prefer in-memory list — avoid walking hundreds of <option> nodes per keystroke.
+      const list=(typeof window.getCompanies==="function") ? window.getCompanies() : null;
+      if(Array.isArray(list) && list.length){
+        const hits=[];
+        for(let i=0;i<list.length;i++){
+          const name=String(list[i].firma||list[i].name||"").trim();
+          if(!name) continue;
+          if(q && !name.toLocaleLowerCase("de-DE").startsWith(q)) continue;
+          hits.push({value:String(i), label:name});
+          if(hits.length>=RESULT_CAP) break;
+        }
+        return hits;
+      }
+      const hits=[];
+      for(let i=0;i<select.options.length;i++){
+        const o=select.options[i];
+        if(!o || o.value==="" || o.disabled) continue;
+        const label=o.textContent.trim();
+        if(q && !label.toLocaleLowerCase("de-DE").startsWith(q)) continue;
+        hits.push({value:o.value, label});
+        if(hits.length>=RESULT_CAP) break;
+      }
+      return hits;
     }
     function close(){
       results.style.display="none";
       results.innerHTML="";
     }
-    function choose(opt){
-      select.value=opt.value;
-      input.value=opt.textContent.trim();
+    function choose(hit){
+      select.value=hit.value;
+      input.value=hit.label;
       sync();
       close();
       select.dispatchEvent(new Event("change",{bubbles:true}));
@@ -4842,10 +4940,11 @@ finally{ window.__pdfBuilding=false; }
     function show(){
       const q=input.value.trim().toLocaleLowerCase("de-DE");
       results.innerHTML="";
-      const options=getOptions().filter(o=>{
-        if(!q) return true;
-        return o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q);
-      });
+      const options=companyHits(q);
+      const list=(typeof window.getCompanies==="function") ? window.getCompanies() : null;
+      const totalKnown=Array.isArray(list) && list.length
+        ? list.length
+        : Array.from(select.options).filter(o=>o.value!=="" && !o.disabled).length;
       if(!options.length){
         const empty=document.createElement("div");
         empty.className="combo-empty";
@@ -4856,24 +4955,34 @@ finally{ window.__pdfBuilding=false; }
         openComboResults(results, box);
         return;
       }
-      options.forEach(opt=>{
+      options.forEach(hit=>{
         const pick=document.createElement("div");
         pick.className="combo-pick";
         pick.setAttribute("role","option");
-        pick.textContent=opt.textContent.trim();
-        if(select.value===opt.value) pick.classList.add("is-on");
+        pick.textContent=hit.label;
+        if(select.value===hit.value) pick.classList.add("is-on");
         pick.addEventListener("click",function(){
-          choose(opt);
+          choose(hit);
         });
         results.appendChild(pick);
       });
+      if(!q && totalKnown>RESULT_CAP){
+        const more=document.createElement("div");
+        more.className="combo-empty";
+        more.textContent="Tippen zum Filtern ("+totalKnown+" Kunden)";
+        results.appendChild(more);
+      }
       openComboResults(results, box);
+    }
+    function showSoon(){
+      clearTimeout(showTimer);
+      showTimer=setTimeout(show, 150);
     }
 
     input.addEventListener("input",function(){
       clearListIfManual();
       sync();
-      show();
+      showSoon();
     });
     input.addEventListener("focus",function(){
       show();
@@ -4977,7 +5086,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.20";
+  const APP_VERSION=window.SB_APP_VERSION||"3.21";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7213,7 +7322,9 @@ finally{ window.__pdfBuilding=false; }
       }
       const q=useFilter ? norm(input.value) : "";
       const source=Array.isArray(overrideOptions) ? overrideOptions : getOptions();
-      const options=source.filter(v=> !q || norm(v).includes(q));
+      const MAX_COMBO=40;
+      const filtered=source.filter(v=> !q || norm(v).includes(q));
+      const options=filtered.slice(0, MAX_COMBO);
       results.innerHTML="";
       if(!options.length){
         const empty=document.createElement("div");
@@ -7237,6 +7348,12 @@ finally{ window.__pdfBuilding=false; }
         });
         results.appendChild(pick);
       });
+      if(filtered.length>MAX_COMBO){
+        const more=document.createElement("div");
+        more.className="combo-empty";
+        more.textContent="… "+(filtered.length-MAX_COMBO)+" weitere – tippen zum Filtern";
+        results.appendChild(more);
+      }
       openComboResults(results, box);
     }
     input.addEventListener("focus", ()=>{
