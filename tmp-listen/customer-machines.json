@@ -1,0 +1,60 @@
+{
+  "fred sieder": [
+    {
+      "manufacturer": "DMG",
+      "type": "DMU 50",
+      "machineNo": "11415746474",
+      "control": "iTNC 530",
+      "nc": "60642004SP20",
+      "plc": "470000_HEDR_05B"
+    }
+  ],
+  "diem gmbh": [
+    {
+      "manufacturer": "DMG MORI",
+      "type": "DMU 50 eVolution",
+      "machineNo": "1234567",
+      "control": "iTNC 530",
+      "nc": "",
+      "plc": ""
+    }
+  ],
+  "hertwig cnc präzisions- fertigungstechnik gmbh": [
+    {
+      "manufacturer": "DMG",
+      "type": "CTX 210",
+      "machineNo": "0145000746A",
+      "control": "Siemens 840D PL",
+      "nc": "",
+      "plc": ""
+    }
+  ],
+  "benteler": [
+    {
+      "manufacturer": "DMG",
+      "type": "DMU 80 monoBlock",
+      "machineNo": "11590001713",
+      "control": "iTNC 530",
+      "nc": "60642004SP20",
+      "plc": "GR34DD.03A"
+    }
+  ],
+  "fgb": [
+    {
+      "manufacturer": "DMG",
+      "type": "DMU 50eVolution",
+      "machineNo": "11045522134",
+      "control": "Millplus",
+      "nc": "D9431.410-19",
+      "plc": "62_1.76"
+    },
+    {
+      "manufacturer": "GILDEMEISTER",
+      "type": "CTX 510",
+      "machineNo": "8043943253C",
+      "control": "Heidenheim plus iT",
+      "nc": "",
+      "plc": ""
+    }
+  ]
+}
