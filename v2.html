@@ -6314,8 +6314,8 @@ finally{ window.__pdfBuilding=false; }
     const email=customerPdfEmail();
     if(hint){
       hint.textContent=email
-        ? "An "+email+" senden? Auf dem iPad in der Freigabe „Mail“ wählen – der Empfänger liegt in der Zwischenablage."
-        : "Keine Kunden-E-Mail. Mail trotzdem öffnen und den Empfänger selbst eintragen.";
+        ? "An "+email+" senden? Betreff wird ausgefüllt. PDF ist gespeichert – bitte in Mail anhängen."
+        : "Keine Kunden-E-Mail. Mail öffnen, Empfänger eintragen und gespeichertes PDF anhängen.";
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -6338,6 +6338,26 @@ finally{ window.__pdfBuilding=false; }
     if(!lastPdfBlob) return null;
     return new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
   }
+  function openMailtoSafe(href){
+    // Never assign location.href to mailto on iOS Home Screen — it can blank/freeze the PWA
+    // and leave PDF generation broken after returning.
+    try{
+      const a=document.createElement("a");
+      a.href=href;
+      a.target="_blank";
+      a.rel="noopener noreferrer";
+      a.style.display="none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return true;
+    }catch(e){}
+    try{
+      const w=window.open(href, "_blank");
+      if(w) return true;
+    }catch(e){}
+    return false;
+  }
   window.sendPdfByEmail=async function(){
     setStatus("PDF wird erstellt…");
     const ready=await window.ensurePdfForCurrentForm();
@@ -6356,8 +6376,7 @@ finally{ window.__pdfBuilding=false; }
       +"&body="+encodeURIComponent(body);
     closePdfEmailSheet();
 
-    // iOS Share→Mail leaves Betreff empty; mailto fills subject (and To) reliably.
-    // On other devices keep Share first (attachment + title as subject where supported).
+    // Non-iOS: Share first (attachment + title as subject where supported).
     if(!isIosPdfDevice()){
       try{
         const shareFile=await pdfFileForShare();
@@ -6377,11 +6396,14 @@ finally{ window.__pdfBuilding=false; }
       }
     }
 
-    location.href=mailtoHref;
-    setStatus(email
-      ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
-      : "Mail geöffnet – Betreff ausgefüllt. Empfänger eintragen und PDF anhängen.");
-    return true;
+    // iOS: mailto with Betreff — open without navigating away from the app.
+    const opened=openMailtoSafe(mailtoHref);
+    setStatus(opened
+      ? (email
+        ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
+        : "Mail geöffnet – Betreff ausgefüllt. Empfänger eintragen und PDF anhängen.")
+      : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
+    return opened;
   };
   window.deliverLastPdf=async function(){
     const ready=await window.ensurePdfForCurrentForm();
