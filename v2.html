@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.23">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.24">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.23</title>
+  <title>Servicebericht v3.24</title>
 <script>
-window.SB_APP_VERSION="3.23";
+window.SB_APP_VERSION="3.24";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.23</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.24</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4977,7 +4977,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.23";
+  const APP_VERSION=window.SB_APP_VERSION||"3.24";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6332,8 +6332,8 @@ finally{ window.__pdfBuilding=false; }
     const email=customerPdfEmail();
     if(hint){
       hint.textContent=email
-        ? "An "+email+" senden? Es wird ein Mail-Entwurf mit Betreff und PDF-Anhang geteilt – in der Freigabe „Mail“ wählen."
-        : "Keine Kunden-E-Mail. Mail-Entwurf mit Betreff und PDF wird geteilt – Empfänger danach eintragen.";
+        ? "An "+email+" senden? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger liegt in der Zwischenablage."
+        : "Keine Kunden-E-Mail. In der Freigabe „Mail“ wählen – PDF wird angehängt; Empfänger selbst eintragen.";
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -6387,68 +6387,6 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return false;
   }
-  function sbHeaderSafe(s){
-    return String(s||"").replace(/[\r\n]+/g," ").trim();
-  }
-  function sbBytesToBase64(u8){
-    const CHUNK=0x8000;
-    let bin="";
-    for(let i=0;i<u8.length;i+=CHUNK)
-      bin+=String.fromCharCode.apply(null, u8.subarray(i, Math.min(i+CHUNK, u8.length)));
-    return btoa(bin);
-  }
-  function sbFoldBase64(b64){
-    return String(b64||"").replace(/(.{76})/g,"$1\r\n");
-  }
-  // iOS Web Share ignores title/text for Mail Betreff when a PDF is attached.
-  // A draft .eml (X-Unsent) can carry To + Subject + PDF together.
-  async function buildPdfMailDraftEml(opts){
-    const to=sbHeaderSafe(opts&&opts.to);
-    const subject=sbHeaderSafe((opts&&opts.subject)||"Servicebericht")||"Servicebericht";
-    const body=String((opts&&opts.body)!=null ? opts.body : subject);
-    const pdfName=sbHeaderSafe((opts&&opts.pdfName)||"Servicebericht.pdf").replace(/"/g,"")||"Servicebericht.pdf";
-    const pdfBlob=opts&&opts.pdfBlob;
-    if(!pdfBlob) throw new Error("PDF fehlt");
-    const u8=new Uint8Array(await pdfBlob.arrayBuffer());
-    const b64=sbFoldBase64(sbBytesToBase64(u8));
-    const boundary="=_SB_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,10);
-    const parts=[
-      "X-Unsent: 1",
-      "MIME-Version: 1.0"
-    ];
-    if(to) parts.push("To: "+to);
-    parts.push("Subject: "+subject);
-    parts.push("Content-Type: multipart/mixed; boundary=\""+boundary+"\"");
-    parts.push("");
-    parts.push("--"+boundary);
-    parts.push("Content-Type: text/plain; charset=UTF-8");
-    parts.push("Content-Transfer-Encoding: 8bit");
-    parts.push("");
-    parts.push(body.replace(/\r?\n/g,"\r\n"));
-    parts.push("");
-    parts.push("--"+boundary);
-    parts.push("Content-Type: application/pdf; name=\""+pdfName+"\"");
-    parts.push("Content-Transfer-Encoding: base64");
-    parts.push("Content-Disposition: attachment; filename=\""+pdfName+"\"");
-    parts.push("");
-    parts.push(b64);
-    parts.push("--"+boundary+"--");
-    parts.push("");
-    const raw=parts.join("\r\n");
-    const base=(subject.replace(/[\\/:*?"<>|]+/g,"_").replace(/\s+/g,"_").replace(/^_+|_+$/g,"")||"Servicebericht").slice(0,60);
-    return {
-      rfc822:new File([raw], base+".eml", {type:"message/rfc822", lastModified:Date.now()}),
-      asText:new File([raw], base+".eml", {type:"text/plain", lastModified:Date.now()})
-    };
-  }
-  async function shareFilesQuiet(files, title, text){
-    if(!navigator.share || !navigator.canShare) return false;
-    const list=Array.isArray(files)?files.filter(Boolean):[];
-    if(!list.length) return false;
-    if(!navigator.canShare({files:list})) return false;
-    await navigator.share({files:list, title:title||"", text:text||""});
-    return true;
-  }
   window.sendPdfByEmail=async function(){
     setStatus("PDF wird erstellt…");
     const ready=await window.ensurePdfForCurrentForm();
@@ -6467,58 +6405,29 @@ finally{ window.__pdfBuilding=false; }
       +"&body="+encodeURIComponent(body);
     closePdfEmailSheet();
 
-    let pdfFile=null;
-    try{ pdfFile=await pdfFileForShare(); }catch(e){ pdfFile=null; }
-    if(!pdfFile && lastPdfBlob)
-      pdfFile=new File([lastPdfBlob], emailName, {type:"application/pdf", lastModified:Date.now()});
-    if(!pdfFile){
-      setStatus("PDF konnte nicht erstellt werden.");
-      return false;
-    }
-    const emailPdf=new File([pdfFile], emailName, {type:"application/pdf", lastModified:Date.now()});
-
-    // 1) Draft .eml = Betreff + Empfänger + PDF (workaround for iOS Mail empty subject).
+    // Przywrócone z v3.22: Share z prawdziwym PDF (bez .eml).
+    // mailto nie może dołączyć pliku; .eml dawał dziwny format załącznika.
+    const copiedTo=await copyTextQuiet(email);
     try{
-      const draft=await buildPdfMailDraftEml({
-        to:email,
-        subject:label,
-        body,
-        pdfName:emailName,
-        pdfBlob:emailPdf
-      });
-      for(const file of [draft.rfc822, draft.asText]){
-        try{
-          if(await shareFilesQuiet([file], label, label)){
-            setStatus(email
-              ? "Mail-Entwurf geteilt (Betreff + PDF). Empfänger: "+email
-              : "Mail-Entwurf geteilt (Betreff + PDF). Empfänger eintragen.");
-            return true;
-          }
-        }catch(e){
-          if(e && e.name==="AbortError") return false;
+      const shareFile=await pdfFileForShare();
+      if(shareFile){
+        const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
+        const shareData={files:[emailFile], title:label, text:label};
+        if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
+          await navigator.share(shareData);
+          setStatus(email
+            ? (copiedTo
+              ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
+              : "Mail: PDF angehängt. Empfänger eintragen: "+email)
+            : "Mail: PDF angehängt. Empfänger eintragen.");
+          return true;
         }
-      }
-    }catch(e){}
-
-    // 2) PDF share (Anhang sicher; Betreff auf iOS oft leer) + Betreff in Zwischenablage.
-    const copiedBetreff=await copyTextQuiet(label);
-    try{
-      if(await shareFilesQuiet([emailPdf], label, label)){
-        if(email && copiedBetreff)
-          setStatus("Mail: PDF angehängt. Empfänger: "+email+" – Betreff aus Zwischenablage einfügen.");
-        else if(email)
-          setStatus("Mail: PDF angehängt. Empfänger eintragen: "+email+" (Betreff ≈ Dateiname).");
-        else if(copiedBetreff)
-          setStatus("Mail: PDF angehängt. Empfänger eintragen – Betreff aus Zwischenablage einfügen.");
-        else
-          setStatus("Mail: PDF angehängt. Empfänger eintragen (Betreff ≈ Dateiname).");
-        return true;
       }
     }catch(e){
       if(e && e.name==="AbortError") return false;
     }
 
-    // 3) mailto mit Betreff (ohne Anhang).
+    // Fallback: mailto mit Betreff (ohne Anhang), ohne location.href.
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
       ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
