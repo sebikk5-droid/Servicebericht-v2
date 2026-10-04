@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.24">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.25">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.24</title>
+  <title>Servicebericht v3.25</title>
 <script>
-window.SB_APP_VERSION="3.24";
+window.SB_APP_VERSION="3.25";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -276,6 +276,24 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfEmailModal h3{margin:0 0 6px;font-size:18px}
 #pdfEmailModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #pdfEmailModal .email-actions button{flex:1}
+#pdfEmailModal .email-actions-stack{flex-direction:column}
+#pdfEmailModal .email-actions-stack button{flex:0 0 auto;width:100%;min-height:44px}
+#pdfEmailSteps{margin:10px 0 0;padding:0;list-style:none}
+#pdfEmailSteps li{
+  display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin:0 0 8px;
+  border:1px solid #e5e5ea;border-radius:12px;background:#f8f8fa;font-size:14px;line-height:1.35;color:#222
+}
+#pdfEmailSteps li .step-num{
+  flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#163a5c;color:#fff;
+  display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700
+}
+#pdfEmailSteps li.is-done{border-color:#86efac;background:#f0fdf4}
+#pdfEmailSteps li.is-done .step-num{background:#15803d}
+#pdfEmailSteps li .step-body{flex:1;min-width:0}
+#pdfEmailSteps li strong{display:block;margin-bottom:2px}
+#pdfEmailStepBetreff{background:#163a5c;color:#fff}
+#pdfEmailStepPdf{background:#111;color:#fff}
+#pdfEmailStepPdf:disabled{opacity:.45}
 #status{font-size:13px;color:#555;margin:7px 2px}
 #status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
@@ -815,7 +833,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.24</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.25</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1053,10 +1071,21 @@ select.is-nudge,input.is-nudge{
 <div id="pdfEmailModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>PDF per E-Mail</h3>
-    <p class="muted" id="pdfEmailHint">Das PDF an die Kunden-E-Mail senden.</p>
-    <div class="email-actions">
-      <button type="button" class="clear" id="pdfEmailLater">Später</button>
-      <button type="button" class="go" id="pdfEmailSend">Senden</button>
+    <p class="muted" id="pdfEmailHint">Zwei Schritte: zuerst Betreff, dann PDF anhängen.</p>
+    <ol class="email-steps" id="pdfEmailSteps">
+      <li id="pdfEmailStep1">
+        <span class="step-num" aria-hidden="true">1</span>
+        <span class="step-body"><strong>Mail mit Betreff öffnen</strong>Betreff und Empfänger werden ausgefüllt.</span>
+      </li>
+      <li id="pdfEmailStep2">
+        <span class="step-num" aria-hidden="true">2</span>
+        <span class="step-body"><strong>PDF bereitstellen</strong>PDF teilen/speichern, dann in Mail: Büroklammer → Recents.</span>
+      </li>
+    </ol>
+    <div class="email-actions email-actions-stack">
+      <button type="button" id="pdfEmailStepBetreff">1. Mail mit Betreff öffnen</button>
+      <button type="button" id="pdfEmailStepPdf">2. PDF teilen / speichern</button>
+      <button type="button" class="clear" id="pdfEmailLater">Fertig</button>
     </div>
   </div>
 </div>
@@ -4977,7 +5006,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.24";
+  const APP_VERSION=window.SB_APP_VERSION||"3.25";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6322,6 +6351,22 @@ finally{ window.__pdfBuilding=false; }
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden","true");
   }
+  function setEmailStepDone(n, on){
+    const li=$("pdfEmailStep"+n);
+    if(li) li.classList.toggle("is-done", !!on);
+  }
+  function mailDraftParts(){
+    const email=customerPdfEmail();
+    const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
+    const emailName=(typeof window.pdfFileName==="function")
+      ? window.pdfFileName()
+      : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
+    const body=label+"\n\n"+emailName+"\n\nPDF bitte über die Büroklammer anhängen (Recents / Dateien).";
+    const mailtoHref="mailto:"+(email?encodeURIComponent(email):"")
+      +"?subject="+encodeURIComponent(label)
+      +"&body="+encodeURIComponent(body);
+    return {email, label, emailName, body, mailtoHref};
+  }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
       setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
@@ -6330,14 +6375,78 @@ finally{ window.__pdfBuilding=false; }
     const modal=$("pdfEmailModal");
     const hint=$("pdfEmailHint");
     const email=customerPdfEmail();
+    setEmailStepDone(1, false);
+    setEmailStepDone(2, false);
     if(hint){
       hint.textContent=email
-        ? "An "+email+" senden? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger liegt in der Zwischenablage."
-        : "Keine Kunden-E-Mail. In der Freigabe „Mail“ wählen – PDF wird angehängt; Empfänger selbst eintragen.";
+        ? "An "+email+" – in zwei Schritten (Betreff zuerst, dann PDF)."
+        : "Kein Empfänger in der App – Betreff trotzdem, Empfänger in Mail eintragen.";
     }
     if(!modal) return;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
+  };
+  window.openMailWithBetreff=async function(){
+    setStatus("PDF wird geprüft…");
+    const ready=await window.ensurePdfForCurrentForm();
+    if(!ready || !lastPdfBlob){
+      setStatus("PDF konnte nicht erstellt werden.");
+      return false;
+    }
+    const {email, mailtoHref}=mailDraftParts();
+    const opened=openMailtoSafe(mailtoHref);
+    setEmailStepDone(1, opened);
+    setStatus(opened
+      ? (email
+        ? "Schritt 1: Mail mit Betreff geöffnet. Zurück zur App → Schritt 2 (PDF)."
+        : "Schritt 1: Mail mit Betreff geöffnet. Empfänger eintragen, dann Schritt 2.")
+      : "Mail konnte nicht geöffnet werden.");
+    return opened;
+  };
+  window.sharePdfForMailAttach=async function(){
+    setStatus("PDF wird vorbereitet…");
+    const ready=await window.ensurePdfForCurrentForm();
+    if(!ready || !lastPdfBlob){
+      setStatus("PDF konnte nicht erstellt werden.");
+      return false;
+    }
+    const {emailName, label}=mailDraftParts();
+    try{
+      const shareFile=await pdfFileForShare();
+      if(!shareFile){
+        setStatus("PDF konnte nicht geteilt werden.");
+        return false;
+      }
+      const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[emailFile]})){
+        await navigator.share({files:[emailFile], title:label, text:label});
+        setEmailStepDone(2, true);
+        setStatus("Schritt 2: PDF bereit. In Mail: Büroklammer → Recents / Dateien → PDF wählen.");
+        return true;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return false;
+    }
+    // Fallback: object URL download / open so it lands in Recents/Files.
+    try{
+      const shareFile=await pdfFileForShare();
+      if(shareFile){
+        const url=URL.createObjectURL(shareFile);
+        const a=document.createElement("a");
+        a.href=url;
+        a.download=emailName;
+        a.rel="noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 60000);
+        setEmailStepDone(2, true);
+        setStatus("Schritt 2: PDF gespeichert. In Mail: Büroklammer → Recents / Dateien.");
+        return true;
+      }
+    }catch(e){}
+    setStatus("PDF konnte nicht bereitgestellt werden.");
+    return false;
   };
   function offerPdfEmailAfterSave(){
     if(typeof window.sbOffline==="function" && window.sbOffline()) return;
@@ -6387,52 +6496,15 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return false;
   }
+  // Wariant 1: nie wysyłaj jednym tapnięciem — otwórz modal z 2 krokami.
   window.sendPdfByEmail=async function(){
-    setStatus("PDF wird erstellt…");
     const ready=await window.ensurePdfForCurrentForm();
     if(!ready || !lastPdfBlob){
       setStatus("PDF konnte nicht erstellt werden.");
       return false;
     }
-    const email=customerPdfEmail();
-    const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
-    const emailName=(typeof window.pdfFileName==="function")
-      ? window.pdfFileName()
-      : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
-    const body=label+"\n\n"+emailName;
-    const mailtoHref="mailto:"+(email?encodeURIComponent(email):"")
-      +"?subject="+encodeURIComponent(label)
-      +"&body="+encodeURIComponent(body);
-    closePdfEmailSheet();
-
-    // Przywrócone z v3.22: Share z prawdziwym PDF (bez .eml).
-    // mailto nie może dołączyć pliku; .eml dawał dziwny format załącznika.
-    const copiedTo=await copyTextQuiet(email);
-    try{
-      const shareFile=await pdfFileForShare();
-      if(shareFile){
-        const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
-        const shareData={files:[emailFile], title:label, text:label};
-        if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
-          await navigator.share(shareData);
-          setStatus(email
-            ? (copiedTo
-              ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
-              : "Mail: PDF angehängt. Empfänger eintragen: "+email)
-            : "Mail: PDF angehängt. Empfänger eintragen.");
-          return true;
-        }
-      }
-    }catch(e){
-      if(e && e.name==="AbortError") return false;
-    }
-
-    // Fallback: mailto mit Betreff (ohne Anhang), ohne location.href.
-    const opened=openMailtoSafe(mailtoHref);
-    setStatus(opened
-      ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
-      : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
-    return opened;
+    window.openPdfEmailSheet();
+    return true;
   };
   window.deliverLastPdf=async function(){
     const ready=await window.ensurePdfForCurrentForm();
@@ -6734,7 +6806,8 @@ finally{ window.__pdfBuilding=false; }
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
-    $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail(); });
+    $("pdfEmailStepBetreff")?.addEventListener("click",()=>{ window.openMailWithBetreff(); });
+    $("pdfEmailStepPdf")?.addEventListener("click",()=>{ window.sharePdfForMailAttach(); });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
     });
