@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.37">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.38">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.37</title>
+  <title>Servicebericht v3.38</title>
 <script>
-window.SB_APP_VERSION="3.37";
+window.SB_APP_VERSION="3.38";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.37</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.38</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2732,10 +2732,13 @@ window.loadCompaniesFromCloud=async function(opts){
     return;
   }
   if(!window.sbLists.hasToken()) return;
+  // Do not clobber a Firma mid-save with a stale GitHub pull.
+  if(window.sbCompanySaveBusy) return;
   if(window.sbCompaniesCloudBusy) return;
   window.sbCompaniesCloudBusy=true;
   try{
     const got=await window.sbLists.pullFile("companies");
+    if(window.sbCompanySaveBusy) return;
     const pending=readCompaniesPending();
     const remoteList=typeof asCompanyList==="function" ? asCompanyList(got && got.data) : (got && Array.isArray(got.data) ? got.data : []);
     const gotCompanies=!!(got && !got.reason && (Array.isArray(got.data) || (got.sha && remoteList)));
@@ -2749,6 +2752,14 @@ window.loadCompaniesFromCloud=async function(opts){
         ? unionCompaniesPreferLocal(remoteList, localNow)
         : remoteList.slice();
       if(pending.length) list=mergePendingCompanies(list, localNow, pending);
+      // Protect a firm just written to GitHub from a briefly stale Contents API read.
+      if(window.sbCompanySaveGuardUntil && Date.now()<window.sbCompanySaveGuardUntil && window.sbCompanySaveGuardKey){
+        const gk=String(window.sbCompanySaveGuardKey||"").toLowerCase();
+        if(gk && !list.some(c=>companyNameKey(c)===gk)){
+          const keepRec=(localNow||[]).find(c=>companyNameKey(c)===gk);
+          if(keepRec) list=mergeCompanyRecord(list, keepRec);
+        }
+      }
       finishCompaniesLoad(list, {skipDraft});
       if(s && !opts.quiet){
         const dropped=Math.max(0, (localNow||[]).length - list.length);
@@ -2757,13 +2768,15 @@ window.loadCompaniesFromCloud=async function(opts){
           : "Kundenliste mit GitHub abgeglichen ("+list.length+" Firmen).";
       }
       try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
-      if(pending.length && window.sbLists.hasToken() && !opts.noPush){
+      // Always retry pending offline saves — even when caller set noPush (search focus).
+      if(pending.length && window.sbLists.hasToken()){
         const pendingSnap=pending.slice();
         window.sbLists.pushMerged(
           "companies",
           list,
           "Kundenliste vom Gerät (offline)",
-          function(remote, local){ return mergePendingCompanies(remote, local, pendingSnap); }
+          function(remote, local){ return mergePendingCompanies(remote, local, pendingSnap); },
+          {forcePut:true}
         ).then(function(out){
           if(out && out.result && out.result.ok){
             // Only clear keys that were in this push — newer pending stays.
@@ -5121,7 +5134,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.37";
+  const APP_VERSION=window.SB_APP_VERSION||"3.38";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5499,9 +5512,21 @@ finally{ window.__pdfBuilding=false; }
         const baseForSame=kind==="companies" ? remoteList : remote.data;
         if(sameJson(merged, baseForSame) && remote.sha && !opts.forcePut)
           return {merged, result:{ok:true, skipped:true}};
-        // forcePut with identical content: still OK to skip a needless commit
-        if(sameJson(merged, baseForSame) && remote.sha && opts.forcePut)
+        // forcePut with identical content: skip needless commit — unless caller
+        // requires the local record to appear in the merged list (new Firma).
+        if(sameJson(merged, baseForSame) && remote.sha && opts.forcePut){
+          if(opts.requireKey){
+            const want=String(opts.requireKey||"").trim().toLowerCase();
+            const has=kind==="companies" && Array.isArray(merged)
+              && merged.some(c=>String((c&&(c.firma||c.name))||"").trim().toLowerCase()===want);
+            if(!has){
+              last={ok:false, reason:"missing-key", status:0};
+              await sleep(250*(i+1));
+              continue;
+            }
+          }
           return {merged, result:{ok:true, skipped:true}};
+        }
         if(!remote.sha && remote.status!==404){
           last={ok:false, reason:"no-sha", status:remote.status||422};
           await sleep(250*(i+1));
@@ -5632,6 +5657,7 @@ finally{ window.__pdfBuilding=false; }
     saveLock=new Promise(r=>{ unlock=r; });
     await prev;
     const s=$("status");
+    window.sbCompanySaveBusy=true;
     try{
       let rec=typeof companyRecordFromForm==="function"?companyRecordFromForm():null;
       if(!rec || !rec.firma){
@@ -5681,21 +5707,23 @@ finally{ window.__pdfBuilding=false; }
         return;
       }
       if(s) s.textContent="Kunde wird in Servicebericht-listen (GitHub) gespeichert…";
+      const firmKey=String(rec.firma||"").trim().toLowerCase();
       const {merged, result}=await window.sbLists.pushMerged(
         "companies",
         rec,
         existed ? "Kunde aktualisiert: "+rec.firma+" ("+route.km+" km / "+route.minutes+" Min)" : "Neuer Kunde: "+rec.firma,
         function(remote, local){ return mergeCompanyRecord(remote, local); },
-        {forcePut:true}
+        {forcePut:true, requireKey:firmKey}
       );
-      if(result && result.ok){
-        if(Array.isArray(merged) && typeof applyCompanies==="function"){
-          const keep=typeof unionCompaniesPreferLocal==="function"
-            ? unionCompaniesPreferLocal(merged, companies)
-            : merged;
-          applyCompanies(keep, rec.firma);
-        }
+      const written=Array.isArray(merged) ? merged : null;
+      const onGit=!!(written && written.some(c=>companyNameKey(c)===firmKey));
+      if(result && result.ok && onGit){
+        // Trust the array that was / would be written — do not re-union in a way
+        // that can drop the new firm after pending is cleared.
+        if(typeof applyCompanies==="function") applyCompanies(written, rec.firma);
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
+        window.sbCompanySaveGuardKey=firmKey;
+        window.sbCompanySaveGuardUntil=Date.now()+10000;
         if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
         if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
         for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
@@ -5716,6 +5744,10 @@ finally{ window.__pdfBuilding=false; }
         // Stay pending so next cloud sync retries the write
         if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
         if(!s) return;
+        if(result && result.ok && !onGit){
+          s.textContent="Lokal gespeichert, aber Firma fehlt in GitHub-Antwort – noch einmal speichern.";
+          return;
+        }
         const detail=String((result&&result.reason)||"").trim();
         const code=result&&result.status ? " HTTP "+result.status : "";
         if(result && result.reason==="no-token")
@@ -5730,13 +5762,18 @@ finally{ window.__pdfBuilding=false; }
           s.textContent="Lokal OK, GitHub-Netz fehlgeschlagen – Wi-Fi prüfen und noch einmal speichern.";
         else if(result && (result.reason==="no-sha" || result.reason==="parse"))
           s.textContent="GitHub-Datei nicht lesbar – noch einmal speichern.";
+        else if(result && result.reason==="missing-key")
+          s.textContent="Firma fehlt auf GitHub – noch einmal speichern.";
         else
           s.textContent="GitHub-Fehler"+code+(detail?": "+detail:"")+" – noch einmal tippen.";
       }
     }catch(e){
       if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
       if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-    }finally{ unlock(); }
+    }finally{
+      window.sbCompanySaveBusy=false;
+      unlock();
+    }
   }
   $("companySave")?.addEventListener("click",()=>{ saveCompanyRoute(); });
   $("companyRouteEdit")?.addEventListener("click",()=>{ saveCompanyRoute(); });
