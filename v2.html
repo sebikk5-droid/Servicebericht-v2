@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.31">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.32">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.31</title>
+  <title>Servicebericht v3.32</title>
 <script>
-window.SB_APP_VERSION="3.31";
+window.SB_APP_VERSION="3.32";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.31</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.32</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2510,9 +2510,16 @@ function syncCompanySaveButton(){
   }
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
+function asCompanyList(data){
+  if(Array.isArray(data)) return data;
+  if(data && Array.isArray(data.companies)) return data.companies;
+  if(data && Array.isArray(data.data)) return data.data;
+  return [];
+}
 function mergeCompanyRecord(remote, rec){
-  if(remote!=null && !Array.isArray(remote)) return remote;
-  const arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
+  // Always coerce — returning a non-array remote unchanged caused pushMerged to
+  // sameJson-skip and never write km/Zeit to GitHub.
+  const arr=asCompanyList(remote).map(c=>Object.assign({},c));
   const name=String((rec&&rec.firma)||"").trim();
   if(!name) return arr;
   const k=name.toLowerCase();
@@ -2535,6 +2542,7 @@ function mergeCompanyRecord(remote, rec){
   }
   return arr;
 }
+window.asCompanyList=asCompanyList;
 function formatRouteNote(km, minutes){
   const kmN=Number.isFinite(Number(km)) ? Number(km) : 0;
   const minN=Math.max(0, Math.round(Number(minutes)||0));
@@ -2717,15 +2725,17 @@ window.loadCompaniesFromCloud=async function(opts){
   try{
     const got=await window.sbLists.pullFile("companies");
     const pending=readCompaniesPending();
-    if(got && Array.isArray(got.data)){
+    const remoteList=typeof asCompanyList==="function" ? asCompanyList(got && got.data) : (got && Array.isArray(got.data) ? got.data : []);
+    const gotCompanies=!!(got && !got.reason && (Array.isArray(got.data) || (got.sha && remoteList)));
+    if(gotCompanies){
       // Use current local list (may have km/Zeit saved during this pull) — not the stale start cache
       const localNow=(Array.isArray(companies) && companies.length)
         ? companies
         : (readCompaniesCache()||cached||[]);
       // Remote firms (e.g. leftover "test 3" from v3.28) must appear even if local cache missed them
       let list=typeof unionCompaniesPreferLocal==="function"
-        ? unionCompaniesPreferLocal(got.data, localNow)
-        : got.data;
+        ? unionCompaniesPreferLocal(remoteList, localNow)
+        : remoteList;
       if(pending.length) list=mergePendingCompanies(list, localNow, pending);
       finishCompaniesLoad(list, {skipDraft});
       try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
@@ -5042,7 +5052,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.31";
+  const APP_VERSION=window.SB_APP_VERSION||"3.32";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5340,7 +5350,11 @@ finally{ window.__pdfBuilding=false; }
     if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
     const path=FILES[kind]||kind;
     async function fromApi(withAuth){
-      const res=await githubFetch(apiFileUrl(path, true), {headers:headers(withAuth)});
+      // companies.json can be large — default 5s abort made saves fail after pull
+      const res=await githubFetch(apiFileUrl(path, true), {
+        headers:headers(withAuth),
+        timeoutMs: kind==="companies" ? 25000 : 12000
+      });
       if(res.status===404) return {data:null, sha:"", status:404};
       if(res.ok) return parseContents(res);
       return {data:null, sha:"", status:res.status, reason:"http"};
@@ -5383,7 +5397,7 @@ finally{ window.__pdfBuilding=false; }
         method:"PUT",
         headers:Object.assign({"Content-Type":"application/json"}, headers(true)),
         body:JSON.stringify(body),
-        timeoutMs:12000
+        timeoutMs: kind==="companies" ? 30000 : 15000
       });
       if(!res.ok){
         let reason="";
@@ -5417,9 +5431,14 @@ finally{ window.__pdfBuilding=false; }
         if(remote && (remote.status===401 || remote.status===403)){
           return {merged:localData, result:{ok:false, status:remote.status, reason:"http"}};
         }
-        const merged=mergeFn(remote.data, localData);
+        const remoteList=kind==="companies"
+          ? (typeof window.asCompanyList==="function" ? window.asCompanyList(remote.data) : (Array.isArray(remote.data)?remote.data:[]))
+          : remote.data;
+        const merged=mergeFn(kind==="companies" ? remoteList : remote.data, localData);
         if(merged==null) return {merged:remote.data, result:{ok:false, reason:"no-data"}};
-        if(sameJson(merged, remote.data) && remote.sha) return {merged, result:{ok:true, skipped:true}};
+        const baseForSame=kind==="companies" ? remoteList : remote.data;
+        if(sameJson(merged, baseForSame) && remote.sha && !opts.forcePut)
+          return {merged, result:{ok:true, skipped:true}};
         if(!remote.sha && remote.status!==404){
           last={ok:false, reason:"no-sha", status:remote.status||422};
           await sleep(180*(i+1));
@@ -5581,12 +5600,13 @@ finally{ window.__pdfBuilding=false; }
         if(s) s.textContent="Kunde steht auf diesem Gerät. Mit Internet und Token geht er in GitHub.";
         return;
       }
-      if(s) s.textContent="Kunde wird in Servicebericht-listen gespeichert…";
+      if(s) s.textContent="Kunde wird in Servicebericht-listen (GitHub) gespeichert…";
       const {merged, result}=await window.sbLists.pushMerged(
         "companies",
         rec,
-        existed ? "Kunde aktualisiert: "+rec.firma : "Neuer Kunde: "+rec.firma,
-        function(remote, local){ return mergeCompanyRecord(remote, local); }
+        existed ? "Kunde aktualisiert: "+rec.firma+" ("+route.km+" km / "+route.minutes+" Min)" : "Neuer Kunde: "+rec.firma,
+        function(remote, local){ return mergeCompanyRecord(remote, local); },
+        {forcePut:true}
       );
       if(result && result.ok){
         if(Array.isArray(merged) && typeof applyCompanies==="function"){
@@ -5602,21 +5622,27 @@ finally{ window.__pdfBuilding=false; }
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-        if(s) s.textContent=existed
-          ? "km und Reisezeit beim Kunden gespeichert: "+route.km+" km / "+route.minutes+" Min."
-          : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
+        if(s) s.textContent=result.skipped
+          ? "Bereits auf GitHub: "+route.km+" km / "+route.minutes+" Min."
+          : (existed
+            ? "Auf GitHub gespeichert: "+route.km+" km / "+route.minutes+" Min."
+            : "Neuer Kunde auf GitHub (Servicebericht-listen) gespeichert.");
       }else{
+        // Stay pending so next cloud sync retries the write
+        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
         if(!s) return;
         if(result && result.reason==="no-token")
-          s.textContent="Kunde steht auf diesem Gerät. Token oben setzen, dann mit Internet noch einmal speichern.";
+          s.textContent="Lokal gespeichert. Token setzen, dann noch einmal speichern für GitHub.";
         else if(result && (result.status===401 || result.status===403))
-          s.textContent="Token darf Servicebericht-listen nicht schreiben. Contents: Read and write nur für dieses Repo.";
+          s.textContent="Token darf Servicebericht-listen nicht schreiben. Contents: Read and write.";
         else if(result && result.status===404)
           s.textContent="Repo Servicebericht-listen fehlt. Auf GitHub als private anlegen, dann erneut tippen.";
         else if(result && result.reason==="encode")
           s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
         else if(result && result.reason==="network")
-          s.textContent="Kunde steht auf diesem Gerät (ohne Internet). Mit Netz noch einmal speichern für GitHub.";
+          s.textContent="Lokal gespeichert (ohne Netz). Mit Internet noch einmal speichern für GitHub.";
+        else if(result && result.reason==="no-sha")
+          s.textContent="GitHub-Datei konnte nicht gelesen werden – noch einmal tippen.";
         else
           s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
       }
