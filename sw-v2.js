@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v3-42";
+const CACHE_NAME = "servicebericht-v3-43";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
@@ -39,7 +39,6 @@ function isAppAsset(url) {
     path.endsWith("/vendor/pdf-lib.min.js") ||
     path.endsWith("/vendor/pdf.min.js") ||
     path.endsWith("/vendor/pdf.worker.min.js") ||
-    path.endsWith("/companies.json") ||
     path.endsWith("/machine-catalog.json") ||
     path.endsWith("/Leer.pdf") ||
     path.endsWith("/favicon.png") ||
@@ -139,6 +138,12 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const req = event.request;
   if (req.method !== "GET") return;
+  // Only this app's own files. The GitHub contents URL for the customer list
+  // ends in /companies.json. Caching that response made the list update once
+  // after an app update and then stay on the old copy.
+  let origin = "";
+  try { origin = new URL(req.url).origin; } catch (e) { return; }
+  if (origin !== self.location.origin) return;
 
   if (isV2Navigation(req)) {
     event.respondWith(networkFirst(req, "./v2.html", true, 4000));
