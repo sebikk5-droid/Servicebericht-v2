@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.40">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.41">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.40</title>
+  <title>Servicebericht v3.41</title>
 <script>
-window.SB_APP_VERSION="3.40";
+window.SB_APP_VERSION="3.41";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.40</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.41</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5175,7 +5175,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.40";
+  const APP_VERSION=window.SB_APP_VERSION||"3.41";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8340,11 +8340,38 @@ finally{ window.__pdfBuilding=false; }
 </script>
 <script>
 (function(){
-  function refreshSharedLists(){}
+  // No timer used to run: a firm deleted on GitHub stayed in the device cache
+  // until the next full start or a tap in the Firma field.
+  const COMPANY_SYNC_MS=60000;
+  let companySyncTimer=0;
+  function refreshSharedLists(){
+    if(document.hidden) return;
+    if(typeof window.loadCompaniesFromCloud!=="function") return;
+    window.loadCompaniesFromCloud({cloud:true, skipDraft:true, quiet:true});
+  }
+  function armCompanySync(){
+    clearInterval(companySyncTimer);
+    companySyncTimer=0;
+    if(document.hidden) return;
+    companySyncTimer=setInterval(refreshSharedLists, COMPANY_SYNC_MS);
+  }
   document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){
+      clearInterval(companySyncTimer);
+      companySyncTimer=0;
+      return;
+    }
+    refreshSharedLists();
+    armCompanySync();
+  });
+  window.addEventListener("pageshow",()=>{
+    refreshSharedLists();
+    armCompanySync();
+  });
+  window.addEventListener("online",()=>{
     if(!document.hidden) refreshSharedLists();
   });
-  window.addEventListener("pageshow",()=>refreshSharedLists());
+  armCompanySync();
 })();
 </script>
 
