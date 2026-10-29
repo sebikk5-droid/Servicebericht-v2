@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.24">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.26">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.24</title>
+  <title>Servicebericht v3.26</title>
 <script>
-window.SB_APP_VERSION="3.24";
+window.SB_APP_VERSION="3.26";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.24</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.26</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4977,7 +4977,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.24";
+  const APP_VERSION=window.SB_APP_VERSION||"3.26";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5618,7 +5618,8 @@ finally{ window.__pdfBuilding=false; }
   function mergeCompanyEmails(list, firmaKey, email){
     const arr=Array.isArray(list)?list.map(c=>Object.assign({}, c)):list;
     if(!Array.isArray(arr)) return list;
-    const k=String(firmaKey||"").trim().toLowerCase();
+    const display=String(firmaKey||"").trim();
+    const k=display.toLowerCase();
     const e=String(email||"").trim();
     if(!k || !e) return arr;
     let hit=0;
@@ -5633,6 +5634,20 @@ finally{ window.__pdfBuilding=false; }
         c.email=have.join("; ");
       }
     });
+    // E-Mail merken for a new firm name must also create the Kundenliste entry
+    // (previously only customer-emails.json was updated).
+    if(!hit){
+      const street=String($("street")?.value||"").trim();
+      const city=String($("city")?.value||"").trim();
+      const adres=[street, city].filter(Boolean).join(", ");
+      arr.push({
+        firma:display,
+        tel:"",
+        email:e,
+        adres:adres,
+        notatki:""
+      });
+    }
     return arr;
   }
   function stripCompanyEmail(list, firmaKey, email){
@@ -5653,6 +5668,7 @@ finally{ window.__pdfBuilding=false; }
   async function pushEmails(message, email, remove){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const k=customerKey();
+    const displayName=String((typeof firmaName==="function"?firmaName():"")||k).trim();
     const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
       const merged=mergeEmailMaps(window.sbLists.asMap(remote), local||{});
       if(remove && email && k && Array.isArray(merged[k])){
@@ -5663,13 +5679,17 @@ finally{ window.__pdfBuilding=false; }
     });
     if(emailPush && emailPush.merged) saveMap(emailPush.merged);
     let companyPush=null;
-    if(email){
-      companyPush=await window.sbLists.pushMerged("companies", {firma:k, email}, remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste", function(remote, local){
+    if(email && displayName){
+      companyPush=await window.sbLists.pushMerged("companies", {firma:displayName, email}, remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste", function(remote, local){
         if(!Array.isArray(remote)) return remote;
         return remove
           ? stripCompanyEmail(remote, local.firma, local.email)
           : mergeCompanyEmails(remote, local.firma, local.email);
       });
+      if(companyPush && companyPush.result && companyPush.result.ok && Array.isArray(companyPush.merged) && typeof applyCompanies==="function"){
+        applyCompanies(companyPush.merged, displayName);
+        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(displayName);
+      }
     }
     if(emailPush && emailPush.result && emailPush.result.ok) return emailPush.result;
     if(companyPush && companyPush.result && companyPush.result.ok) return companyPush.result;
@@ -5710,6 +5730,18 @@ finally{ window.__pdfBuilding=false; }
     clearTimeout(emailOkTimer);
     emailOkTimer=setTimeout(hideEmailSaveOk, 4000);
   }
+  function ensureLocalCompanyWithEmail(displayName, email){
+    const name=String(displayName||"").trim();
+    const e=String(email||"").trim();
+    if(!name || !e) return false;
+    const existed=typeof companyRecordByName==="function" ? !!companyRecordByName(name) : false;
+    if(typeof mergeCompanyEmails==="function" && typeof applyCompanies==="function"){
+      applyCompanies(mergeCompanyEmails(Array.isArray(companies)?companies:[], name, e), name);
+    }
+    if(!existed && typeof markCompanyPending==="function") markCompanyPending(name);
+    if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+    return !existed;
+  }
   async function addEmail(email, opts){
     const prev=addLock;
     let unlock=()=>{};
@@ -5717,6 +5749,7 @@ finally{ window.__pdfBuilding=false; }
     await prev;
     try{
     const k=customerKey();
+    const displayName=String((typeof firmaName==="function"?firmaName():"")||k).trim();
     const e=String(email||"").trim();
     if(!k || !validEmail(e)) return false;
     await pullEmails();
@@ -5726,14 +5759,22 @@ finally{ window.__pdfBuilding=false; }
     if(wasNew) list.push(e);
     map[k]=list;
     saveMap(map);
+    const firmCreated=ensureLocalCompanyWithEmail(displayName, e);
     syncEmailSaveButton();
     if((opts && opts.showOk) || wasNew) showEmailSaveOk();
     const pushed=await pushEmails("E-Mail für "+k, e);
     const s=$("status");
     if(s){
-      if(pushed && pushed.ok) s.textContent="E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
-      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail zur Liste des Kunden hinzugefügt.";
-      else s.textContent="E-Mail lokal gespeichert. GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+      if(pushed && pushed.ok)
+        s.textContent=firmCreated
+          ? "Neuer Kunde und E-Mail stehen in der gemeinsamen Liste."
+          : "E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
+      else if(pushed && pushed.reason==="no-token")
+        s.textContent=firmCreated
+          ? "Kunde und E-Mail stehen auf diesem Gerät. Mit Token noch einmal speichern für GitHub."
+          : "E-Mail zur Liste des Kunden hinzugefügt.";
+      else
+        s.textContent=(firmCreated?"Kunde und E-Mail lokal gespeichert. ":"E-Mail lokal gespeichert. ")+"GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
     }
     return true;
     }finally{ unlock(); }
