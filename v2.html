@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.45">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.46">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.45</title>
+  <title>Servicebericht v3.46</title>
 <script>
-window.SB_APP_VERSION="3.45";
+window.SB_APP_VERSION="3.46";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -764,7 +764,7 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal h3{margin:0 0 6px;font-size:18px}
 #machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
 #pdfMissingModal{
-  display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
+  display:none;position:fixed;inset:0;z-index:100;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
 }
 #pdfMissingModal.is-open{display:flex}
@@ -818,7 +818,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.45</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.46</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1028,7 +1028,7 @@ select.is-nudge,input.is-nudge{
     <button class="clear" type="button" id="resetForm">Zurücksetzen</button>
     <button type="button" id="historySaveBottom">Historie speichern</button>
     <span id="historyActionOkBottom" class="history-action-ok" aria-hidden="true"></span>
-    <button class="go" id="generate">PDF erstellen & speichern</button>
+    <button class="go" id="generate" hidden>PDF erstellen & speichern</button>
   </div>
   <div class="email-copy-row" id="emailCopyRow">
     <div class="email-copy-val is-empty" id="emailCopyVal" role="status">Keine E-Mail</div>
@@ -5183,7 +5183,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.45";
+  const APP_VERSION=window.SB_APP_VERSION||"3.46";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6761,7 +6761,7 @@ finally{ window.__pdfBuilding=false; }
   };
   window.offlinePdfShareHint=function(){
     if(navigator.onLine===false){
-      return "Ohne Internet: in Dateien → Auf meinem iPad speichern. Mit Internet denselben Bericht noch einmal „PDF erstellen & speichern“.";
+      return "Ohne Internet: in Dateien → Auf meinem iPad speichern. Mit Internet denselben Bericht in der Vorschau noch einmal „PDF speichern“.";
     }
     return "PDF zum Speichern geöffnet.";
   };
@@ -6790,7 +6790,7 @@ finally{ window.__pdfBuilding=false; }
         return;
       }
       const status=document.getElementById("status");
-      if(status) status.textContent="Bitte zuerst „PDF erstellen & speichern“ klicken.";
+      if(status) status.textContent="PDF konnte nicht erstellt werden.";
     });
   }
 
@@ -6868,7 +6868,7 @@ finally{ window.__pdfBuilding=false; }
   }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
-      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      setStatus("PDF konnte nicht erstellt werden.");
       return;
     }
     const modal=$("pdfEmailModal");
@@ -6981,7 +6981,7 @@ finally{ window.__pdfBuilding=false; }
   window.deliverLastPdf=async function(){
     const ready=await window.ensurePdfForCurrentForm();
     if(!ready || !lastPdfBlob){
-      setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
+      setStatus("PDF konnte nicht erstellt werden.");
       return false;
     }
     let shareFile=null;
@@ -7286,8 +7286,14 @@ finally{ window.__pdfBuilding=false; }
     $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
     $("pdfPreviewBack")?.addEventListener("click", closePdfPreview);
     $("pdfPreviewSave")?.addEventListener("click",()=>{
-      closePdfPreview();
-      window.deliverLastPdf();
+      const ask=typeof window.confirmPdfMissingChoices==="function"
+        ? window.confirmPdfMissingChoices()
+        : Promise.resolve(true);
+      ask.then(function(ok){
+        if(!ok) return;
+        closePdfPreview();
+        window.deliverLastPdf();
+      });
     });
     $("pdfPreviewZoomIn")?.addEventListener("click",()=>{
       previewZoom=Math.min(2.4, previewZoom+0.2);
