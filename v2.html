@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.38">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.39">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.38</title>
+  <title>Servicebericht v3.39</title>
 <script>
-window.SB_APP_VERSION="3.38";
+window.SB_APP_VERSION="3.39";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -746,11 +746,11 @@ select.is-nudge,input.is-nudge{
   align-items:flex-end;justify-content:center;
 }
 #routeModal.is-open{display:flex}
-#routeModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#routeModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18);max-height:min(92dvh,100%)}
 #routeModal h3{margin:0 0 6px;font-size:18px}
 #routeModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
-#routeModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#routeModal .email-actions button{flex:1 1 30%;min-width:90px}
+#routeModal .email-actions{display:flex;flex-wrap:nowrap;gap:8px;margin:8px 0 4px;position:sticky;top:0;background:#fff;z-index:2;padding-bottom:4px}
+#routeModal .email-actions button{flex:1 1 50%;min-width:0}
 #routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
 #machineSaveModal{
   display:none;position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.45);
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.38</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.39</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1112,22 +1112,22 @@ select.is-nudge,input.is-nudge{
 <div id="routeModal" aria-hidden="true">
   <div class="token-sheet">
     <h3 id="routeModalTitle">Anfahrt</h3>
-    <p class="muted" id="routeModalHint">Kilometer und Reisezeit einer Strecke für die Kundenliste.</p>
-    <div class="route-grid">
-      <div>
-        <label for="routeModalKm">Kilometer</label>
-        <input id="routeModalKm" inputmode="decimal" placeholder="z. B. 0 oder 85" autocomplete="off">
-      </div>
-      <div>
-        <label for="routeModalTime">Reisezeit</label>
-        <input id="routeModalTime" inputmode="decimal" placeholder="90 Min / 1:15 / 1,25 Std" autocomplete="off">
-      </div>
-    </div>
-    <p class="muted" id="routeModalErr"></p>
     <div class="email-actions">
       <button type="button" class="clear" id="routeModalCancel">Abbrechen</button>
       <button type="button" class="go" id="routeModalSave">Speichern</button>
     </div>
+    <p class="muted" id="routeModalHint">Kilometer und Reisezeit einer Strecke für die Kundenliste.</p>
+    <div class="route-grid">
+      <div>
+        <label for="routeModalKm">Kilometer</label>
+        <input id="routeModalKm" inputmode="decimal" placeholder="z. B. 0 oder 85" autocomplete="off" enterkeyhint="next">
+      </div>
+      <div>
+        <label for="routeModalTime">Reisezeit</label>
+        <input id="routeModalTime" inputmode="decimal" placeholder="90 Min / 1:15 / 1,25 Std" autocomplete="off" enterkeyhint="done">
+      </div>
+    </div>
+    <p class="muted" id="routeModalErr"></p>
   </div>
 </div>
 <div id="sigModal" aria-hidden="true">
@@ -5134,7 +5134,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.38";
+  const APP_VERSION=window.SB_APP_VERSION||"3.39";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5568,6 +5568,8 @@ finally{ window.__pdfBuilding=false; }
     if(modal){
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden","true");
+      const sheet=modal.querySelector(".token-sheet");
+      if(sheet) sheet.style.transform="";
     }
     const r=routeWait;
     routeWait=null;
@@ -5609,8 +5611,24 @@ finally{ window.__pdfBuilding=false; }
     }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
-    setTimeout(function(){ try{ kmEl.focus(); }catch(e){} }, 120);
+    routeBackdropGuard=Date.now()+800;
+    placeRouteSheet();
+    setTimeout(function(){ try{ kmEl.focus(); }catch(e){} placeRouteSheet(); }, 120);
     return new Promise(function(resolve){ routeWait=resolve; });
+  }
+  let routeBackdropGuard=0;
+  function placeRouteSheet(){
+    const modal=$("routeModal");
+    const sheet=modal && modal.querySelector(".token-sheet");
+    if(!modal || !sheet) return;
+    if(!modal.classList.contains("is-open")){
+      sheet.style.transform="";
+      return;
+    }
+    const vv=window.visualViewport;
+    if(!vv){ sheet.style.transform=""; return; }
+    const covered=Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+    sheet.style.transform=covered>8 ? "translateY(-"+Math.round(covered)+"px)" : "";
   }
   function readRouteFromModal(){
     const err=$("routeModalErr");
@@ -5635,8 +5653,24 @@ finally{ window.__pdfBuilding=false; }
   }
   $("routeModalCancel")?.addEventListener("click",()=>closeRouteModal(null));
   $("routeModal")?.addEventListener("click",e=>{
-    if(e.target===$("routeModal")) closeRouteModal(null);
+    if(e.target!==$("routeModal")) return;
+    // Keyboard open on iPad often fires a backdrop click and closes Speichern.
+    if(Date.now()<routeBackdropGuard) return;
+    const a=document.activeElement;
+    if(a && (a.id==="routeModalKm" || a.id==="routeModalTime")) return;
+    closeRouteModal(null);
   });
+  ["routeModalKm","routeModalTime"].forEach(function(id){
+    $(id)?.addEventListener("focus",function(){
+      routeBackdropGuard=Date.now()+800;
+      placeRouteSheet();
+      setTimeout(placeRouteSheet, 280);
+    });
+  });
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize", placeRouteSheet);
+    window.visualViewport.addEventListener("scroll", placeRouteSheet);
+  }
   $("routeModalSave")?.addEventListener("click",()=>{
     const route=readRouteFromModal();
     if(!route) return;
