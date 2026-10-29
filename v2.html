@@ -2686,10 +2686,9 @@ window.loadCompaniesFromCloud=async function(opts){
   }
   const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
   const repoName=dr.repo||"Servicebericht-listen";
-  // Show cache immediately, then refresh from GitHub when possible
+  // Show cache immediately, then refresh from GitHub when opts.cloud
   finishCompaniesLoad(cached||[], {skipDraft: skipDraft || !opts.cloud});
-  const wantCloud=opts.cloud!==false;
-  if(!wantCloud){
+  if(!opts.cloud){
     if(!window.sbLists.hasToken()){
       if(s && !(cached&&cached.length))
         s.textContent="Oben Token setzen. Kundenliste liegt im privaten Repo "+repoName+".";
