@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.47">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.48">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.47</title>
+  <title>Servicebericht v3.48</title>
 <script>
-window.SB_APP_VERSION="3.47";
+window.SB_APP_VERSION="3.48";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -824,7 +824,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.47</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.48</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5189,7 +5189,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.47";
+  const APP_VERSION=window.SB_APP_VERSION||"3.48";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7060,6 +7060,11 @@ finally{ window.__pdfBuilding=false; }
   let previewGen=0;
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
+  function previewStartZoom(){
+    const shortSide=Math.min(window.innerWidth||0, window.innerHeight||0);
+    // iPad: the fitted page is a bit small. Two taps on plus is 1.4.
+    return shortSide>=700 ? 1.4 : 1;
+  }
   function previewAvail(){
     const host=$("pdfPreviewPages");
     const box=host&&host.parentElement;
@@ -7240,7 +7245,8 @@ finally{ window.__pdfBuilding=false; }
         cssH=avail.h;
         cssW=cssH/aspect;
       }
-      const viewport=page.getViewport({scale:(cssW/base.width)*dpr});
+      const z=previewZoom>0?previewZoom:1;
+      const viewport=page.getViewport({scale:(cssW/base.width)*dpr*z});
       const canvas=document.createElement("canvas");
       canvas.width=Math.max(1, Math.floor(viewport.width));
       canvas.height=Math.max(1, Math.floor(viewport.height));
@@ -7275,7 +7281,7 @@ finally{ window.__pdfBuilding=false; }
     await destroyPdfPreviewDoc();
     if(gen!==previewGen) return;
     host.innerHTML="";
-    previewZoom=1;
+    previewZoom=previewStartZoom();
     previewZoomApply();
     try{
       const pdfjs=await loadPdfJs();
@@ -7357,11 +7363,11 @@ finally{ window.__pdfBuilding=false; }
       window.deliverLastPdf();
     });
     $("pdfPreviewZoomIn")?.addEventListener("click",()=>{
-      previewZoom=Math.min(2.4, previewZoom+0.2);
+      previewZoom=Math.min(2.4, Math.round((previewZoom+0.2)*10)/10);
       previewZoomApply();
     });
     $("pdfPreviewZoomOut")?.addEventListener("click",()=>{
-      previewZoom=Math.max(0.6, previewZoom-0.2);
+      previewZoom=Math.max(0.6, Math.round((previewZoom-0.2)*10)/10);
       previewZoomApply();
     });
     $("pdfPreviewModal")?.addEventListener("click",e=>{
