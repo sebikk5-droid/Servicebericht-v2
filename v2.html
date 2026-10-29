@@ -2644,9 +2644,12 @@ function applyCustomerRouteDay(d){
   const b2=box.querySelector(`[data-k="RZende${2*d}"]`);
   const pauseR=box.querySelector(`[data-k="PauseRZ${2*d}"]`);
 
-  if(r.minutes){
-    const outOverride=box.querySelector('[data-route-override="out"]');
-    const backOverride=box.querySelector('[data-route-override="back"]');
+  const outOverride=box.querySelector('[data-route-override="out"]');
+  const backOverride=box.querySelector('[data-route-override="back"]');
+  // Show Kundenliste minutes as placeholder so edit/assign is visible on the day form
+  if(outOverride && outOverride.value==="") outOverride.placeholder=r.minutes ? String(r.minutes) : "z. B. 90";
+  if(backOverride && backOverride.value==="") backOverride.placeholder=r.minutes ? String(r.minutes) : "z. B. 90";
+  if(r.minutes>0){
     const outTime=outOverride && outOverride.value!=="" ? Math.max(0,parseInt(outOverride.value,10)||0) : r.minutes;
     const backTime=backOverride && backOverride.value!=="" ? Math.max(0,parseInt(backOverride.value,10)||0) : r.minutes;
     const outSpan=outTime+pauseMinutes(box.querySelector(`[data-k="PauseRZ${2*d-1}"]`)?.value||"0");
@@ -5473,18 +5476,22 @@ finally{ window.__pdfBuilding=false; }
     const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
     const fromList=typeof companyRecordByName==="function" ? companyRecordByName(firma) : null;
     const listR=fromList && typeof parseRoute==="function" ? parseRoute(fromList) : {km:0,minutes:0};
+    const hasListRoute=!!fromList && typeof companyHasListedRoute==="function" && companyHasListedRoute(fromList);
     const formTime=rtTxt && /^\d+:\d{2}$/.test(rtTxt) && rtTxt!=="00:00" && rtTxt!=="0:00" ? rtTxt : "";
-    if(updating){
-      const hasListRoute=typeof companyHasListedRoute==="function" && companyHasListedRoute(fromList);
-      kmEl.value=hasListRoute
-        ? String(listR.km).replace(".",",")
-        : (kmNow!=="" ? kmNow : "");
-      timeEl.value=hasListRoute && typeof formatMinutesClock==="function"
-        ? formatMinutesClock(listR.minutes)
-        : formTime;
+    // Prefill from Kundenliste when editing; show minutes as whole number (same as Tag-Form)
+    if(hasListRoute){
+      kmEl.value=String(listR.km).replace(".",",");
+      timeEl.value=String(Math.max(0, Math.round(Number(listR.minutes)||0)));
+    }else if(updating){
+      kmEl.value=kmNow!=="" ? kmNow : "";
+      timeEl.value=formTime || "";
     }else{
       kmEl.value=kmNow!=="" ? kmNow : "";
-      timeEl.value=formTime;
+      timeEl.value=formTime || "";
+    }
+    if(hasListRoute && hint){
+      hint.textContent="Aktuell: "+String(listR.km).replace(".",",")+" km / "+
+        String(Math.round(listR.minutes||0))+" Min. Ändern und speichern.";
     }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
@@ -5560,6 +5567,7 @@ finally{ window.__pdfBuilding=false; }
         if(typeof mergeCompanyRecord!=="function") return;
         const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
         if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
+        if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
         if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
         if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
         for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
@@ -5581,20 +5589,21 @@ finally{ window.__pdfBuilding=false; }
         function(remote, local){ return mergeCompanyRecord(remote, local); }
       );
       if(result && result.ok){
-        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
         if(Array.isArray(merged) && typeof applyCompanies==="function"){
           const keep=typeof unionCompaniesPreferLocal==="function"
             ? unionCompaniesPreferLocal(merged, companies)
             : merged;
           applyCompanies(keep, rec.firma);
         }
+        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
+        if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
         if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
         for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
         if(s) s.textContent=existed
-          ? "km und Reisezeit in der Kundenliste gespeichert."
+          ? "km und Reisezeit beim Kunden gespeichert: "+route.km+" km / "+route.minutes+" Min."
           : "Neuer Kunde steht in companies.json (privates Repo Servicebericht-listen).";
       }else{
         if(!s) return;
