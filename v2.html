@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.41">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.42">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.41</title>
+  <title>Servicebericht v3.42</title>
 <script>
-window.SB_APP_VERSION="3.41";
+window.SB_APP_VERSION="3.42";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.41</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.42</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2334,6 +2334,61 @@ function unmarkCompanyPending(name){
   if(!left.length) clearCompaniesPending();
   else try{ localStorage.setItem(COMPANIES_PENDING_KEY, JSON.stringify(left)); }catch(e){}
 }
+function flushPendingCompanies(){
+  // A save while a push is in flight must not be dropped. The live merge
+  // only sees firms that exist when GitHub answers; the follow-up send
+  // picks up anything edited after that snapshot.
+  if(window.sbCompaniesFlushing){
+    window.sbCompaniesFlushAgain=true;
+    return;
+  }
+  if(typeof window.sbOffline==="function" && window.sbOffline()) return;
+  if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken()) return;
+  const pending=readCompaniesPending();
+  if(!pending.length) return;
+  const pendingSnap=pending.slice();
+  let sentKeys=pendingSnap.slice();
+  let sentOk=false;
+  let sentMerged=null;
+  window.sbCompaniesFlushing=true;
+  window.sbLists.pushMerged(
+    "companies",
+    null,
+    "Kundenliste vom Gerät",
+    function(remote){
+      const live=Array.isArray(companies)?companies:[];
+      const keys=readCompaniesPending();
+      sentKeys=(keys.length?keys:pendingSnap).slice();
+      return mergePendingCompanies(remote, live, sentKeys);
+    },
+    {forcePut:true, quiet:true, attempts:2}
+  ).then(function(out){
+    sentMerged=out && Array.isArray(out.merged) ? out.merged : null;
+    sentOk=!!(out && out.result && out.result.ok && sentMerged);
+  }).catch(function(){}).then(function(){
+    const again=!!window.sbCompaniesFlushAgain;
+    window.sbCompaniesFlushAgain=false;
+    window.sbCompaniesFlushing=false;
+    if(sentOk && !again && sentMerged){
+      const sent=sentKeys.filter(function(k){
+        return sentMerged.some(function(c){ return companyNameKey(c)===k; });
+      });
+      sent.forEach(function(k){ unmarkCompanyPending(k); });
+      if(sent.length){
+        window.sbCompanySaveGuardKeys=sent;
+        window.sbCompanySaveGuardUntil=Date.now()+20000;
+      }
+    }
+    if(again){
+      flushPendingCompanies();
+      return;
+    }
+    const left=readCompaniesPending();
+    const newer=left.some(function(k){ return sentKeys.indexOf(k)<0; });
+    if(newer) flushPendingCompanies();
+  });
+}
+window.flushPendingCompanies=flushPendingCompanies;
 function mergePendingCompanies(remote, localList, pendingKeys){
   let arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
   const keys=Array.isArray(pendingKeys)?pendingKeys:[];
@@ -2498,19 +2553,16 @@ function syncCompanySaveButton(){
   const incomplete=!!existing && companyRouteIncomplete(existing);
   // "Zur Kundenliste hinzufügen" only when the firm is not on the list at all.
   // E-Mail add/delete must not bring it back (firm may already exist as stub).
-  const firmKey=name.toLowerCase();
-  const pending=!!existing && typeof readCompaniesPending==="function" && readCompaniesPending().indexOf(firmKey)>=0;
-  const saving=!!window.sbCompanySaveBusy;
   if(btn){
-    btn.disabled=saving;
+    btn.disabled=false;
     if(!name || existing){
       btn.hidden=true;
       btn.classList.remove("is-pulse");
       btn.textContent="Zur Kundenliste hinzufügen";
     }else{
       btn.hidden=false;
-      btn.textContent=saving ? "Speichert auf GitHub…" : "Zur Kundenliste hinzufügen";
-      btn.classList.toggle("is-pulse", !saving);
+      btn.textContent="Zur Kundenliste hinzufügen";
+      btn.classList.add("is-pulse");
     }
   }
   if(bar){
@@ -2519,11 +2571,9 @@ function syncCompanySaveButton(){
       if(label) label.textContent=formatListedRoute(existing);
       if(edit){
         edit.hidden=false;
-        edit.disabled=saving;
-        edit.textContent=saving
-          ? "Speichert auf GitHub…"
-          : (pending ? "Auf GitHub speichern" : (incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern"));
-        edit.classList.toggle("is-pulse", saving || pending || incomplete);
+        edit.disabled=false;
+        edit.textContent=incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern";
+        edit.classList.toggle("is-pulse", incomplete);
       }
     }else{
       bar.hidden=true;
@@ -2537,22 +2587,11 @@ function syncCompanySaveButton(){
   }
   const cloud=$("companyCloudStatus");
   if(cloud){
-    const same=cloud.dataset.for===firmKey;
-    if(cloud.dataset.hold==="1" && same){
-      /* saveCompanyRoute owns this message until the firm changes */
-    }else if(existing && pending && !saving){
-      cloud.hidden=false;
-      cloud.className="company-cloud-status is-err";
-      cloud.dataset.for=firmKey;
-      delete cloud.dataset.hold;
-      cloud.textContent="Nur auf diesem Gerät. GitHub hat die Firma noch nicht – „Auf GitHub speichern“ tippen.";
-    }else{
-      cloud.hidden=true;
-      cloud.textContent="";
-      cloud.className="company-cloud-status";
-      delete cloud.dataset.hold;
-      delete cloud.dataset.for;
-    }
+    cloud.hidden=true;
+    cloud.textContent="";
+    cloud.className="company-cloud-status";
+    delete cloud.dataset.hold;
+    delete cloud.dataset.for;
   }
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
@@ -2787,13 +2826,17 @@ window.loadCompaniesFromCloud=async function(opts){
         ? unionCompaniesPreferLocal(remoteList, localNow)
         : remoteList.slice();
       if(pending.length) list=mergePendingCompanies(list, localNow, pending);
-      // Protect a firm just written to GitHub from a briefly stale Contents API read.
-      if(window.sbCompanySaveGuardUntil && Date.now()<window.sbCompanySaveGuardUntil && window.sbCompanySaveGuardKey){
-        const gk=String(window.sbCompanySaveGuardKey||"").toLowerCase();
-        if(gk && !list.some(c=>companyNameKey(c)===gk)){
+      // Protect firms just written to GitHub from a briefly stale Contents API read.
+      if(window.sbCompanySaveGuardUntil && Date.now()<window.sbCompanySaveGuardUntil){
+        const keys=[];
+        if(Array.isArray(window.sbCompanySaveGuardKeys)) keys.push.apply(keys, window.sbCompanySaveGuardKeys);
+        if(window.sbCompanySaveGuardKey) keys.push(window.sbCompanySaveGuardKey);
+        keys.forEach(function(raw){
+          const gk=String(raw||"").toLowerCase();
+          if(!gk || list.some(c=>companyNameKey(c)===gk)) return;
           const keepRec=(localNow||[]).find(c=>companyNameKey(c)===gk);
           if(keepRec) list=mergeCompanyRecord(list, keepRec);
-        }
+        });
       }
       finishCompaniesLoad(list, {skipDraft});
       if(s && !opts.quiet && !(window.sbCompanyStatusUntil && Date.now()<window.sbCompanyStatusUntil)){
@@ -2803,34 +2846,9 @@ window.loadCompaniesFromCloud=async function(opts){
           : "Kundenliste mit GitHub abgeglichen ("+list.length+" Firmen).";
       }
       try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
-      // Always retry pending offline saves — even when caller set noPush (search focus).
-      if(pending.length && window.sbLists.hasToken()){
-        const pendingSnap=pending.slice();
-        window.sbLists.pushMerged(
-          "companies",
-          list,
-          "Kundenliste vom Gerät (offline)",
-          function(remote, local){ return mergePendingCompanies(remote, local, pendingSnap); },
-          {forcePut:true}
-        ).then(function(out){
-          if(out && out.result && out.result.ok){
-            // Only clear keys that were in this push — newer pending stays.
-            pendingSnap.forEach(function(k){
-              if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(k);
-            });
-            const cloudEl=$("companyCloudStatus");
-            if(cloudEl && cloudEl.dataset.hold==="1" && cloudEl.classList.contains("is-err")){
-              const fk=String(cloudEl.dataset.for||"");
-              const still=typeof readCompaniesPending==="function" && readCompaniesPending().indexOf(fk)>=0;
-              if(!still) delete cloudEl.dataset.hold;
-            }
-            if(Array.isArray(out.merged)){
-              finishCompaniesLoad(out.merged, {skipDraft:true});
-              try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
-            }
-          }
-        }).catch(function(){});
-      }
+      // Pending firms go out on their own. A second copy of this push used to
+      // queue behind the first and freeze the next Speichern on the write chain.
+      if(pending.length) flushPendingCompanies();
       return;
     }
     if(got && got.status===404){
@@ -5175,7 +5193,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.41";
+  const APP_VERSION=window.SB_APP_VERSION||"3.42";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5664,7 +5682,8 @@ finally{ window.__pdfBuilding=false; }
         if(!ok) return {merged:localData, result:{ok:false, reason:"no-token"}};
       }
       let last={ok:false, reason:"retry"};
-      for(let i=0;i<6;i++){
+      const tries=Math.max(1, Math.min(4, Number(opts.attempts)||2));
+      for(let i=0;i<tries;i++){
         const remote=await pullFile(kind, true);
         if(remote && remote.reason==="network" && !remote.sha){
           last={ok:false, reason:"network", status:0};
@@ -5744,89 +5763,19 @@ finally{ window.__pdfBuilding=false; }
 (function(){
   let saveLock=Promise.resolve();
   let routeWait=null;
-  let routeModalBusy=false;
-  function settleRouteModal(value, keepOpen){
+  function closeRouteModal(value){
     const modal=$("routeModal");
-    if(!keepOpen && modal){
+    if(modal){
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden","true");
     }
+    const save=$("routeModalSave");
+    if(save){ save.disabled=false; save.textContent="Speichern"; }
+    const err=$("routeModalErr");
+    if(err) err.classList.remove("is-info");
     const r=routeWait;
     routeWait=null;
     if(r) r(value);
-  }
-  function closeRouteModal(value){
-    routeModalBusy=false;
-    const save=$("routeModalSave");
-    const cancel=$("routeModalCancel");
-    if(save){ save.disabled=false; save.textContent="Speichern"; }
-    if(cancel) cancel.disabled=false;
-    const err=$("routeModalErr");
-    if(err) err.classList.remove("is-info");
-    settleRouteModal(value, false);
-  }
-  function setRouteModalBusy(on, text){
-    routeModalBusy=!!on;
-    const save=$("routeModalSave");
-    const cancel=$("routeModalCancel");
-    const err=$("routeModalErr");
-    if(save){
-      save.disabled=!!on;
-      save.textContent=on ? "Speichert…" : "Erneut speichern";
-    }
-    if(cancel) cancel.disabled=false;
-    if(err){
-      err.textContent=text||"";
-      err.classList.toggle("is-info", !!on);
-    }
-  }
-  function showCompanyCloud(text, kind, firmKey, hold){
-    const el=$("companyCloudStatus");
-    if(!el) return;
-    if(!text){
-      el.hidden=true;
-      el.textContent="";
-      el.className="company-cloud-status";
-      delete el.dataset.hold;
-      delete el.dataset.for;
-      return;
-    }
-    el.hidden=false;
-    el.textContent=text;
-    el.className="company-cloud-status is-"+(kind||"wait");
-    if(firmKey) el.dataset.for=firmKey;
-    if(hold) el.dataset.hold="1";
-    else delete el.dataset.hold;
-  }
-  function nextPaint(){
-    return new Promise(function(resolve){
-      requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
-    });
-  }
-  function githubFailText(result, onGit){
-    const detail=String((result&&result.reason)||"").trim();
-    const code=result&&result.status ? " HTTP "+result.status : "";
-    const extra=detail && detail!=="http" && detail!=="network" ? ": "+detail : "";
-    if(result && result.ok && !onGit)
-      return "Lokal gespeichert, aber die Firma fehlt in der GitHub-Antwort. „Erneut speichern“.";
-    if(result && result.reason==="no-token")
-      return "Nur auf diesem Gerät. Token setzen (online), dann „Erneut speichern“.";
-    if(result && (result.status===401 || result.status===403) && !looksTooLargeSafe(detail))
-      return "GitHub hat abgelehnt"+code+". Token braucht Schreibrecht auf Servicebericht-listen"+extra+".";
-    if(result && result.status===404)
-      return "Repo Servicebericht-listen nicht gefunden (404).";
-    if(result && result.reason==="encode")
-      return "Datei konnte nicht kodiert werden. App neu laden, dann „Erneut speichern“.";
-    if(result && result.reason==="network")
-      return "Keine Verbindung zu GitHub. WLAN prüfen, dann „Erneut speichern“.";
-    if(result && (result.reason==="no-sha" || result.reason==="parse" || result.reason==="unreadable" || result.reason==="empty" || result.reason==="too-large"))
-      return "GitHub-Datei nicht lesbar"+extra+". „Erneut speichern“.";
-    if(result && result.reason==="missing-key")
-      return "Firma fehlt auf GitHub. „Erneut speichern“.";
-    return "GitHub-Fehler"+code+extra+". „Erneut speichern“.";
-  }
-  function looksTooLargeSafe(detail){
-    return /too[ _-]?large|blobs up to|1\s*mb/i.test(String(detail||""));
   }
   function askRouteDialog(firma, updating){
     const modal=$("routeModal");
@@ -5845,7 +5794,6 @@ finally{ window.__pdfBuilding=false; }
     const cancelBtn=$("routeModalCancel");
     if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent="Speichern"; }
     if(cancelBtn) cancelBtn.disabled=false;
-    routeModalBusy=false;
     const kmNow=String(document.querySelector('[data-k="Kilometer1"]')?.value||"").trim();
     const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
     const fromList=typeof companyRecordByName==="function" ? companyRecordByName(firma) : null;
@@ -5893,34 +5841,21 @@ finally{ window.__pdfBuilding=false; }
     }
     return {km, minutes};
   }
-  function hideRouteModalOnly(){
-    const modal=$("routeModal");
-    if(!modal) return;
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden","true");
-  }
-  $("routeModalCancel")?.addEventListener("click",()=>{
-    if(routeModalBusy){ hideRouteModalOnly(); return; }
-    closeRouteModal(null);
-  });
+  $("routeModalCancel")?.addEventListener("click",()=>closeRouteModal(null));
   $("routeModal")?.addEventListener("click",e=>{
-    if(e.target!==$("routeModal")) return;
-    if(routeModalBusy){ hideRouteModalOnly(); return; }
-    closeRouteModal(null);
+    if(e.target===$("routeModal")) closeRouteModal(null);
   });
   $("routeModalSave")?.addEventListener("click",()=>{
-    if(routeModalBusy) return;
     const route=readRouteFromModal();
     if(!route) return;
-    settleRouteModal(route, true);
+    closeRouteModal(route);
   });
   ["routeModalKm","routeModalTime"].forEach(function(id){
     $(id)?.addEventListener("keydown",function(e){
       if(e.key!=="Enter") return;
       e.preventDefault();
-      if(routeModalBusy) return;
       const route=readRouteFromModal();
-      if(route) settleRouteModal(route, true);
+      if(route) closeRouteModal(route);
     });
   });
   async function saveCompanyRoute(){
@@ -5939,109 +5874,40 @@ finally{ window.__pdfBuilding=false; }
       const existed=typeof companyRecordByName==="function"
         ? !!companyRecordByName(rec.firma)
         : (Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase()));
-      let route=await askRouteDialog(rec.firma, existed);
-      if(!route){
-        if(s) s.textContent="Speichern abgebrochen.";
-        return;
+      const route=await askRouteDialog(rec.firma, existed);
+      if(!route) return;
+      rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
+      rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
+      const day1=document.querySelector('[data-daybox="1"]');
+      const km1=document.querySelector('[data-k="Kilometer1"]');
+      const km2=document.querySelector('[data-k="Kilometer2"]');
+      // Only fill KM when the matching trip clocks are present — otherwise
+      // applyCustomerRouteDay → syncKmFieldsForDay would clear them again.
+      if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
+        km1.value=route.km; km1.dataset.kmManual="0";
       }
-      const firmKey=String(rec.firma||"").trim().toLowerCase();
-      const repoInfo=(window.sbLists&&window.sbLists.dataRepo)?window.sbLists.dataRepo():{owner:"",repo:"Servicebericht-listen"};
-      const where=(repoInfo.owner?repoInfo.owner+"/":"")+(repoInfo.repo||"Servicebericht-listen")+"/companies.json";
-      while(route){
-        rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
-        rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
-        const day1=document.querySelector('[data-daybox="1"]');
-        const km1=document.querySelector('[data-k="Kilometer1"]');
-        const km2=document.querySelector('[data-k="Kilometer2"]');
-        // Only fill KM when the matching trip clocks are present — otherwise
-        // applyCustomerRouteDay → syncKmFieldsForDay would clear them again.
-        if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
-          km1.value=route.km; km1.dataset.kmManual="0";
-        }
-        if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
-          km2.value=route.km; km2.dataset.kmManual="0";
-        }
-        function keepLocal(){
-          if(typeof mergeCompanyRecord!=="function") return;
-          const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
-          if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
-          if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
-          if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
-          if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
-          for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
-            if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
-          }
-          if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-          if(rec.email && typeof window.rememberEmailForCustomer==="function")
-            window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:false});
-          else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
-        }
-        const waitText="Wird auf GitHub gespeichert ("+where+")…";
-        setRouteModalBusy(true, waitText);
-        showCompanyCloud(waitText, "wait", firmKey, true);
-        if(s) s.textContent=waitText;
-        window.sbCompanyStatusUntil=Date.now()+20000;
-        await nextPaint();
-        keepLocal();
-        let merged=null, result=null;
-        if(!window.sbLists){
-          result={ok:false, reason:"no-token"};
-        }else{
-          const out=await window.sbLists.pushMerged(
-            "companies",
-            rec,
-            existed ? "Kunde aktualisiert: "+rec.firma+" ("+route.km+" km / "+route.minutes+" Min)" : "Neuer Kunde: "+rec.firma,
-            function(remote, local){ return mergeCompanyRecord(remote, local); },
-            {forcePut:true, requireKey:firmKey}
-          );
-          merged=out.merged;
-          result=out.result;
-        }
-        const written=Array.isArray(merged) ? merged : null;
-        const onGit=!!(written && written.some(c=>companyNameKey(c)===firmKey));
-        if(result && result.ok && onGit){
-          if(typeof applyCompanies==="function") applyCompanies(written, rec.firma);
-          if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
-          window.sbCompanySaveGuardKey=firmKey;
-          window.sbCompanySaveGuardUntil=Date.now()+10000;
-          if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
-          if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
-          for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
-            if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
-          }
-          if(rec.email && typeof window.rememberEmailForCustomer==="function")
-            window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:true});
-          else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
-          const okText=(result.skipped ? "Schon auf GitHub: " : "Auf GitHub gespeichert: ")+where+" – "+route.km+" km / "+route.minutes+" Min.";
-          showCompanyCloud(okText, "ok", firmKey, true);
-          if(s) s.textContent=okText;
-          window.sbCompanyStatusUntil=Date.now()+20000;
-          closeRouteModal(null);
-          return;
-        }
-        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
-        const fail=githubFailText(result, onGit);
-        showCompanyCloud(fail, "err", firmKey, true);
-        if(s) s.textContent=fail;
-        window.sbCompanyStatusUntil=Date.now()+20000;
-        const modal=$("routeModal");
-        if(!modal || !modal.classList.contains("is-open")) return;
-        setRouteModalBusy(false, fail);
-        route=await new Promise(function(resolve){ routeWait=resolve; });
+      if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
+        km2.value=route.km; km2.dataset.kmManual="0";
       }
+      if(typeof mergeCompanyRecord==="function"){
+        const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
+        if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
+      }
+      if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
+      if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
+      if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+      for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+        if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+      }
+      if(rec.email && typeof window.rememberEmailForCustomer==="function")
+        window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:false});
+      else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
+      // GitHub goes out on its own when the device is online. Speichern does not wait.
+      if(typeof flushPendingCompanies==="function") flushPendingCompanies();
     }catch(e){
-      const msg="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
-      if(s) s.textContent=msg;
-      showCompanyCloud(msg, "err", String($("customerSearch")?.value||"").trim().toLowerCase(), true);
-      window.sbCompanyStatusUntil=Date.now()+20000;
-      closeRouteModal(null);
+      if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
     }finally{
       window.sbCompanySaveBusy=false;
-      routeModalBusy=false;
-      const saveBtn=$("routeModalSave");
-      const cancelBtn=$("routeModalCancel");
-      if(saveBtn) saveBtn.disabled=false;
-      if(cancelBtn) cancelBtn.disabled=false;
       if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
       unlock();
     }
@@ -6312,7 +6178,8 @@ finally{ window.__pdfBuilding=false; }
         "E-Mail mit Kunde: "+name,
         function(remote, local){
           return normalizeEmailMap(mergeEmailMaps(window.sbLists.asMap(remote), local||{}));
-        }
+        },
+        {quiet:true, attempts:2}
       ).then(function(out){
         if(out && out.merged) saveMap(normalizeEmailMap(out.merged));
       }).catch(function(){});
