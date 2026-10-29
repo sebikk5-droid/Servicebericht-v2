@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.29">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.30">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.29</title>
+  <title>Servicebericht v3.30</title>
 <script>
-window.SB_APP_VERSION="3.29";
+window.SB_APP_VERSION="3.30";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.29</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.30</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2686,6 +2686,7 @@ window.loadCompaniesFromCloud=async function(opts){
   }
   const dr=window.sbLists.dataRepo ? window.sbLists.dataRepo() : {repo:"Servicebericht-listen"};
   const repoName=dr.repo||"Servicebericht-listen";
+  // Show cache immediately, then refresh from GitHub when opts.cloud
   finishCompaniesLoad(cached||[], {skipDraft: skipDraft || !opts.cloud});
   if(!opts.cloud){
     if(!window.sbLists.hasToken()){
@@ -2703,8 +2704,13 @@ window.loadCompaniesFromCloud=async function(opts){
     const got=await window.sbLists.pullFile("companies");
     const pending=readCompaniesPending();
     if(got && Array.isArray(got.data)){
-      const list=pending.length ? mergePendingCompanies(got.data, cached||[], pending) : got.data;
+      // Remote firms (e.g. leftover "test 3" from v3.28) must appear even if local cache missed them
+      let list=typeof unionCompaniesPreferLocal==="function"
+        ? unionCompaniesPreferLocal(got.data, cached||[])
+        : got.data;
+      if(pending.length) list=mergePendingCompanies(list, cached||[], pending);
       finishCompaniesLoad(list, {skipDraft});
+      try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
       if(pending.length && window.sbLists.hasToken() && !opts.noPush){
         window.sbLists.pushMerged(
           "companies",
@@ -2714,7 +2720,10 @@ window.loadCompaniesFromCloud=async function(opts){
         ).then(function(out){
           if(out && out.result && out.result.ok){
             clearCompaniesPending();
-            if(Array.isArray(out.merged)) finishCompaniesLoad(out.merged, {skipDraft:true});
+            if(Array.isArray(out.merged)){
+              finishCompaniesLoad(out.merged, {skipDraft:true});
+              try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
+            }
           }
         }).catch(function(){});
       }
@@ -2741,14 +2750,17 @@ window.loadCompaniesFromCloud=async function(opts){
     window.sbCompaniesCloudBusy=false;
   }
 };
-window.addEventListener("sb-lists-ready", function(){ window.loadCompaniesFromCloud(); });
+window.addEventListener("sb-lists-ready", function(){
+  window.loadCompaniesFromCloud({cloud:true});
+});
 window.addEventListener("sb-token-change", function(){
   const s=$("status");
   if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken()){
     if(s) s.textContent="Token entfernt.";
     return;
   }
-  if(s) s.textContent="Token gespeichert. Liste bleibt nutzbar – GitHub lädt später, nicht jetzt.";
+  if(s) s.textContent="Token gespeichert. Kundenliste wird mit GitHub abgeglichen…";
+  window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true});
 });
 
 function fieldRectOf(form,n){
@@ -4872,7 +4884,8 @@ finally{ window.__pdfBuilding=false; }
       results.innerHTML="";
       const options=getOptions().filter(o=>{
         if(!q) return true;
-        return o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q);
+        const name=o.textContent.trim().toLocaleLowerCase("de-DE");
+        return name.includes(q) || name.startsWith(q);
       });
       if(!options.length){
         const empty=document.createElement("div");
@@ -4905,8 +4918,14 @@ finally{ window.__pdfBuilding=false; }
     });
     input.addEventListener("focus",function(){
       show();
-      if(typeof window.loadCompaniesFromCloud==="function")
-        window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true});
+      if(typeof window.loadCompaniesFromCloud==="function"){
+        Promise.resolve(window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true}))
+          .then(function(){ if(document.activeElement===input) show(); })
+          .catch(function(){});
+      }
+    });
+    window.addEventListener("sb-companies-updated", function(){
+      if(document.activeElement===input) show();
     });
     input.addEventListener("click",function(){ show(); });
     clearBtn?.addEventListener("click",function(e){
@@ -5005,7 +5024,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.29";
+  const APP_VERSION=window.SB_APP_VERSION||"3.30";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
