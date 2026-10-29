@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.32">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.33">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.32</title>
+  <title>Servicebericht v3.33</title>
 <script>
-window.SB_APP_VERSION="3.32";
+window.SB_APP_VERSION="3.33";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.32</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.33</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5052,7 +5052,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.32";
+  const APP_VERSION=window.SB_APP_VERSION||"3.33";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5303,46 +5303,25 @@ finally{ window.__pdfBuilding=false; }
       return {data:null, sha:""};
     }
   }
-  const PARSE_WORKER_SRC='self.onmessage=function(e){try{var j=JSON.parse(new TextDecoder("utf-8").decode(e.data));if(!j||!j.content){self.postMessage({data:null,sha:(j&&j.sha)||""});return;}var raw=String(j.content).replace(/\\n/g,"");var bin=atob(raw);var n=bin.length;var bytes=new Uint8Array(n);for(var i=0;i<n;i++)bytes[i]=bin.charCodeAt(i);var text=new TextDecoder("utf-8").decode(bytes);self.postMessage({data:JSON.parse(text),sha:j.sha||""});}catch(err){self.postMessage({data:null,sha:""});}};';
-  function parseGithubFileInWorker(buf, status){
-    return new Promise(function(resolve){
-      let done=false;
-      const finish=function(out){
-        if(done) return;
-        done=true;
-        resolve(out);
-      };
-      try{
-        const blob=new Blob([PARSE_WORKER_SRC],{type:"text/javascript"});
-        const url=URL.createObjectURL(blob);
-        const w=new Worker(url);
-        const t=setTimeout(function(){
-          try{ w.terminate(); }catch(e){}
-          try{ URL.revokeObjectURL(url); }catch(e){}
-          finish({data:null, sha:"", status:status, reason:"parse-timeout"});
-        }, 12000);
-        w.onmessage=function(ev){
-          clearTimeout(t);
-          try{ w.terminate(); }catch(e){}
-          try{ URL.revokeObjectURL(url); }catch(e){}
-          const m=ev.data||{};
-          finish({data:m.data, sha:m.sha||"", status:status});
-        };
-        w.onerror=function(){
-          clearTimeout(t);
-          try{ w.terminate(); }catch(e){}
-          try{ URL.revokeObjectURL(url); }catch(e){}
-          finish({data:null, sha:"", status:status, reason:"parse"});
-        };
-        w.postMessage(buf, [buf]);
-      }catch(e){
-        finish({data:null, sha:"", status:status, reason:"parse"});
-      }
-    });
+  function parseGithubContentsJson(text, status){
+    try{
+      const j=JSON.parse(String(text||""));
+      if(!j || !j.content) return {data:null, sha:(j&&j.sha)||"", status:status};
+      const raw=String(j.content).replace(/\n/g,"");
+      const bin=atob(raw);
+      const n=bin.length;
+      const bytes=new Uint8Array(n);
+      for(let i=0;i<n;i++) bytes[i]=bin.charCodeAt(i);
+      const fileText=new TextDecoder("utf-8").decode(bytes);
+      return {data:JSON.parse(fileText), sha:j.sha||"", status:status};
+    }catch(e){
+      return {data:null, sha:"", status:status, reason:"parse"};
+    }
   }
   async function parseContents(res){
-    const buf=await res.arrayBuffer();
-    return parseGithubFileInWorker(buf, res.status);
+    // Main-thread parse keeps sha even on large companies.json (worker timeout used to drop sha → no GitHub save)
+    const text=await res.text();
+    return parseGithubContentsJson(text, res.status);
   }
   async function pullFile(kind, writePath){
     if(typeof window.sbOffline==="function" && window.sbOffline())
@@ -5350,10 +5329,9 @@ finally{ window.__pdfBuilding=false; }
     if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
     const path=FILES[kind]||kind;
     async function fromApi(withAuth){
-      // companies.json can be large — default 5s abort made saves fail after pull
       const res=await githubFetch(apiFileUrl(path, true), {
         headers:headers(withAuth),
-        timeoutMs: kind==="companies" ? 25000 : 12000
+        timeoutMs: kind==="companies" ? 60000 : 20000
       });
       if(res.status===404) return {data:null, sha:"", status:404};
       if(res.ok) return parseContents(res);
@@ -5397,15 +5375,21 @@ finally{ window.__pdfBuilding=false; }
         method:"PUT",
         headers:Object.assign({"Content-Type":"application/json"}, headers(true)),
         body:JSON.stringify(body),
-        timeoutMs: kind==="companies" ? 30000 : 15000
+        timeoutMs: kind==="companies" ? 60000 : 20000
       });
       if(!res.ok){
         let reason="";
-        try{ reason=(await res.text()).slice(0,240); }catch(e){}
-        return {ok:false, status:res.status, reason};
+        try{
+          const raw=await res.text();
+          try{
+            const j=JSON.parse(raw);
+            reason=String((j&&j.message)||raw||"").replace(/\s+/g," ").slice(0,180);
+          }catch(_e){ reason=String(raw||"").replace(/\s+/g," ").slice(0,180); }
+        }catch(e){}
+        return {ok:false, status:res.status, reason:reason||"http"};
       }
       let shaOut="";
-      try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||""; }catch(e){}
+      try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||(j.commit&&j.commit.sha)||""; }catch(e){}
       return {ok:true, sha:shaOut};
     }catch(e){
       return {ok:false, reason:"network", status:0};
@@ -5426,10 +5410,17 @@ finally{ window.__pdfBuilding=false; }
       for(let i=0;i<6;i++){
         const remote=await pullFile(kind, true);
         if(remote && remote.reason==="network" && !remote.sha){
-          return {merged:localData, result:{ok:false, reason:"network", status:0}};
+          last={ok:false, reason:"network", status:0};
+          await sleep(250*(i+1));
+          continue;
         }
         if(remote && (remote.status===401 || remote.status===403)){
           return {merged:localData, result:{ok:false, status:remote.status, reason:"http"}};
+        }
+        if(remote && remote.reason==="parse" && !remote.sha){
+          last={ok:false, reason:"parse", status:remote.status||0};
+          await sleep(250*(i+1));
+          continue;
         }
         const remoteList=kind==="companies"
           ? (typeof window.asCompanyList==="function" ? window.asCompanyList(remote.data) : (Array.isArray(remote.data)?remote.data:[]))
@@ -5439,16 +5430,26 @@ finally{ window.__pdfBuilding=false; }
         const baseForSame=kind==="companies" ? remoteList : remote.data;
         if(sameJson(merged, baseForSame) && remote.sha && !opts.forcePut)
           return {merged, result:{ok:true, skipped:true}};
+        // forcePut with identical content: still OK to skip a needless commit
+        if(sameJson(merged, baseForSame) && remote.sha && opts.forcePut)
+          return {merged, result:{ok:true, skipped:true}};
         if(!remote.sha && remote.status!==404){
           last={ok:false, reason:"no-sha", status:remote.status||422};
-          await sleep(180*(i+1));
+          await sleep(250*(i+1));
           continue;
         }
         const result=await putFile(kind, merged, remote.sha, message);
         if(result.ok) return {merged, result};
         last=result;
-        if(result.status!==409 && result.status!==422) return {merged, result};
-        await sleep(180*(i+1));
+        if(result.status!==409 && result.status!==422){
+          // Retry transient network once more inside the loop
+          if(result.reason==="network" || result.status===502 || result.status===503 || result.status===504){
+            await sleep(400*(i+1));
+            continue;
+          }
+          return {merged, result};
+        }
+        await sleep(250*(i+1));
       }
       return {merged:localData, result:last};
     });
@@ -5622,29 +5623,32 @@ finally{ window.__pdfBuilding=false; }
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+        const repoName=(window.sbLists.dataRepo&&window.sbLists.dataRepo().repo)||"Servicebericht-listen";
         if(s) s.textContent=result.skipped
-          ? "Bereits auf GitHub: "+route.km+" km / "+route.minutes+" Min."
+          ? "Bereits auf GitHub ("+repoName+"): "+route.km+" km / "+route.minutes+" Min."
           : (existed
-            ? "Auf GitHub gespeichert: "+route.km+" km / "+route.minutes+" Min."
-            : "Neuer Kunde auf GitHub (Servicebericht-listen) gespeichert.");
+            ? "Auf GitHub ("+repoName+") gespeichert: "+route.km+" km / "+route.minutes+" Min."
+            : "Neuer Kunde auf GitHub ("+repoName+") gespeichert.");
       }else{
         // Stay pending so next cloud sync retries the write
         if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
         if(!s) return;
+        const detail=String((result&&result.reason)||"").trim();
+        const code=result&&result.status ? " HTTP "+result.status : "";
         if(result && result.reason==="no-token")
-          s.textContent="Lokal gespeichert. Token setzen, dann noch einmal speichern für GitHub.";
+          s.textContent="Lokal gespeichert. Token setzen (online-Button), dann noch einmal speichern.";
         else if(result && (result.status===401 || result.status===403))
-          s.textContent="Token darf Servicebericht-listen nicht schreiben. Contents: Read and write.";
+          s.textContent="Token ohne Schreibrecht auf Servicebericht-listen."+code;
         else if(result && result.status===404)
-          s.textContent="Repo Servicebericht-listen fehlt. Auf GitHub als private anlegen, dann erneut tippen.";
+          s.textContent="Repo Servicebericht-listen nicht gefunden (404). Name/Token prüfen.";
         else if(result && result.reason==="encode")
-          s.textContent="Datei konnte nicht kodiert werden. Chrome-App neu starten, dann erneut tippen.";
+          s.textContent="Datei konnte nicht kodiert werden. App neu laden, dann erneut tippen.";
         else if(result && result.reason==="network")
-          s.textContent="Lokal gespeichert (ohne Netz). Mit Internet noch einmal speichern für GitHub.";
-        else if(result && result.reason==="no-sha")
-          s.textContent="GitHub-Datei konnte nicht gelesen werden – noch einmal tippen.";
+          s.textContent="Lokal OK, GitHub-Netz fehlgeschlagen – Wi-Fi prüfen und noch einmal speichern.";
+        else if(result && (result.reason==="no-sha" || result.reason==="parse"))
+          s.textContent="GitHub-Datei nicht lesbar – noch einmal speichern.";
         else
-          s.textContent="GitHub "+((result&&(result.status||result.reason))||"Fehler")+" – noch einmal tippen.";
+          s.textContent="GitHub-Fehler"+code+(detail?": "+detail:"")+" – noch einmal tippen.";
       }
     }catch(e){
       if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
