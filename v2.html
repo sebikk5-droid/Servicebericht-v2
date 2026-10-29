@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.48">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.49">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.48</title>
+  <title>Servicebericht v3.49</title>
 <script>
-window.SB_APP_VERSION="3.48";
+window.SB_APP_VERSION="3.49";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -679,6 +679,7 @@ select.is-nudge,input.is-nudge{
 }
 #companySave[hidden],#emailSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
+#companyIdentityEdit[hidden]{display:none!important}
 #companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
@@ -695,7 +696,8 @@ select.is-nudge,input.is-nudge{
 }
 .customer-route-bar[hidden]{display:none!important}
 .customer-route-bar #customerRouteLabel{flex:1 1 160px;margin:0;font-size:13px;color:#333}
-.customer-route-bar #companyRouteEdit{
+.customer-route-bar #companyRouteEdit,
+.customer-route-bar #companyIdentityEdit{
   flex:0 0 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff;
 }
 .machine-combo input{padding-right:40px}
@@ -755,7 +757,19 @@ select.is-nudge,input.is-nudge{
 #routeModal .email-actions button{flex:1 1 30%;min-width:90px}
 #routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
 #routeModalErr.is-info{color:#163a5c}
-#companySave:disabled,#companyRouteEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled{opacity:.72}
+#companySave:disabled,#companyRouteEdit:disabled,#companyIdentityEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled,#companyEditSave:disabled,#companyEditCancel:disabled{opacity:.72}
+#companyEditModal{
+  display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#companyEditModal.is-open{display:flex}
+#companyEditModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#companyEditModal h3{margin:0 0 6px;font-size:18px}
+#companyEditModal label{margin:8px 0 4px}
+#companyEditModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0}
+#companyEditModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#companyEditModal .email-actions button{flex:1 1 30%;min-width:90px}
+#companyEditErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
 .company-cloud-status{margin:8px 0 0;font-size:14px;line-height:1.35;font-weight:650;overflow-wrap:anywhere}
 .company-cloud-status[hidden]{display:none!important}
 .company-cloud-status.is-wait{color:#163a5c}
@@ -824,7 +838,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.48</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.49</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -859,6 +873,7 @@ select.is-nudge,input.is-nudge{
 <div id="customerRouteBar" class="customer-route-bar" hidden>
   <p id="customerRouteLabel">In der Liste: noch ohne km / Reisezeit</p>
   <button type="button" id="companyRouteEdit">km / Reisezeit ändern</button>
+  <button type="button" id="companyIdentityEdit" hidden>Firma / Adresse ändern</button>
 </div>
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
@@ -1131,6 +1146,29 @@ select.is-nudge,input.is-nudge{
     <div class="email-actions">
       <button type="button" class="clear" id="routeModalCancel">Abbrechen</button>
       <button type="button" class="go" id="routeModalSave">Speichern</button>
+    </div>
+  </div>
+</div>
+<div id="companyEditModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3 id="companyEditTitle">Firma und Adresse</h3>
+    <p class="muted" id="companyEditHint">Name und Adresse in der Kundenliste ändern.</p>
+    <label for="companyEditName">Firma</label>
+    <input id="companyEditName" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <div class="route-grid">
+      <div>
+        <label for="companyEditStreet">Straße</label>
+        <input id="companyEditStreet" autocomplete="off" autocapitalize="words" spellcheck="false">
+      </div>
+      <div>
+        <label for="companyEditCity">PLZ, Ort</label>
+        <input id="companyEditCity" autocomplete="off" autocapitalize="words" spellcheck="false">
+      </div>
+    </div>
+    <p id="companyEditErr"></p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="companyEditCancel">Abbrechen</button>
+      <button type="button" class="go" id="companyEditSave">Speichern</button>
     </div>
   </div>
 </div>
@@ -1888,7 +1926,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","sigModal","pdfMissingModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -2301,6 +2339,8 @@ function companyNameKey(c){
 }
 const COMPANIES_CACHE_KEY="servicebericht_companies_cache_v1";
 const COMPANIES_PENDING_KEY="servicebericht_companies_pending_v1";
+const COMPANIES_REMOVED_KEY="servicebericht_companies_removed_v1";
+const COMPANIES_ADDRESS_FORCE_KEY="servicebericht_companies_address_force_v1";
 function readCompaniesCache(){
   try{ const x=JSON.parse(localStorage.getItem(COMPANIES_CACHE_KEY)||"null"); return Array.isArray(x)?x:null; }
   catch(e){ return null; }
@@ -2329,6 +2369,44 @@ function unmarkCompanyPending(name){
   const left=readCompaniesPending().filter(x=>x!==k);
   if(!left.length) clearCompaniesPending();
   else try{ localStorage.setItem(COMPANIES_PENDING_KEY, JSON.stringify(left)); }catch(e){}
+}
+function readNameSet(key){
+  try{
+    const x=JSON.parse(localStorage.getItem(key)||"[]");
+    return Array.isArray(x)?x.map(s=>String(s||"").trim().toLowerCase()).filter(Boolean):[];
+  }catch(e){ return []; }
+}
+function writeNameSet(key, list){
+  const uniq=[];
+  (list||[]).forEach(k=>{ if(k && uniq.indexOf(k)<0) uniq.push(k); });
+  try{
+    if(!uniq.length) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(uniq));
+  }catch(e){}
+}
+function readCompaniesRemoved(){ return readNameSet(COMPANIES_REMOVED_KEY); }
+function markCompanyRemoved(name){
+  const k=String(name||"").trim().toLowerCase();
+  if(!k) return;
+  const list=readCompaniesRemoved();
+  if(list.indexOf(k)<0) list.push(k);
+  writeNameSet(COMPANIES_REMOVED_KEY, list);
+}
+function unmarkCompanyRemoved(name){
+  const k=String(name||"").trim().toLowerCase();
+  writeNameSet(COMPANIES_REMOVED_KEY, readCompaniesRemoved().filter(x=>x!==k));
+}
+function readAddressForce(){ return readNameSet(COMPANIES_ADDRESS_FORCE_KEY); }
+function markAddressForce(name){
+  const k=String(name||"").trim().toLowerCase();
+  if(!k) return;
+  const list=readAddressForce();
+  if(list.indexOf(k)<0) list.push(k);
+  writeNameSet(COMPANIES_ADDRESS_FORCE_KEY, list);
+}
+function unmarkAddressForce(name){
+  const k=String(name||"").trim().toLowerCase();
+  writeNameSet(COMPANIES_ADDRESS_FORCE_KEY, readAddressForce().filter(x=>x!==k));
 }
 function flushPendingCompanies(){
   // A save while a push is in flight must not be dropped. The live merge
@@ -2366,10 +2444,15 @@ function flushPendingCompanies(){
     window.sbCompaniesFlushAgain=false;
     window.sbCompaniesFlushing=false;
     if(sentOk && !again && sentMerged){
-      const sent=sentKeys.filter(function(k){
-        return sentMerged.some(function(c){ return companyNameKey(c)===k; });
-      });
+      const present=new Set(sentMerged.map(function(c){ return companyNameKey(c); }));
+      const sent=sentKeys.filter(function(k){ return present.has(k); });
       sent.forEach(function(k){ unmarkCompanyPending(k); });
+      readCompaniesRemoved().forEach(function(k){
+        if(!present.has(k)) unmarkCompanyRemoved(k);
+      });
+      readAddressForce().forEach(function(k){
+        if(present.has(k)) unmarkAddressForce(k);
+      });
       if(sent.length){
         window.sbCompanySaveGuardKeys=sent;
         window.sbCompanySaveGuardUntil=Date.now()+20000;
@@ -2388,12 +2471,28 @@ window.flushPendingCompanies=flushPendingCompanies;
 function mergePendingCompanies(remote, localList, pendingKeys){
   let arr=Array.isArray(remote)?remote.map(c=>Object.assign({},c)):[];
   const keys=Array.isArray(pendingKeys)?pendingKeys:[];
-  if(!keys.length) return arr;
   const cache=Array.isArray(localList)?localList:[];
+  const force=new Set(readAddressForce());
   keys.forEach(k=>{
     const rec=cache.find(c=>companyNameKey(c)===k);
-    if(rec) arr=mergeCompanyRecord(arr, rec);
+    if(!rec) return;
+    arr=mergeCompanyRecord(arr, rec);
+    if(force.has(k)){
+      const idx=arr.findIndex(c=>companyNameKey(c)===k);
+      if(idx>=0){
+        arr[idx].adres=String(rec.adres||"");
+        if(rec.firma) arr[idx].firma=String(rec.firma).trim();
+      }
+    }
   });
+  const removed=readCompaniesRemoved();
+  if(removed.length){
+    const live=new Set(cache.map(c=>companyNameKey(c)).filter(Boolean));
+    arr=arr.filter(c=>{
+      const k=companyNameKey(c);
+      return !(removed.indexOf(k)>=0 && !live.has(k));
+    });
+  }
   return arr;
 }
 function bindCompanySelect(){
@@ -2475,10 +2574,15 @@ function applyCompanies(list, selectName){
  */
 function unionCompaniesPreferLocal(remoteList, localList){
   const pending=new Set(typeof readCompaniesPending==="function" ? readCompaniesPending() : []);
+  const removed=new Set(typeof readCompaniesRemoved==="function" ? readCompaniesRemoved() : []);
+  const force=new Set(typeof readAddressForce==="function" ? readAddressForce() : []);
+  const localKeys=new Set((Array.isArray(localList)?localList:[]).map(c=>companyNameKey(c)).filter(Boolean));
   const map=new Map();
   (Array.isArray(remoteList)?remoteList:[]).forEach(c=>{
     const k=companyNameKey(c);
-    if(k) map.set(k, Object.assign({}, c));
+    if(!k) return;
+    if(removed.has(k) && !localKeys.has(k)) return;
+    map.set(k, Object.assign({}, c));
   });
   (Array.isArray(localList)?localList:[]).forEach(c=>{
     const k=companyNameKey(c);
@@ -2497,11 +2601,12 @@ function unionCompaniesPreferLocal(remoteList, localList){
     const useLocalNote=pending.has(k) || (locHasRoute && !remHasRoute);
     const locEmail=String(c.email||"").trim();
     const remEmail=String(rem.email||"").trim();
+    const localFirma=String(c.firma||c.name||"").trim();
     map.set(k, Object.assign({}, rem, {
-      firma:rem.firma||c.firma||c.name||"",
+      firma:(pending.has(k) && localFirma) ? localFirma : (rem.firma||c.firma||c.name||""),
       // Prefer a real address — local "" must not wipe a remote email.
       email:locEmail || remEmail || rem.email || c.email || "",
-      adres:rem.adres||c.adres||"",
+      adres:force.has(k) ? String(c.adres||"") : (rem.adres||c.adres||""),
       tel:rem.tel||c.tel||"",
       notatki:useLocalNote ? (locNote||remNote) : (remNote||locNote)
     }));
@@ -2581,6 +2686,11 @@ function syncCompanySaveButton(){
       }
     }
   }
+  const ident=$("companyIdentityEdit");
+  if(ident){
+    ident.hidden=!existing;
+    ident.disabled=false;
+  }
   const cloud=$("companyCloudStatus");
   if(cloud){
     cloud.hidden=true;
@@ -2615,6 +2725,7 @@ function mergeCompanyRecord(remote, rec){
     });
   }else{
     const c=arr[idx];
+    if(rec.firma) c.firma=String(rec.firma).trim();
     if(rec.tel) c.tel=rec.tel;
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
@@ -2665,6 +2776,25 @@ function companyRecordFromForm(route){
   return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
 }
 window.applyCompanies=applyCompanies;
+function replaceCompanyIdentity(list, oldKey, rec){
+  const arr=asCompanyList(list).map(c=>Object.assign({}, c));
+  const oldK=String(oldKey||"").trim().toLowerCase();
+  const name=String((rec&&rec.firma)||"").trim();
+  const newK=name.toLowerCase();
+  if(!name) return arr;
+  const oldIdx=arr.findIndex(c=>companyNameKey(c)===oldK);
+  const base=oldIdx>=0?arr[oldIdx]:{};
+  const next=Object.assign({}, base, {
+    firma:name,
+    adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||"")
+  });
+  if(oldIdx>=0 && oldK!==newK) arr.splice(oldIdx, 1);
+  const exist=arr.findIndex(c=>companyNameKey(c)===newK);
+  if(exist>=0) arr[exist]=Object.assign({}, arr[exist], next);
+  else arr.push(next);
+  return arr;
+}
+window.replaceCompanyIdentity=replaceCompanyIdentity;
 window.mergeCompanyRecord=mergeCompanyRecord;
 window.companyRecordFromForm=companyRecordFromForm;
 function selectedCompany(){
@@ -5189,7 +5319,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.48";
+  const APP_VERSION=window.SB_APP_VERSION||"3.49";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5890,6 +6020,7 @@ finally{ window.__pdfBuilding=false; }
         if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
       }
       if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
+      if(typeof unmarkCompanyRemoved==="function") unmarkCompanyRemoved(rec.firma);
       if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
       if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
       for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
@@ -5910,6 +6041,129 @@ finally{ window.__pdfBuilding=false; }
   }
   $("companySave")?.addEventListener("click",()=>{ saveCompanyRoute(); });
   $("companyRouteEdit")?.addEventListener("click",()=>{ saveCompanyRoute(); });
+  let companyEditWait=null;
+  let companyEditOldKey="";
+  function closeCompanyEdit(value){
+    const modal=$("companyEditModal");
+    if(modal){
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden","true");
+    }
+    const save=$("companyEditSave");
+    if(save){ save.disabled=false; save.textContent="Speichern"; }
+    const err=$("companyEditErr");
+    if(err) err.textContent="";
+    const r=companyEditWait;
+    companyEditWait=null;
+    if(r) r(value);
+  }
+  function askCompanyEdit(rec){
+    const modal=$("companyEditModal");
+    const nameEl=$("companyEditName");
+    const streetEl=$("companyEditStreet");
+    const cityEl=$("companyEditCity");
+    if(!modal||!nameEl||!streetEl||!cityEl) return Promise.resolve(null);
+    const parsed=typeof address==="function" ? address(rec.adres||rec.address||"") : [rec.adres||"",""];
+    nameEl.value=String(rec.firma||rec.name||"");
+    const formStreet=String($("street")?.value||"").trim();
+    const formCity=String($("city")?.value||"").trim();
+    streetEl.value=formStreet||parsed[0]||"";
+    cityEl.value=formCity||parsed[1]||"";
+    const err=$("companyEditErr");
+    if(err) err.textContent="";
+    const saveBtn=$("companyEditSave");
+    const cancelBtn=$("companyEditCancel");
+    if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent="Speichern"; }
+    if(cancelBtn) cancelBtn.disabled=false;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+    setTimeout(function(){ try{ nameEl.focus(); nameEl.select(); }catch(e){} }, 120);
+    return new Promise(function(resolve){ companyEditWait=resolve; });
+  }
+  function readCompanyEdit(){
+    const err=$("companyEditErr");
+    const name=String($("companyEditName")?.value||"").trim();
+    const street=String($("companyEditStreet")?.value||"").trim();
+    const city=String($("companyEditCity")?.value||"").trim();
+    if(!name){
+      if(err) err.textContent="Firmennamen eintragen.";
+      return null;
+    }
+    const newK=name.toLowerCase();
+    if(newK!==companyEditOldKey && typeof companyRecordByName==="function" && companyRecordByName(name)){
+      if(err) err.textContent="Diese Firma ist schon in der Liste.";
+      return null;
+    }
+    if(err) err.textContent="";
+    return {firma:name, street:street, city:city, adres:[street, city].filter(Boolean).join(", ")};
+  }
+  async function saveCompanyIdentity(){
+    const prev=saveLock;
+    let unlock=()=>{};
+    saveLock=new Promise(r=>{ unlock=r; });
+    await prev;
+    const s=$("status");
+    window.sbCompanySaveBusy=true;
+    try{
+      const currentName=typeof firmaName==="function" ? firmaName() : "";
+      const rec=typeof companyRecordByName==="function" ? companyRecordByName(currentName) : null;
+      if(!rec){
+        if(s) s.textContent="Zuerst eine Firma aus der Liste wählen.";
+        return;
+      }
+      companyEditOldKey=typeof companyNameKey==="function"
+        ? companyNameKey(rec)
+        : String(rec.firma||rec.name||"").trim().toLowerCase();
+      const edited=await askCompanyEdit(rec);
+      if(!edited) return;
+      const oldKey=companyEditOldKey;
+      const newKey=edited.firma.toLowerCase();
+      if(typeof replaceCompanyIdentity==="function"){
+        const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, {
+          firma:edited.firma,
+          adres:edited.adres
+        });
+        if(typeof applyCompanies==="function") applyCompanies(local, edited.firma);
+      }
+      if($("street")) $("street").value=edited.street;
+      if($("city")) $("city").value=edited.city;
+      if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
+      if(oldKey!==newKey){
+        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(oldKey);
+        if(typeof markCompanyRemoved==="function") markCompanyRemoved(oldKey);
+        if(typeof window.renameCustomerEmailKey==="function")
+          window.renameCustomerEmailKey(oldKey, edited.firma);
+      }
+      if(typeof unmarkCompanyRemoved==="function") unmarkCompanyRemoved(edited.firma);
+      if(typeof markCompanyPending==="function") markCompanyPending(edited.firma);
+      if(typeof markAddressForce==="function") markAddressForce(edited.firma);
+      if(typeof flushPendingCompanies==="function") flushPendingCompanies();
+    }catch(e){
+      if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
+    }finally{
+      window.sbCompanySaveBusy=false;
+      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+      unlock();
+    }
+  }
+  $("companyEditCancel")?.addEventListener("click",()=>closeCompanyEdit(null));
+  $("companyEditModal")?.addEventListener("click",e=>{
+    if(e.target===$("companyEditModal")) closeCompanyEdit(null);
+  });
+  $("companyEditSave")?.addEventListener("click",()=>{
+    const edited=readCompanyEdit();
+    if(!edited) return;
+    closeCompanyEdit(edited);
+  });
+  ["companyEditName","companyEditStreet","companyEditCity"].forEach(function(id){
+    $(id)?.addEventListener("keydown",function(e){
+      if(e.key!=="Enter") return;
+      e.preventDefault();
+      const edited=readCompanyEdit();
+      if(edited) closeCompanyEdit(edited);
+    });
+  });
+  $("companyIdentityEdit")?.addEventListener("click",()=>{ saveCompanyIdentity(); });
 })();
 </script>
 <script>
@@ -6020,8 +6274,98 @@ finally{ window.__pdfBuilding=false; }
       const uniq=dedupeEmailList(list);
       if(uniq.length) out[k]=uniq;
     });
+    return applyEmailRenames(out);
+  }
+  const EMAIL_RENAME_KEY="servicebericht_customer_emails_renames_v1";
+  function readEmailRenames(){
+    try{
+      const x=JSON.parse(localStorage.getItem(EMAIL_RENAME_KEY)||"[]");
+      if(!Array.isArray(x)) return [];
+      return x.map(r=>({
+        from:String(r&&r.from||"").trim().toLowerCase(),
+        to:String(r&&r.to||"").trim().toLowerCase()
+      })).filter(r=>r.from && r.to && r.from!==r.to);
+    }catch(e){ return []; }
+  }
+  function writeEmailRenames(list){
+    const uniq=[];
+    (list||[]).forEach(r=>{
+      if(!r || !r.from || !r.to || r.from===r.to) return;
+      if(!uniq.some(x=>x.from===r.from)) uniq.push({from:r.from, to:r.to});
+    });
+    try{
+      if(!uniq.length) localStorage.removeItem(EMAIL_RENAME_KEY);
+      else localStorage.setItem(EMAIL_RENAME_KEY, JSON.stringify(uniq));
+    }catch(e){}
+  }
+  function markEmailRename(oldName, newName){
+    const fromK=String(oldName||"").trim().toLowerCase();
+    const toK=String(newName||"").trim().toLowerCase();
+    if(!fromK || !toK || fromK===toK) return;
+    let list=readEmailRenames().filter(r=>r.from!==fromK);
+    list=list.map(r=>r.to===fromK ? {from:r.from, to:toK} : r).filter(r=>r.from!==r.to);
+    if(!list.some(r=>r.from===fromK)) list.push({from:fromK, to:toK});
+    writeEmailRenames(list);
+  }
+  function applyEmailRenames(map){
+    const out=map||{};
+    readEmailRenames().forEach(r=>{
+      const from=out[r.from];
+      if(!from || !from.length) return;
+      out[r.to]=dedupeEmailList([].concat(out[r.to]||[], from));
+      delete out[r.from];
+    });
     return out;
   }
+  function clearAppliedEmailRenames(map){
+    const norm=normalizeEmailMap(map||{});
+    writeEmailRenames(readEmailRenames().filter(r=>Array.isArray(norm[r.from]) && norm[r.from].length));
+  }
+  let emailRenameFlight=null;
+  function flushCustomerEmailRenames(){
+    if(emailRenameFlight) return emailRenameFlight;
+    if(!readEmailRenames().length) return Promise.resolve(false);
+    if(typeof window.sbOffline==="function" && window.sbOffline()) return Promise.resolve(false);
+    if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken())
+      return Promise.resolve(false);
+    if(typeof window.sbLists.pushMerged!=="function") return Promise.resolve(false);
+    emailRenameFlight=window.sbLists.pushMerged("emails", loadMap(), "Firma umbenannt", function(remote, local){
+      return applyPendingEmails(window.sbLists.asMap(remote), local||loadMap());
+    }, {quiet:true, attempts:2}).then(function(out){
+      if(out && out.result && out.result.ok && out.merged){
+        const saved=normalizeEmailMap(out.merged);
+        saveMap(saved);
+        clearPendingFoundIn(saved);
+        clearAppliedEmailRenames(saved);
+        return true;
+      }
+      return false;
+    }).catch(function(){ return false; }).then(function(ok){
+      emailRenameFlight=null;
+      return ok;
+    });
+    return emailRenameFlight;
+  }
+  window.flushCustomerEmailRenames=flushCustomerEmailRenames;
+  window.renameCustomerEmailKey=function(oldName, newName){
+    const oldK=String(oldName||"").trim().toLowerCase();
+    const newK=String(newName||"").trim().toLowerCase();
+    if(!oldK || !newK || oldK===newK) return;
+    markEmailRename(oldK, newK);
+    const map=loadMap();
+    const from=map[oldK]||[];
+    if(from.length){
+      map[newK]=dedupeEmailList([].concat(map[newK]||[], from));
+      delete map[oldK];
+      saveMap(map);
+    }
+    writeEmailPending(readEmailPending().map(id=>{
+      const parts=id.split("\t");
+      return parts[0]===oldK ? newK+"\t"+parts.slice(1).join("\t") : id;
+    }));
+    (map[newK]||[]).forEach(e=>markEmailPending(newK, e));
+    flushCustomerEmailRenames();
+  };
   async function fetchSharedMap(path){
     try{
       if(typeof window.sbOffline==="function" && window.sbOffline()) return {};
@@ -6119,6 +6463,7 @@ finally{ window.__pdfBuilding=false; }
       const saved=normalizeEmailMap(emailPush.merged);
       saveMap(saved);
       clearPendingFoundIn(saved);
+      clearAppliedEmailRenames(saved);
     }
     let companyPush=null;
     if(email && displayName){
@@ -8352,6 +8697,7 @@ finally{ window.__pdfBuilding=false; }
     if(document.hidden) return;
     if(typeof window.loadCompaniesFromCloud==="function")
       window.loadCompaniesFromCloud({cloud:true, skipDraft:true, quiet:true});
+    if(typeof window.flushCustomerEmailRenames==="function") window.flushCustomerEmailRenames();
     if(typeof window.pullCustomerEmails==="function"){
       window.pullCustomerEmails().then(function(){
         if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
