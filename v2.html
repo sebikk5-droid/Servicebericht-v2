@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.28">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.29">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.28</title>
+  <title>Servicebericht v3.29</title>
 <script>
-window.SB_APP_VERSION="3.28";
+window.SB_APP_VERSION="3.29";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.28</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.29</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2406,6 +2406,33 @@ function applyCompanies(list, selectName){
   if(want) selectCompanyByName(want);
   syncCompanySaveButton();
 }
+/** Keep local-only firms when a cloud companies.json result would otherwise drop them. */
+function unionCompaniesPreferLocal(remoteList, localList){
+  const map=new Map();
+  (Array.isArray(remoteList)?remoteList:[]).forEach(c=>{
+    const k=companyNameKey(c);
+    if(k) map.set(k, Object.assign({}, c));
+  });
+  (Array.isArray(localList)?localList:[]).forEach(c=>{
+    const k=companyNameKey(c);
+    if(!k) return;
+    if(!map.has(k)){
+      map.set(k, Object.assign({}, c));
+      return;
+    }
+    const rem=map.get(k);
+    map.set(k, Object.assign({}, rem, {
+      firma:rem.firma||c.firma||c.name||"",
+      // Local just updated email (add/strip) — keep it
+      email:c.email!=null ? c.email : rem.email,
+      adres:rem.adres||c.adres||"",
+      tel:rem.tel||c.tel||"",
+      notatki:(rem.notatki!=null && String(rem.notatki).trim()!=="") ? rem.notatki : c.notatki
+    }));
+  });
+  return Array.from(map.values());
+}
+window.unionCompaniesPreferLocal=unionCompaniesPreferLocal;
 function knownCompanyName(name){
   const k=String(name||"").trim().toLowerCase();
   if(!k || !Array.isArray(companies)) return false;
@@ -4978,7 +5005,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.28";
+  const APP_VERSION=window.SB_APP_VERSION||"3.29";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5558,11 +5585,13 @@ finally{ window.__pdfBuilding=false; }
 (function(){
   const KEY="servicebericht_customer_emails_v1";
   function loadMap(){
-    try{ const o=JSON.parse(localStorage.getItem(KEY)||"{}"); return o&&typeof o==="object"?o:{}; }
-    catch(e){ return {}; }
+    try{
+      const o=JSON.parse(localStorage.getItem(KEY)||"{}");
+      return normalizeEmailMap(o&&typeof o==="object"&&!Array.isArray(o)?o:{});
+    }catch(e){ return {}; }
   }
   function saveMap(map){
-    try{ localStorage.setItem(KEY, JSON.stringify(map)); }catch(e){}
+    try{ localStorage.setItem(KEY, JSON.stringify(normalizeEmailMap(map||{}))); }catch(e){}
   }
   function customerKey(){
     return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
@@ -5570,22 +5599,32 @@ finally{ window.__pdfBuilding=false; }
   function splitEmails(s){
     return String(s||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
   }
+  function dedupeEmailList(list){
+    const seen=Object.create(null), uniq=[];
+    (list||[]).forEach(e=>{
+      const s=String(e||"").trim();
+      if(!s || s.indexOf("@")<1) return;
+      const n=s.toLowerCase();
+      if(seen[n]) return;
+      seen[n]=1;
+      uniq.push(s);
+    });
+    return uniq;
+  }
   function mergeEmailMaps(a,b){
     const out={};
-    Object.keys(a||{}).concat(Object.keys(b||{})).forEach(k=>{
-      const list=[].concat((a&&a[k])||[], (b&&b[k])||[]);
-      const seen=Object.create(null), uniq=[];
-      list.forEach(e=>{
-        const s=String(e||"").trim();
-        if(!s || s.indexOf("@")<1) return;
-        const n=s.toLowerCase();
-        if(seen[n]) return;
-        seen[n]=1;
-        uniq.push(s);
-      });
+    Object.keys(a||{}).concat(Object.keys(b||{})).forEach(raw=>{
+      const k=String(raw||"").trim().toLowerCase();
+      if(!k) return;
+      const list=[].concat(out[k]||[], (a&&a[raw])||[], (b&&b[raw])||[]);
+      const uniq=dedupeEmailList(list);
       if(uniq.length) out[k]=uniq;
+      else delete out[k];
     });
     return out;
+  }
+  function normalizeEmailMap(map){
+    return mergeEmailMaps(map||{}, {});
   }
   async function fetchSharedMap(path){
     try{
@@ -5626,14 +5665,11 @@ finally{ window.__pdfBuilding=false; }
     let hit=0;
     arr.forEach(c=>{
       const name=String((c&& (c.firma||c.name))||"").trim().toLowerCase();
-      const match=name===k || (k.length>=6 && name.indexOf(k)===0) || (name.length>=6 && k.indexOf(name)===0);
-      if(!match) return;
+      if(name!==k) return;
       hit++;
-      const have=String(c.email||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
-      if(!have.some(x=>x.toLowerCase()===e.toLowerCase())){
-        have.push(e);
-        c.email=have.join("; ");
-      }
+      const have=dedupeEmailList(splitEmails(c.email));
+      if(!have.some(x=>x.toLowerCase()===e.toLowerCase())) have.push(e);
+      c.email=have.join("; ");
     });
     // E-Mail merken for a new firm name must also create the Kundenliste entry
     // (previously only customer-emails.json was updated).
@@ -5659,10 +5695,9 @@ finally{ window.__pdfBuilding=false; }
     if(!k || !e) return arr;
     arr.forEach(c=>{
       const name=String((c&& (c.firma||c.name))||"").trim().toLowerCase();
-      const match=name===k || (k.length>=6 && name.indexOf(k)===0) || (name.length>=6 && k.indexOf(name)===0);
-      if(!match) return;
-      const have=String(c.email||"").split(/[;,]/).map(x=>x.trim()).filter(x=>x && x.indexOf("@")>0);
-      c.email=have.filter(x=>x.toLowerCase()!==e).join("; ");
+      if(name!==k) return;
+      // Only remove the address — never drop the firm from Kundenliste
+      c.email=dedupeEmailList(splitEmails(c.email).filter(x=>x.toLowerCase()!==e)).join("; ");
     });
     return arr;
   }
@@ -5671,16 +5706,21 @@ finally{ window.__pdfBuilding=false; }
     const k=customerKey();
     const displayName=String((typeof firmaName==="function"?firmaName():"")||k).trim();
     const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
-      const merged=mergeEmailMaps(window.sbLists.asMap(remote), local||{});
-      if(remove && email && k && Array.isArray(merged[k])){
-        merged[k]=merged[k].filter(x=>x.toLowerCase()!==String(email).toLowerCase());
-        if(!merged[k].length) delete merged[k];
+      const merged=normalizeEmailMap(mergeEmailMaps(window.sbLists.asMap(remote), local||{}));
+      if(remove && email && k){
+        const want=String(email).toLowerCase();
+        Object.keys(merged).forEach(key=>{
+          if(String(key).toLowerCase()!==k) return;
+          merged[key]=dedupeEmailList((merged[key]||[]).filter(x=>x.toLowerCase()!==want));
+          if(!merged[key].length) delete merged[key];
+        });
       }
       return merged;
     });
-    if(emailPush && emailPush.merged) saveMap(emailPush.merged);
+    if(emailPush && emailPush.merged) saveMap(normalizeEmailMap(emailPush.merged));
     let companyPush=null;
     if(email && displayName){
+      const localSnapshot=Array.isArray(companies)?companies.map(c=>Object.assign({},c)):[];
       companyPush=await window.sbLists.pushMerged("companies", {firma:displayName, email}, remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste", function(remote, local){
         if(!Array.isArray(remote)) return remote;
         return remove
@@ -5688,7 +5728,11 @@ finally{ window.__pdfBuilding=false; }
           : mergeCompanyEmails(remote, local.firma, local.email);
       });
       if(companyPush && companyPush.result && companyPush.result.ok && Array.isArray(companyPush.merged) && typeof applyCompanies==="function"){
-        applyCompanies(companyPush.merged, displayName);
+        // Never replace local list with cloud-only — that dropped firms created via E-Mail merken
+        const keep=typeof unionCompaniesPreferLocal==="function"
+          ? unionCompaniesPreferLocal(companyPush.merged, localSnapshot)
+          : companyPush.merged;
+        applyCompanies(keep, displayName);
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(displayName);
       }
     }
@@ -5698,17 +5742,19 @@ finally{ window.__pdfBuilding=false; }
   }
   function emailsForCustomer(){
     const k=customerKey();
-    const fromJson=splitEmails((typeof selectedCompany==="function" && selectedCompany()) ? (selectedCompany().email||"") : "");
+    const fromCompany=typeof companyRecordByName==="function" ? companyRecordByName(k) : null;
+    const fromSelected=(typeof selectedCompany==="function" && selectedCompany()) ? selectedCompany() : null;
+    const fromJson=dedupeEmailList([].concat(
+      splitEmails(fromSelected && fromSelected.email),
+      splitEmails(fromCompany && fromCompany.email)
+    ));
     const map=loadMap();
-    const extra=k && Array.isArray(map[k]) ? map[k] : [];
-    const seen=Object.create(null), out=[];
-    fromJson.concat(extra).forEach(e=>{
-      const n=e.toLowerCase();
-      if(seen[n]) return;
-      seen[n]=1;
-      out.push(e);
+    const extra=[];
+    Object.keys(map||{}).forEach(key=>{
+      if(String(key).trim().toLowerCase()!==k) return;
+      if(Array.isArray(map[key])) extra.push.apply(extra, map[key]);
     });
-    return out;
+    return dedupeEmailList(fromJson.concat(extra));
   }
   function validEmail(e){
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim());
@@ -5787,26 +5833,31 @@ finally{ window.__pdfBuilding=false; }
     await prev;
     try{
     const k=customerKey();
+    const displayName=String((typeof firmaName==="function"?firmaName():"")||k).trim();
     const e=String(email||"").trim();
     if(!k || !validEmail(e)) return false;
     await pullEmails();
     const map=loadMap();
-    const list=Array.isArray(map[k])?map[k]:[];
-    const next=list.filter(x=>x.toLowerCase()!==e.toLowerCase());
-    if(next.length) map[k]=next;
-    else delete map[k];
+    const want=e.toLowerCase();
+    Object.keys(map).forEach(key=>{
+      if(String(key).trim().toLowerCase()!==k) return;
+      const next=dedupeEmailList((map[key]||[]).filter(x=>x.toLowerCase()!==want));
+      if(next.length) map[key]=next;
+      else delete map[key];
+    });
     saveMap(map);
     syncEmailSaveButton();
     try{
       if(typeof companies!=="undefined" && Array.isArray(companies) && typeof applyCompanies==="function"){
-        applyCompanies(stripCompanyEmail(companies, k, e), typeof firmaName==="function"?firmaName():"");
+        // Strip email only — firm stays on Kundenliste
+        applyCompanies(stripCompanyEmail(companies, displayName, e), displayName);
       }
     }catch(err){}
     const pushed=await pushEmails("E-Mail gelöscht: "+k, e, true);
     const s=$("status");
     if(s){
-      if(pushed && pushed.ok) s.textContent="E-Mail aus der Kundenliste gelöscht.";
-      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail lokal gelöscht.";
+      if(pushed && pushed.ok) s.textContent="E-Mail gelöscht. Kunde bleibt in der Liste.";
+      else if(pushed && pushed.reason==="no-token") s.textContent="E-Mail lokal gelöscht. Kunde bleibt in der Liste.";
       else s.textContent="E-Mail lokal gelöscht. GitHub "+((pushed&&(pushed.status||pushed.reason))||"Fehler")+" – noch einmal tippen.";
     }
     return true;
