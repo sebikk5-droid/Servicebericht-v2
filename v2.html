@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.38">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.40">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.38</title>
+  <title>Servicebericht v3.40</title>
 <script>
-window.SB_APP_VERSION="3.38";
+window.SB_APP_VERSION="3.40";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -728,7 +728,7 @@ select.is-nudge,input.is-nudge{
   background:#e5e5ea;color:#111;
 }
 #tokenModal{
-  display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
+  display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
 }
 #tokenModal.is-open{display:flex}
@@ -751,7 +751,14 @@ select.is-nudge,input.is-nudge{
 #routeModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
 #routeModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #routeModal .email-actions button{flex:1 1 30%;min-width:90px}
-#routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
+#routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+#routeModalErr.is-info{color:#163a5c}
+#companySave:disabled,#companyRouteEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled{opacity:.72}
+.company-cloud-status{margin:8px 0 0;font-size:14px;line-height:1.35;font-weight:650;overflow-wrap:anywhere}
+.company-cloud-status[hidden]{display:none!important}
+.company-cloud-status.is-wait{color:#163a5c}
+.company-cloud-status.is-ok{color:#067a32}
+.company-cloud-status.is-err{color:#b42318}
 #machineSaveModal{
   display:none;position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -815,7 +822,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.38</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.40</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -885,6 +892,7 @@ select.is-nudge,input.is-nudge{
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
 </div>
+<p id="companyCloudStatus" class="company-cloud-status" role="status" hidden></p>
 </section>
 
 <section class="card"><h2>Maschine</h2>
@@ -2490,15 +2498,19 @@ function syncCompanySaveButton(){
   const incomplete=!!existing && companyRouteIncomplete(existing);
   // "Zur Kundenliste hinzufügen" only when the firm is not on the list at all.
   // E-Mail add/delete must not bring it back (firm may already exist as stub).
+  const firmKey=name.toLowerCase();
+  const pending=!!existing && typeof readCompaniesPending==="function" && readCompaniesPending().indexOf(firmKey)>=0;
+  const saving=!!window.sbCompanySaveBusy;
   if(btn){
+    btn.disabled=saving;
     if(!name || existing){
       btn.hidden=true;
       btn.classList.remove("is-pulse");
       btn.textContent="Zur Kundenliste hinzufügen";
     }else{
       btn.hidden=false;
-      btn.textContent="Zur Kundenliste hinzufügen";
-      btn.classList.add("is-pulse");
+      btn.textContent=saving ? "Speichert auf GitHub…" : "Zur Kundenliste hinzufügen";
+      btn.classList.toggle("is-pulse", !saving);
     }
   }
   if(bar){
@@ -2507,16 +2519,39 @@ function syncCompanySaveButton(){
       if(label) label.textContent=formatListedRoute(existing);
       if(edit){
         edit.hidden=false;
-        edit.textContent=incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern";
-        edit.classList.toggle("is-pulse", incomplete);
+        edit.disabled=saving;
+        edit.textContent=saving
+          ? "Speichert auf GitHub…"
+          : (pending ? "Auf GitHub speichern" : (incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern"));
+        edit.classList.toggle("is-pulse", saving || pending || incomplete);
       }
     }else{
       bar.hidden=true;
       if(edit){
         edit.hidden=true;
+        edit.disabled=false;
         edit.classList.remove("is-pulse");
         edit.textContent="km / Reisezeit ändern";
       }
+    }
+  }
+  const cloud=$("companyCloudStatus");
+  if(cloud){
+    const same=cloud.dataset.for===firmKey;
+    if(cloud.dataset.hold==="1" && same){
+      /* saveCompanyRoute owns this message until the firm changes */
+    }else if(existing && pending && !saving){
+      cloud.hidden=false;
+      cloud.className="company-cloud-status is-err";
+      cloud.dataset.for=firmKey;
+      delete cloud.dataset.hold;
+      cloud.textContent="Nur auf diesem Gerät. GitHub hat die Firma noch nicht – „Auf GitHub speichern“ tippen.";
+    }else{
+      cloud.hidden=true;
+      cloud.textContent="";
+      cloud.className="company-cloud-status";
+      delete cloud.dataset.hold;
+      delete cloud.dataset.for;
     }
   }
 }
@@ -2761,7 +2796,7 @@ window.loadCompaniesFromCloud=async function(opts){
         }
       }
       finishCompaniesLoad(list, {skipDraft});
-      if(s && !opts.quiet){
+      if(s && !opts.quiet && !(window.sbCompanyStatusUntil && Date.now()<window.sbCompanyStatusUntil)){
         const dropped=Math.max(0, (localNow||[]).length - list.length);
         s.textContent=dropped
           ? "Kundenliste mit GitHub abgeglichen ("+list.length+" Firmen, lokal entfernte gelöscht)."
@@ -2783,6 +2818,12 @@ window.loadCompaniesFromCloud=async function(opts){
             pendingSnap.forEach(function(k){
               if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(k);
             });
+            const cloudEl=$("companyCloudStatus");
+            if(cloudEl && cloudEl.dataset.hold==="1" && cloudEl.classList.contains("is-err")){
+              const fk=String(cloudEl.dataset.for||"");
+              const still=typeof readCompaniesPending==="function" && readCompaniesPending().indexOf(fk)>=0;
+              if(!still) delete cloudEl.dataset.hold;
+            }
             if(Array.isArray(out.merged)){
               finishCompaniesLoad(out.merged, {skipDraft:true});
               try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
@@ -5134,7 +5175,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.38";
+  const APP_VERSION=window.SB_APP_VERSION||"3.40";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5388,7 +5429,11 @@ finally{ window.__pdfBuilding=false; }
   function parseGithubContentsJson(text, status){
     try{
       const j=JSON.parse(String(text||""));
-      if(!j || !j.content) return {data:null, sha:(j&&j.sha)||"", status:status};
+      if(!j || !j.content){
+        const size=Number(j&&j.size)||0;
+        const reason=(size>1000000 || (j&&String(j.encoding||"")==="none")) ? "too-large" : "empty";
+        return {data:null, sha:(j&&j.sha)||"", status:status, reason:reason, size:size};
+      }
       const raw=String(j.content).replace(/\n/g,"");
       const bin=atob(raw);
       const n=bin.length;
@@ -5398,6 +5443,123 @@ finally{ window.__pdfBuilding=false; }
       return {data:JSON.parse(fileText), sha:j.sha||"", status:status};
     }catch(e){
       return {data:null, sha:"", status:status, reason:"parse"};
+    }
+  }
+  function looksTooLarge(status, reason){
+    if(reason==="too-large") return true;
+    return /too[ _-]?large|blobs up to|1\s*mb|exceeds.{0,24}limit|size limit/i.test(String(reason||""));
+  }
+  function companyDataReadable(remote){
+    if(!remote) return false;
+    if(remote.status===404) return true;
+    const d=remote.data;
+    return Array.isArray(d) || !!(d && (Array.isArray(d.companies) || Array.isArray(d.data)));
+  }
+  function shouldGitRead(got){
+    if(!got || got.status===404) return false;
+    if(looksTooLarge(got.status, got.reason)) return true;
+    if(got.sha && got.data==null && (got.reason==="empty" || got.reason==="too-large")) return true;
+    return false;
+  }
+  async function readGithubError(res){
+    try{
+      const raw=await res.text();
+      try{
+        const j=JSON.parse(raw);
+        return String((j&&j.message)||raw||"").replace(/\s+/g," ").slice(0,180);
+      }catch(e){ return String(raw||"").replace(/\s+/g," ").slice(0,180); }
+    }catch(e){ return ""; }
+  }
+  function gitApi(path){
+    const r=dataRepo();
+    return "https://api.github.com/repos/"+encodeURIComponent(r.owner)+"/"+encodeURIComponent(r.repo)+path;
+  }
+  async function readViaGit(path){
+    const hdrs=headers(true);
+    const r=dataRepo();
+    try{
+      const refRes=await githubFetch(gitApi("/git/ref/heads/"+encodeURIComponent(r.branch)), {headers:hdrs, timeoutMs:20000});
+      if(!refRes.ok) return {data:null, sha:"", status:refRes.status, reason:await readGithubError(refRes)||"http"};
+      const ref=await refRes.json();
+      const commitSha=ref&&ref.object&&ref.object.sha;
+      if(!commitSha) return {data:null, sha:"", status:0, reason:"no-sha"};
+      const commitRes=await githubFetch(gitApi("/git/commits/"+commitSha), {headers:hdrs, timeoutMs:20000});
+      if(!commitRes.ok) return {data:null, sha:"", status:commitRes.status, reason:await readGithubError(commitRes)||"http"};
+      const commit=await commitRes.json();
+      const treeSha=commit&&commit.tree&&commit.tree.sha;
+      if(!treeSha) return {data:null, sha:"", status:0, reason:"no-sha"};
+      const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha), {headers:hdrs, timeoutMs:30000});
+      if(!treeRes.ok) return {data:null, sha:"", status:treeRes.status, reason:await readGithubError(treeRes)||"http"};
+      const tree=await treeRes.json();
+      const entry=((tree&&tree.tree)||[]).find(function(x){ return x.path===path; });
+      if(!entry) return {data:null, sha:"", status:404};
+      const blobRes=await githubFetch(gitApi("/git/blobs/"+entry.sha), {headers:hdrs, timeoutMs:60000});
+      if(!blobRes.ok) return {data:null, sha:"", status:blobRes.status, reason:await readGithubError(blobRes)||"http"};
+      const blob=await blobRes.json();
+      const text=decodeContent(blob&&blob.content);
+      if(!text) return {data:null, sha:entry.sha||"", status:200, reason:"empty"};
+      try{ return {data:JSON.parse(text), sha:entry.sha||"", status:200, via:"git"}; }
+      catch(e){ return {data:null, sha:"", status:200, reason:"parse"}; }
+    }catch(e){
+      return {data:null, sha:"", status:0, reason:"network"};
+    }
+  }
+  async function putViaGit(path, text, message, baseBlobSha){
+    const hdrs=Object.assign({"Content-Type":"application/json"}, headers(true));
+    const r=dataRepo();
+    try{
+      let blobBody="";
+      try{ blobBody=JSON.stringify({content:text, encoding:"utf-8"}); }
+      catch(e){ return {ok:false, reason:"encode", status:0}; }
+      const blobRes=await githubFetch(gitApi("/git/blobs"), {method:"POST", headers:hdrs, timeoutMs:60000, body:blobBody});
+      if(!blobRes.ok) return {ok:false, status:blobRes.status, reason:await readGithubError(blobRes)||"http"};
+      const blob=await blobRes.json();
+      const newBlob=blob&&blob.sha;
+      if(!newBlob) return {ok:false, reason:"no-sha", status:blobRes.status||0};
+      const refRes=await githubFetch(gitApi("/git/ref/heads/"+encodeURIComponent(r.branch)), {headers:hdrs, timeoutMs:20000});
+      if(!refRes.ok) return {ok:false, status:refRes.status, reason:await readGithubError(refRes)||"http"};
+      const ref=await refRes.json();
+      const commitSha=ref&&ref.object&&ref.object.sha;
+      if(!commitSha) return {ok:false, reason:"no-sha", status:0};
+      const commitRes=await githubFetch(gitApi("/git/commits/"+commitSha), {headers:hdrs, timeoutMs:20000});
+      if(!commitRes.ok) return {ok:false, status:commitRes.status, reason:await readGithubError(commitRes)||"http"};
+      const commit=await commitRes.json();
+      const treeSha=commit&&commit.tree&&commit.tree.sha;
+      if(!treeSha) return {ok:false, reason:"no-sha", status:0};
+      if(baseBlobSha){
+        const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha), {headers:hdrs, timeoutMs:30000});
+        if(treeRes.ok){
+          const tree=await treeRes.json();
+          const entry=((tree&&tree.tree)||[]).find(function(x){ return x.path===path; });
+          const current=entry&&entry.sha;
+          if(current && current!==baseBlobSha) return {ok:false, status:409, reason:"conflict"};
+        }
+      }
+      const treeWrite=await githubFetch(gitApi("/git/trees"), {
+        method:"POST", headers:hdrs, timeoutMs:60000,
+        body:JSON.stringify({base_tree:treeSha, tree:[{path:path, mode:"100644", type:"blob", sha:newBlob}]})
+      });
+      if(!treeWrite.ok) return {ok:false, status:treeWrite.status, reason:await readGithubError(treeWrite)||"http"};
+      const newTree=await treeWrite.json();
+      if(!newTree||!newTree.sha) return {ok:false, reason:"no-sha", status:0};
+      const commitWrite=await githubFetch(gitApi("/git/commits"), {
+        method:"POST", headers:hdrs, timeoutMs:60000,
+        body:JSON.stringify({message:message||("Aktualisiere "+path), tree:newTree.sha, parents:[commitSha]})
+      });
+      if(!commitWrite.ok) return {ok:false, status:commitWrite.status, reason:await readGithubError(commitWrite)||"http"};
+      const newCommit=await commitWrite.json();
+      if(!newCommit||!newCommit.sha) return {ok:false, reason:"no-sha", status:0};
+      const patch=await githubFetch(gitApi("/git/refs/heads/"+encodeURIComponent(r.branch)), {
+        method:"PATCH", headers:hdrs, timeoutMs:20000,
+        body:JSON.stringify({sha:newCommit.sha})
+      });
+      if(!patch.ok){
+        const reason=await readGithubError(patch);
+        return {ok:false, status:patch.status===422?409:patch.status, reason:reason||"http"};
+      }
+      return {ok:true, sha:newBlob, via:"git"};
+    }catch(e){
+      return {ok:false, reason:"network", status:0};
     }
   }
   async function parseContents(res){
@@ -5417,11 +5579,16 @@ finally{ window.__pdfBuilding=false; }
       });
       if(res.status===404) return {data:null, sha:"", status:404};
       if(res.ok) return parseContents(res);
-      return {data:null, sha:"", status:res.status, reason:"http"};
+      return {data:null, sha:"", status:res.status, reason:await readGithubError(res)||"http"};
     }
     try{
       const authed=await fromApi(true);
-      if(authed.sha || authed.status===404) return authed;
+      // Contents API omits bodies over 1 MB. Do not treat that as an empty list.
+      if(kind==="companies" && shouldGitRead(authed)){
+        const via=await readViaGit(path);
+        if(via && (via.status===404 || companyDataReadable(via))) return via;
+        return {data:null, sha:authed.sha||"", status:authed.status||(via&&via.status)||0, reason:(via&&via.reason)||authed.reason||"unreadable"};
+      }
       return authed;
     }catch(e){
       return {data:null, sha:"", status:0, reason:"network"};
@@ -5443,9 +5610,18 @@ finally{ window.__pdfBuilding=false; }
     if(!t) return {ok:false, reason:"no-token"};
     const path=FILES[kind]||kind;
     const r=dataRepo();
-    let content="";
-    try{ content=encodeContent(JSON.stringify(data, null, 2)+"\n"); }
+    let text="";
+    try{ text=JSON.stringify(data, null, 2)+"\n"; }
     catch(e){ return {ok:false, reason:"encode", status:0}; }
+    // Contents PUT base64-inflates the body and rejects files over 1 MB.
+    if(kind==="companies" && text.length>700000)
+      return putViaGit(path, text, message, sha||"");
+    let content="";
+    try{ content=encodeContent(text); }
+    catch(e){
+      if(kind==="companies") return putViaGit(path, text, message, sha||"");
+      return {ok:false, reason:"encode", status:0};
+    }
     const body={
       message: message||("Aktualisiere "+path),
       content,
@@ -5460,15 +5636,14 @@ finally{ window.__pdfBuilding=false; }
         timeoutMs: kind==="companies" ? 60000 : 20000
       });
       if(!res.ok){
-        let reason="";
-        try{
-          const raw=await res.text();
-          try{
-            const j=JSON.parse(raw);
-            reason=String((j&&j.message)||raw||"").replace(/\s+/g," ").slice(0,180);
-          }catch(_e){ reason=String(raw||"").replace(/\s+/g," ").slice(0,180); }
-        }catch(e){}
-        return {ok:false, status:res.status, reason:reason||"http"};
+        const reason=await readGithubError(res);
+        const failed={ok:false, status:res.status, reason:reason||"http"};
+        if(kind==="companies" && res.status!==409 && res.status!==401 && (looksTooLarge(res.status, reason) || res.status===422)){
+          const gitRes=await putViaGit(path, text, message, sha||"");
+          if(gitRes && gitRes.ok) return gitRes;
+          return (gitRes && gitRes.reason) ? gitRes : failed;
+        }
+        return failed;
       }
       let shaOut="";
       try{ const j=await res.json(); shaOut=(j.content&&j.content.sha)||(j.commit&&j.commit.sha)||""; }catch(e){}
@@ -5496,11 +5671,17 @@ finally{ window.__pdfBuilding=false; }
           await sleep(250*(i+1));
           continue;
         }
-        if(remote && (remote.status===401 || remote.status===403)){
-          return {merged:localData, result:{ok:false, status:remote.status, reason:"http"}};
+        if(remote && (remote.status===401 || remote.status===403) && !looksTooLarge(remote.status, remote.reason)){
+          return {merged:localData, result:{ok:false, status:remote.status, reason:remote.reason||"http"}};
         }
         if(remote && remote.reason==="parse" && !remote.sha){
           last={ok:false, reason:"parse", status:remote.status||0};
+          await sleep(250*(i+1));
+          continue;
+        }
+        // A missing body must not become [] — that PUT would wipe companies.json.
+        if(kind==="companies" && remote && !companyDataReadable(remote)){
+          last={ok:false, reason:remote.reason||"unreadable", status:remote.status||0};
           await sleep(250*(i+1));
           continue;
         }
@@ -5563,15 +5744,89 @@ finally{ window.__pdfBuilding=false; }
 (function(){
   let saveLock=Promise.resolve();
   let routeWait=null;
-  function closeRouteModal(value){
+  let routeModalBusy=false;
+  function settleRouteModal(value, keepOpen){
     const modal=$("routeModal");
-    if(modal){
+    if(!keepOpen && modal){
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden","true");
     }
     const r=routeWait;
     routeWait=null;
     if(r) r(value);
+  }
+  function closeRouteModal(value){
+    routeModalBusy=false;
+    const save=$("routeModalSave");
+    const cancel=$("routeModalCancel");
+    if(save){ save.disabled=false; save.textContent="Speichern"; }
+    if(cancel) cancel.disabled=false;
+    const err=$("routeModalErr");
+    if(err) err.classList.remove("is-info");
+    settleRouteModal(value, false);
+  }
+  function setRouteModalBusy(on, text){
+    routeModalBusy=!!on;
+    const save=$("routeModalSave");
+    const cancel=$("routeModalCancel");
+    const err=$("routeModalErr");
+    if(save){
+      save.disabled=!!on;
+      save.textContent=on ? "Speichert…" : "Erneut speichern";
+    }
+    if(cancel) cancel.disabled=false;
+    if(err){
+      err.textContent=text||"";
+      err.classList.toggle("is-info", !!on);
+    }
+  }
+  function showCompanyCloud(text, kind, firmKey, hold){
+    const el=$("companyCloudStatus");
+    if(!el) return;
+    if(!text){
+      el.hidden=true;
+      el.textContent="";
+      el.className="company-cloud-status";
+      delete el.dataset.hold;
+      delete el.dataset.for;
+      return;
+    }
+    el.hidden=false;
+    el.textContent=text;
+    el.className="company-cloud-status is-"+(kind||"wait");
+    if(firmKey) el.dataset.for=firmKey;
+    if(hold) el.dataset.hold="1";
+    else delete el.dataset.hold;
+  }
+  function nextPaint(){
+    return new Promise(function(resolve){
+      requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
+    });
+  }
+  function githubFailText(result, onGit){
+    const detail=String((result&&result.reason)||"").trim();
+    const code=result&&result.status ? " HTTP "+result.status : "";
+    const extra=detail && detail!=="http" && detail!=="network" ? ": "+detail : "";
+    if(result && result.ok && !onGit)
+      return "Lokal gespeichert, aber die Firma fehlt in der GitHub-Antwort. „Erneut speichern“.";
+    if(result && result.reason==="no-token")
+      return "Nur auf diesem Gerät. Token setzen (online), dann „Erneut speichern“.";
+    if(result && (result.status===401 || result.status===403) && !looksTooLargeSafe(detail))
+      return "GitHub hat abgelehnt"+code+". Token braucht Schreibrecht auf Servicebericht-listen"+extra+".";
+    if(result && result.status===404)
+      return "Repo Servicebericht-listen nicht gefunden (404).";
+    if(result && result.reason==="encode")
+      return "Datei konnte nicht kodiert werden. App neu laden, dann „Erneut speichern“.";
+    if(result && result.reason==="network")
+      return "Keine Verbindung zu GitHub. WLAN prüfen, dann „Erneut speichern“.";
+    if(result && (result.reason==="no-sha" || result.reason==="parse" || result.reason==="unreadable" || result.reason==="empty" || result.reason==="too-large"))
+      return "GitHub-Datei nicht lesbar"+extra+". „Erneut speichern“.";
+    if(result && result.reason==="missing-key")
+      return "Firma fehlt auf GitHub. „Erneut speichern“.";
+    return "GitHub-Fehler"+code+extra+". „Erneut speichern“.";
+  }
+  function looksTooLargeSafe(detail){
+    return /too[ _-]?large|blobs up to|1\s*mb/i.test(String(detail||""));
   }
   function askRouteDialog(firma, updating){
     const modal=$("routeModal");
@@ -5585,7 +5840,12 @@ finally{ window.__pdfBuilding=false; }
     if(hint) hint.textContent=updating
       ? "Kilometer und Reisezeit ändern (Minuten z. B. 90, oder 1:15 / 1,25 Std)."
       : "Eine Strecke: km + Reisezeit (Minuten z. B. 90, oder 1:15 / 1,25 Std). Für Tag 1.";
-    if(err) err.textContent="";
+    if(err){ err.textContent=""; err.classList.remove("is-info"); }
+    const saveBtn=$("routeModalSave");
+    const cancelBtn=$("routeModalCancel");
+    if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent="Speichern"; }
+    if(cancelBtn) cancelBtn.disabled=false;
+    routeModalBusy=false;
     const kmNow=String(document.querySelector('[data-k="Kilometer1"]')?.value||"").trim();
     const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
     const fromList=typeof companyRecordByName==="function" ? companyRecordByName(firma) : null;
@@ -5633,22 +5893,34 @@ finally{ window.__pdfBuilding=false; }
     }
     return {km, minutes};
   }
-  $("routeModalCancel")?.addEventListener("click",()=>closeRouteModal(null));
+  function hideRouteModalOnly(){
+    const modal=$("routeModal");
+    if(!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+  }
+  $("routeModalCancel")?.addEventListener("click",()=>{
+    if(routeModalBusy){ hideRouteModalOnly(); return; }
+    closeRouteModal(null);
+  });
   $("routeModal")?.addEventListener("click",e=>{
-    if(e.target===$("routeModal")) closeRouteModal(null);
+    if(e.target!==$("routeModal")) return;
+    if(routeModalBusy){ hideRouteModalOnly(); return; }
+    closeRouteModal(null);
   });
   $("routeModalSave")?.addEventListener("click",()=>{
+    if(routeModalBusy) return;
     const route=readRouteFromModal();
     if(!route) return;
-    closeRouteModal(route);
+    settleRouteModal(route, true);
   });
   ["routeModalKm","routeModalTime"].forEach(function(id){
     $(id)?.addEventListener("keydown",function(e){
-      if(e.key==="Enter"){
-        e.preventDefault();
-        const route=readRouteFromModal();
-        if(route) closeRouteModal(route);
-      }
+      if(e.key!=="Enter") return;
+      e.preventDefault();
+      if(routeModalBusy) return;
+      const route=readRouteFromModal();
+      if(route) settleRouteModal(route, true);
     });
   });
   async function saveCompanyRoute(){
@@ -5667,111 +5939,110 @@ finally{ window.__pdfBuilding=false; }
       const existed=typeof companyRecordByName==="function"
         ? !!companyRecordByName(rec.firma)
         : (Array.isArray(companies) && companies.some(c=>companyNameKey(c)===rec.firma.toLowerCase()));
-      const route=await askRouteDialog(rec.firma, existed);
+      let route=await askRouteDialog(rec.firma, existed);
       if(!route){
         if(s) s.textContent="Speichern abgebrochen.";
         return;
       }
-      rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
-      rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
-      const day1=document.querySelector('[data-daybox="1"]');
-      const km1=document.querySelector('[data-k="Kilometer1"]');
-      const km2=document.querySelector('[data-k="Kilometer2"]');
-      // Only fill KM when the matching trip clocks are present — otherwise
-      // applyCustomerRouteDay → syncKmFieldsForDay would clear them again.
-      if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
-        km1.value=route.km; km1.dataset.kmManual="0";
-      }
-      if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
-        km2.value=route.km; km2.dataset.kmManual="0";
-      }
-      function keepLocal(){
-        if(typeof mergeCompanyRecord!=="function") return;
-        const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
-        if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
-        if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
-        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
-        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
-        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
-          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
-        }
-        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-        if(rec.email && typeof window.rememberEmailForCustomer==="function")
-          window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:false});
-        else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
-      }
-      // Apply locally first so Tag-Zeiten immediately use km/Reisezeit (and survive a cloud pull race)
-      keepLocal();
-      if(!window.sbLists){
-        if(s) s.textContent="Kunde steht auf diesem Gerät. Mit Internet und Token geht er in GitHub.";
-        return;
-      }
-      if(s) s.textContent="Kunde wird in Servicebericht-listen (GitHub) gespeichert…";
       const firmKey=String(rec.firma||"").trim().toLowerCase();
-      const {merged, result}=await window.sbLists.pushMerged(
-        "companies",
-        rec,
-        existed ? "Kunde aktualisiert: "+rec.firma+" ("+route.km+" km / "+route.minutes+" Min)" : "Neuer Kunde: "+rec.firma,
-        function(remote, local){ return mergeCompanyRecord(remote, local); },
-        {forcePut:true, requireKey:firmKey}
-      );
-      const written=Array.isArray(merged) ? merged : null;
-      const onGit=!!(written && written.some(c=>companyNameKey(c)===firmKey));
-      if(result && result.ok && onGit){
-        // Trust the array that was / would be written — do not re-union in a way
-        // that can drop the new firm after pending is cleared.
-        if(typeof applyCompanies==="function") applyCompanies(written, rec.firma);
-        if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
-        window.sbCompanySaveGuardKey=firmKey;
-        window.sbCompanySaveGuardUntil=Date.now()+10000;
-        if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
-        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
-        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
-          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+      const repoInfo=(window.sbLists&&window.sbLists.dataRepo)?window.sbLists.dataRepo():{owner:"",repo:"Servicebericht-listen"};
+      const where=(repoInfo.owner?repoInfo.owner+"/":"")+(repoInfo.repo||"Servicebericht-listen")+"/companies.json";
+      while(route){
+        rec=typeof companyRecordFromForm==="function"?companyRecordFromForm(route):rec;
+        rec.notatki=typeof formatRouteNote==="function"?formatRouteNote(route.km, route.minutes):rec.notatki;
+        const day1=document.querySelector('[data-daybox="1"]');
+        const km1=document.querySelector('[data-k="Kilometer1"]');
+        const km2=document.querySelector('[data-k="Kilometer2"]');
+        // Only fill KM when the matching trip clocks are present — otherwise
+        // applyCustomerRouteDay → syncKmFieldsForDay would clear them again.
+        if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
+          km1.value=route.km; km1.dataset.kmManual="0";
         }
-        if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-        // Email already on companies.json — mirror locally so „E-Mail merken“ hides.
-        if(rec.email && typeof window.rememberEmailForCustomer==="function")
-          window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:true});
-        else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
-        const repoName=(window.sbLists.dataRepo&&window.sbLists.dataRepo().repo)||"Servicebericht-listen";
-        if(s) s.textContent=result.skipped
-          ? "Bereits auf GitHub ("+repoName+"): "+route.km+" km / "+route.minutes+" Min."
-          : (existed
-            ? "Auf GitHub ("+repoName+") gespeichert: "+route.km+" km / "+route.minutes+" Min."
-            : "Neuer Kunde auf GitHub ("+repoName+") gespeichert.");
-      }else{
-        // Stay pending so next cloud sync retries the write
-        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
-        if(!s) return;
-        if(result && result.ok && !onGit){
-          s.textContent="Lokal gespeichert, aber Firma fehlt in GitHub-Antwort – noch einmal speichern.";
+        if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
+          km2.value=route.km; km2.dataset.kmManual="0";
+        }
+        function keepLocal(){
+          if(typeof mergeCompanyRecord!=="function") return;
+          const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], rec);
+          if(typeof applyCompanies==="function") applyCompanies(local, rec.firma);
+          if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
+          if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
+          if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+          for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+            if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+          }
+          if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+          if(rec.email && typeof window.rememberEmailForCustomer==="function")
+            window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:false});
+          else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
+        }
+        const waitText="Wird auf GitHub gespeichert ("+where+")…";
+        setRouteModalBusy(true, waitText);
+        showCompanyCloud(waitText, "wait", firmKey, true);
+        if(s) s.textContent=waitText;
+        window.sbCompanyStatusUntil=Date.now()+20000;
+        await nextPaint();
+        keepLocal();
+        let merged=null, result=null;
+        if(!window.sbLists){
+          result={ok:false, reason:"no-token"};
+        }else{
+          const out=await window.sbLists.pushMerged(
+            "companies",
+            rec,
+            existed ? "Kunde aktualisiert: "+rec.firma+" ("+route.km+" km / "+route.minutes+" Min)" : "Neuer Kunde: "+rec.firma,
+            function(remote, local){ return mergeCompanyRecord(remote, local); },
+            {forcePut:true, requireKey:firmKey}
+          );
+          merged=out.merged;
+          result=out.result;
+        }
+        const written=Array.isArray(merged) ? merged : null;
+        const onGit=!!(written && written.some(c=>companyNameKey(c)===firmKey));
+        if(result && result.ok && onGit){
+          if(typeof applyCompanies==="function") applyCompanies(written, rec.firma);
+          if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(rec.firma);
+          window.sbCompanySaveGuardKey=firmKey;
+          window.sbCompanySaveGuardUntil=Date.now()+10000;
+          if(typeof selectCompanyByName==="function") selectCompanyByName(rec.firma);
+          if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+          for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+            if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+          }
+          if(rec.email && typeof window.rememberEmailForCustomer==="function")
+            window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:true});
+          else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
+          const okText=(result.skipped ? "Schon auf GitHub: " : "Auf GitHub gespeichert: ")+where+" – "+route.km+" km / "+route.minutes+" Min.";
+          showCompanyCloud(okText, "ok", firmKey, true);
+          if(s) s.textContent=okText;
+          window.sbCompanyStatusUntil=Date.now()+20000;
+          closeRouteModal(null);
           return;
         }
-        const detail=String((result&&result.reason)||"").trim();
-        const code=result&&result.status ? " HTTP "+result.status : "";
-        if(result && result.reason==="no-token")
-          s.textContent="Lokal gespeichert. Token setzen (online-Button), dann noch einmal speichern.";
-        else if(result && (result.status===401 || result.status===403))
-          s.textContent="Token ohne Schreibrecht auf Servicebericht-listen."+code;
-        else if(result && result.status===404)
-          s.textContent="Repo Servicebericht-listen nicht gefunden (404). Name/Token prüfen.";
-        else if(result && result.reason==="encode")
-          s.textContent="Datei konnte nicht kodiert werden. App neu laden, dann erneut tippen.";
-        else if(result && result.reason==="network")
-          s.textContent="Lokal OK, GitHub-Netz fehlgeschlagen – Wi-Fi prüfen und noch einmal speichern.";
-        else if(result && (result.reason==="no-sha" || result.reason==="parse"))
-          s.textContent="GitHub-Datei nicht lesbar – noch einmal speichern.";
-        else if(result && result.reason==="missing-key")
-          s.textContent="Firma fehlt auf GitHub – noch einmal speichern.";
-        else
-          s.textContent="GitHub-Fehler"+code+(detail?": "+detail:"")+" – noch einmal tippen.";
+        if(typeof markCompanyPending==="function") markCompanyPending(rec.firma);
+        const fail=githubFailText(result, onGit);
+        showCompanyCloud(fail, "err", firmKey, true);
+        if(s) s.textContent=fail;
+        window.sbCompanyStatusUntil=Date.now()+20000;
+        const modal=$("routeModal");
+        if(!modal || !modal.classList.contains("is-open")) return;
+        setRouteModalBusy(false, fail);
+        route=await new Promise(function(resolve){ routeWait=resolve; });
       }
     }catch(e){
-      if(s) s.textContent="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
-      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+      const msg="Speichern fehlgeschlagen: "+(e&&e.message?e.message:"Fehler");
+      if(s) s.textContent=msg;
+      showCompanyCloud(msg, "err", String($("customerSearch")?.value||"").trim().toLowerCase(), true);
+      window.sbCompanyStatusUntil=Date.now()+20000;
+      closeRouteModal(null);
     }finally{
       window.sbCompanySaveBusy=false;
+      routeModalBusy=false;
+      const saveBtn=$("routeModalSave");
+      const cancelBtn=$("routeModalCancel");
+      if(saveBtn) saveBtn.disabled=false;
+      if(cancelBtn) cancelBtn.disabled=false;
+      if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
       unlock();
     }
   }
