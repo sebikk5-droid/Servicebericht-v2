@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.36">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.37">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.36</title>
+  <title>Servicebericht v3.37</title>
 <script>
-window.SB_APP_VERSION="3.36";
+window.SB_APP_VERSION="3.37";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.36</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.37</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2549,7 +2549,8 @@ function mergeCompanyRecord(remote, rec){
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
     if(rec.adres) c.adres=rec.adres;
-    if(rec.notatki!=null) c.notatki=String(rec.notatki);
+    // Never wipe km/Reisezeit with "" (E-Mail merken used to blank notatki).
+    if(rec.notatki!=null && String(rec.notatki).trim()!=="") c.notatki=String(rec.notatki);
   }
   return arr;
 }
@@ -5120,7 +5121,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.36";
+  const APP_VERSION=window.SB_APP_VERSION||"3.37";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5669,6 +5670,9 @@ finally{ window.__pdfBuilding=false; }
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+        if(rec.email && typeof window.rememberEmailForCustomer==="function")
+          window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:false});
+        else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
       }
       // Apply locally first so Tag-Zeiten immediately use km/Reisezeit (and survive a cloud pull race)
       keepLocal();
@@ -5698,6 +5702,10 @@ finally{ window.__pdfBuilding=false; }
           if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
         }
         if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+        // Email already on companies.json — mirror locally so „E-Mail merken“ hides.
+        if(rec.email && typeof window.rememberEmailForCustomer==="function")
+          window.rememberEmailForCustomer(rec.firma, rec.email, {cloud:true});
+        else if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
         const repoName=(window.sbLists.dataRepo&&window.sbLists.dataRepo().repo)||"Servicebericht-listen";
         if(s) s.textContent=result.skipped
           ? "Bereits auf GitHub ("+repoName+"): "+route.km+" km / "+route.minutes+" Min."
@@ -5876,14 +5884,13 @@ finally{ window.__pdfBuilding=false; }
       const localSnapshot=Array.isArray(companies)?companies.map(c=>Object.assign({},c)):[];
       const street=String($("street")?.value||"").trim();
       const city=String($("city")?.value||"").trim();
+      // Email-only patch — do NOT send notatki:"" (that wiped km and hid the firm).
       const companyPayload={
         firma:displayName,
         email:String(email||"").trim(),
         adres:[street, city].filter(Boolean).join(", "),
-        tel:"",
-        notatki:""
+        tel:""
       };
-      // Always write companies.json for firm+email — never only customer-emails.json.
       companyPush=await window.sbLists.pushMerged(
         "companies",
         companyPayload,
@@ -5900,7 +5907,6 @@ finally{ window.__pdfBuilding=false; }
         {forcePut:true}
       );
       if(companyPush && companyPush.result && companyPush.result.ok && Array.isArray(companyPush.merged) && typeof applyCompanies==="function"){
-        // Never replace local list with cloud-only — that dropped firms created via E-Mail merken
         const keep=typeof unionCompaniesPreferLocal==="function"
           ? unionCompaniesPreferLocal(companyPush.merged, localSnapshot)
           : companyPush.merged;
@@ -5910,7 +5916,7 @@ finally{ window.__pdfBuilding=false; }
         markCompanyPending(displayName);
       }
     }
-    // Firm+email must land in companies.json — email-only success is not enough.
+    // New firm via Merken must land in companies.json.
     if(email && displayName && !remove){
       if(companyPush && companyPush.result && companyPush.result.ok){
         if(emailPush && emailPush.result && !emailPush.result.ok)
@@ -5972,6 +5978,39 @@ finally{ window.__pdfBuilding=false; }
     if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
     return !existed;
   }
+  /**
+   * After „Zur Kundenliste hinzufügen“ with an email already on the firm:
+   * store it in the local email map (hides E-Mail merken) and optionally
+   * sync customer-emails.json — without touching companies.json again.
+   */
+  window.rememberEmailForCustomer=function(firma, email, opts){
+    const name=String(firma||"").trim();
+    const e=String(email||"").trim();
+    if(!name || !validEmail(e)){
+      syncEmailCopyRow();
+      return false;
+    }
+    const k=name.toLowerCase();
+    const map=loadMap();
+    const list=Array.isArray(map[k])?map[k]:[];
+    if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
+    map[k]=list;
+    saveMap(map);
+    syncEmailCopyRow();
+    if(opts && opts.cloud && window.sbLists){
+      window.sbLists.pushMerged(
+        "emails",
+        loadMap(),
+        "E-Mail mit Kunde: "+name,
+        function(remote, local){
+          return normalizeEmailMap(mergeEmailMaps(window.sbLists.asMap(remote), local||{}));
+        }
+      ).then(function(out){
+        if(out && out.merged) saveMap(normalizeEmailMap(out.merged));
+      }).catch(function(){});
+    }
+    return true;
+  };
   async function addEmail(email, opts){
     const prev=addLock;
     let unlock=()=>{};
