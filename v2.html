@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.34">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.35">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.34</title>
+  <title>Servicebericht v3.35</title>
 <script>
-window.SB_APP_VERSION="3.34";
+window.SB_APP_VERSION="3.35";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.34</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.35</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5108,7 +5108,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.34";
+  const APP_VERSION=window.SB_APP_VERSION||"3.35";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5862,12 +5862,31 @@ finally{ window.__pdfBuilding=false; }
     let companyPush=null;
     if(email && displayName){
       const localSnapshot=Array.isArray(companies)?companies.map(c=>Object.assign({},c)):[];
-      companyPush=await window.sbLists.pushMerged("companies", {firma:displayName, email}, remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste", function(remote, local){
-        if(!Array.isArray(remote)) return remote;
-        return remove
-          ? stripCompanyEmail(remote, local.firma, local.email)
-          : mergeCompanyEmails(remote, local.firma, local.email);
-      });
+      const street=String($("street")?.value||"").trim();
+      const city=String($("city")?.value||"").trim();
+      const companyPayload={
+        firma:displayName,
+        email:String(email||"").trim(),
+        adres:[street, city].filter(Boolean).join(", "),
+        tel:"",
+        notatki:""
+      };
+      // Always write companies.json for firm+email — never only customer-emails.json.
+      companyPush=await window.sbLists.pushMerged(
+        "companies",
+        companyPayload,
+        remove ? "E-Mail aus Firmenliste" : "E-Mail in Firmenliste",
+        function(remote, local){
+          const list=typeof asCompanyList==="function" ? asCompanyList(remote)
+            : (Array.isArray(remote)?remote:[]);
+          if(remove) return stripCompanyEmail(list, local.firma, local.email);
+          const base=typeof mergeCompanyRecord==="function"
+            ? mergeCompanyRecord(list, local)
+            : list;
+          return mergeCompanyEmails(base, local.firma, local.email);
+        },
+        {forcePut:true}
+      );
       if(companyPush && companyPush.result && companyPush.result.ok && Array.isArray(companyPush.merged) && typeof applyCompanies==="function"){
         // Never replace local list with cloud-only — that dropped firms created via E-Mail merken
         const keep=typeof unionCompaniesPreferLocal==="function"
@@ -5875,7 +5894,18 @@ finally{ window.__pdfBuilding=false; }
           : companyPush.merged;
         applyCompanies(keep, displayName);
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(displayName);
+      }else if(!remove && typeof markCompanyPending==="function"){
+        markCompanyPending(displayName);
       }
+    }
+    // Firm+email must land in companies.json — email-only success is not enough.
+    if(email && displayName && !remove){
+      if(companyPush && companyPush.result && companyPush.result.ok){
+        if(emailPush && emailPush.result && !emailPush.result.ok)
+          return Object.assign({}, companyPush.result, {emailFailed:true});
+        return companyPush.result;
+      }
+      return (companyPush && companyPush.result) || {ok:false, reason:"companies-failed"};
     }
     if(emailPush && emailPush.result && emailPush.result.ok) return emailPush.result;
     if(companyPush && companyPush.result && companyPush.result.ok) return companyPush.result;
@@ -5955,14 +5985,16 @@ finally{ window.__pdfBuilding=false; }
     if(s){
       if(pushed && pushed.ok)
         s.textContent=firmCreated
-          ? "Neuer Kunde und E-Mail stehen in der gemeinsamen Liste."
+          ? "Neuer Kunde steht in companies.json; E-Mail auch in der Liste."
           : "E-Mail steht auf der gemeinsamen Liste – andere iPads laden sie.";
       else if(pushed && pushed.reason==="no-token")
         s.textContent=firmCreated
           ? "Kunde und E-Mail stehen auf diesem Gerät. Mit Token noch einmal speichern für GitHub."
           : "E-Mail zur Liste des Kunden hinzugefügt.";
+      else if(pushed && pushed.reason==="companies-failed")
+        s.textContent="E-Mail lokal/evtl. in customer-emails. Firma fehlt in companies.json – noch einmal tippen.";
       else
-        s.textContent=(firmCreated?"Kunde und E-Mail lokal gespeichert. ":"E-Mail lokal gespeichert. ")+"GitHub "+((pushed&&pushed.status)||"Fehler")+" – noch einmal tippen.";
+        s.textContent=(firmCreated?"Kunde und E-Mail lokal gespeichert. ":"E-Mail lokal gespeichert. ")+"GitHub "+((pushed&&(pushed.status||pushed.reason))||"Fehler")+" – noch einmal tippen.";
     }
     return true;
     }finally{ unlock(); }
@@ -6141,7 +6173,6 @@ finally{ window.__pdfBuilding=false; }
     const clearBtn=$("customerEmailClear");
     if(!input||!results||input.dataset.comboBound==="1") return;
     input.dataset.comboBound="1";
-    let skipEmailPersist=false;
     function close(){
       results.style.display="none";
       results.innerHTML="";
@@ -6198,11 +6229,8 @@ finally{ window.__pdfBuilding=false; }
       setEmail(input.value);
       show();
     });
-    input.addEventListener("change",()=>{ persistEmailField(); });
-    input.addEventListener("blur",()=>{
-      if(skipEmailPersist){ skipEmailPersist=false; return; }
-      persistEmailField();
-    });
+    // E-Mail nur über „E-Mail merken“ speichern — nicht bei blur/change
+    // (sonst landet eine neue Firma oft nur in customer-emails.json).
     clearBtn?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -6230,22 +6258,18 @@ finally{ window.__pdfBuilding=false; }
         setEmail(e);
       }
     });
-    $("emailDelete")?.addEventListener("pointerdown",()=>{ skipEmailPersist=true; });
     $("emailDelete")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const s=$("status");
       if(!customerKey()){
-        skipEmailPersist=false;
         if(s) s.textContent="Zuerst den Kunden wählen.";
         return;
       }
       if(!validEmail(e)){
-        skipEmailPersist=false;
         if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
         return;
       }
       if(!confirm("Diese E-Mail beim Kunden löschen?")){
-        skipEmailPersist=false;
         return;
       }
       if(!await deleteEmail(e)){
@@ -6295,11 +6319,6 @@ finally{ window.__pdfBuilding=false; }
       });
     }
     syncEmailCopyRow();
-  }
-  async function persistEmailField(){
-    const e=currentEmail();
-    if(!customerKey() || !validEmail(e)) return;
-    await addEmail(e);
   }
   window.refreshCustomerEmails=async function(mode, opts){
     if(opts && opts.cloud) await pullEmails();
