@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.45">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.47">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.45</title>
+  <title>Servicebericht v3.47</title>
 <script>
-window.SB_APP_VERSION="3.45";
+window.SB_APP_VERSION="3.47";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -195,15 +195,21 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .pdf-preview-zoom{display:flex;gap:6px}
 .pdf-preview-zoom button{min-width:40px;background:#e5e5ea;color:#111;padding:8px 10px}
 .pdf-preview-body{
-  flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;
-  padding:10px 10px 8px;background:#c5c5ca;
+  flex:1 1 auto;min-height:0;min-width:0;overflow:auto;-webkit-overflow-scrolling:touch;
+  padding:12px;background:#c5c5ca;
 }
-#pdfPreviewPages{width:100%;max-width:900px;margin:0 auto;transform-origin:top center}
-#pdfPreviewPages canvas,#pdfPreviewPages iframe,#pdfPreviewPages object{
+#pdfPreviewPages{width:fit-content;max-width:none;margin-left:auto;margin-right:auto}
+.pdf-preview-page{
+  margin:0 auto 10px;background:#fff;border-radius:4px;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);overflow:hidden;
+}
+#pdfPreviewPages canvas{
+  width:100% !important;height:100% !important;display:block;margin:0;background:#fff;
+}
+#pdfPreviewPages iframe,#pdfPreviewPages object{
   width:100%;height:auto;display:block;background:#fff;border-radius:4px;
-  box-shadow:0 2px 10px rgba(0,0,0,.18);margin:0 0 10px;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);margin:0 0 10px;min-height:70vh;border:0;
 }
-#pdfPreviewPages iframe,#pdfPreviewPages object{min-height:70vh;border:0}
 .pdf-preview-bottom{
   display:flex;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
   background:#fff;border-top:1px solid #ccc;flex:0 0 auto;
@@ -818,7 +824,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.45</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.47</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5183,7 +5189,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.45";
+  const APP_VERSION=window.SB_APP_VERSION||"3.47";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7054,11 +7060,59 @@ finally{ window.__pdfBuilding=false; }
   let previewGen=0;
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
+  function previewAvail(){
+    const host=$("pdfPreviewPages");
+    const box=host&&host.parentElement;
+    if(!box) return {w:Math.max(280, window.innerWidth-24), h:Math.max(360, window.innerHeight-160)};
+    const cs=getComputedStyle(box);
+    const padX=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+    const padY=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+    return {
+      w:Math.max(240, Math.floor(box.clientWidth-padX)),
+      h:Math.max(240, Math.floor(box.clientHeight-padY))
+    };
+  }
+  function previewCenter(){
+    const pages=$("pdfPreviewPages");
+    const body=pages&&pages.parentElement;
+    const frame=pages&&pages.querySelector(".pdf-preview-page");
+    if(!pages||!body||!frame) return;
+    pages.style.marginTop="0px";
+    const br=body.getBoundingClientRect();
+    const fr=frame.getBoundingClientRect();
+    const stack=pages.getBoundingClientRect();
+    const one=pages.querySelectorAll(".pdf-preview-page").length===1;
+    const target=one?fr:stack;
+    const spare=br.height-target.height;
+    if(stack.height<=br.height-8 && spare>28){
+      const add=Math.round(spare/2-(target.top-br.top));
+      pages.style.marginTop=add>0?add+"px":"0px";
+    }
+    requestAnimationFrame(function(){
+      const extraX=body.scrollWidth-body.clientWidth;
+      body.scrollLeft=extraX>1?Math.round(extraX/2):0;
+      if(spare>28) body.scrollTop=0;
+    });
+  }
   function previewZoomApply(){
     const pages=$("pdfPreviewPages");
     if(!pages) return;
-    pages.style.zoom=String(previewZoom);
-    pages.style.transform="none";
+    pages.style.zoom="";
+    pages.style.transform="";
+    const z=previewZoom;
+    let maxW=0;
+    pages.querySelectorAll(".pdf-preview-page").forEach(function(frame){
+      const baseW=Number(frame.dataset.fitW)||0;
+      const baseH=Number(frame.dataset.fitH)||0;
+      if(!baseW||!baseH) return;
+      const w=Math.max(1, Math.round(baseW*z));
+      const h=Math.max(1, Math.round(baseH*z));
+      frame.style.width=w+"px";
+      frame.style.height=h+"px";
+      if(w>maxW) maxW=w;
+    });
+    pages.style.width=maxW?maxW+"px":"";
+    previewCenter();
   }
   async function destroyPdfPreviewDoc(){
     previewRenderTasks.forEach(function(task){
@@ -7172,21 +7226,34 @@ finally{ window.__pdfBuilding=false; }
     }
     previewPdf=pdf;
     host.innerHTML="";
-    const box=host.parentElement;
-    const wrapW=Math.max(280,(box&&box.clientWidth)||host.clientWidth||window.innerWidth-24);
+    const avail=previewAvail();
     const dpr=Math.min(2, window.devicePixelRatio||1);
     for(let i=1;i<=pdf.numPages;i++){
       if(gen!==previewGen) return false;
       const page=await pdf.getPage(i);
       if(gen!==previewGen) return false;
       const base=page.getViewport({scale:1});
-      const fit=wrapW/base.width;
-      const viewport=page.getViewport({scale:fit*dpr});
+      const aspect=base.height/base.width;
+      let cssW=avail.w;
+      let cssH=cssW*aspect;
+      if(cssH>avail.h){
+        cssH=avail.h;
+        cssW=cssH/aspect;
+      }
+      const viewport=page.getViewport({scale:(cssW/base.width)*dpr});
       const canvas=document.createElement("canvas");
-      canvas.width=viewport.width;
-      canvas.height=viewport.height;
-      canvas.style.width=Math.round(viewport.width/dpr)+"px";
-      canvas.style.height=Math.round(viewport.height/dpr)+"px";
+      canvas.width=Math.max(1, Math.floor(viewport.width));
+      canvas.height=Math.max(1, Math.floor(viewport.height));
+      const frame=document.createElement("div");
+      frame.className="pdf-preview-page";
+      frame.dataset.fitW=String(Math.round(cssW));
+      frame.dataset.fitH=String(Math.round(cssH));
+      frame.style.width=frame.dataset.fitW+"px";
+      frame.style.height=frame.dataset.fitH+"px";
+      if(i===pdf.numPages) frame.style.marginBottom="0px";
+      canvas.style.width="100%";
+      canvas.style.height="100%";
+      frame.appendChild(canvas);
       const task=page.render({canvasContext:canvas.getContext("2d",{alpha:false}), viewport});
       previewRenderTasks.push(task);
       try{
@@ -7196,7 +7263,7 @@ finally{ window.__pdfBuilding=false; }
         throw renderErr;
       }
       if(gen!==previewGen) return false;
-      host.appendChild(canvas);
+      host.appendChild(frame);
       try{ page.cleanup(); }catch(e){}
     }
     return host.querySelectorAll("canvas").length>0;
@@ -7215,7 +7282,7 @@ finally{ window.__pdfBuilding=false; }
       if(gen!==previewGen) return;
       const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
       if(gen!==previewGen) return;
-      if(ok) return;
+      if(ok){ previewZoomApply(); return; }
       throw new Error("empty");
     }catch(e){
       if(gen!==previewGen) return;
@@ -7226,7 +7293,7 @@ finally{ window.__pdfBuilding=false; }
         if(gen!==previewGen) return;
         const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
         if(gen!==previewGen) return;
-        if(ok) return;
+        if(ok){ previewZoomApply(); return; }
       }catch(e2){}
       if(previewObjectUrl){ try{ URL.revokeObjectURL(previewObjectUrl); }catch(x){} }
       previewObjectUrl=URL.createObjectURL(blob);
