@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.35">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.36">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.35</title>
+  <title>Servicebericht v3.36</title>
 <script>
-window.SB_APP_VERSION="3.35";
+window.SB_APP_VERSION="3.36";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -815,7 +815,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.35</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.36</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2408,7 +2408,12 @@ function applyCompanies(list, selectName){
   if(want) selectCompanyByName(want);
   syncCompanySaveButton();
 }
-/** Keep local-only firms when a cloud companies.json result would otherwise drop them. */
+/**
+ * Merge GitHub companies.json with the device cache.
+ * Remote is source of truth for which firms exist: a firm deleted on GitHub
+ * must disappear locally. Local-only firms stay only while still pending
+ * (saved on device, not yet pushed).
+ */
 function unionCompaniesPreferLocal(remoteList, localList){
   const pending=new Set(typeof readCompaniesPending==="function" ? readCompaniesPending() : []);
   const map=new Map();
@@ -2420,7 +2425,8 @@ function unionCompaniesPreferLocal(remoteList, localList){
     const k=companyNameKey(c);
     if(!k) return;
     if(!map.has(k)){
-      map.set(k, Object.assign({}, c));
+      // Not on GitHub: keep only unsynced local saves, not stale cache after delete.
+      if(pending.has(k)) map.set(k, Object.assign({}, c));
       return;
     }
     const rem=map.get(k);
@@ -2740,9 +2746,15 @@ window.loadCompaniesFromCloud=async function(opts){
       // Remote firms (e.g. leftover "test 3" from v3.28) must appear even if local cache missed them
       let list=typeof unionCompaniesPreferLocal==="function"
         ? unionCompaniesPreferLocal(remoteList, localNow)
-        : remoteList;
+        : remoteList.slice();
       if(pending.length) list=mergePendingCompanies(list, localNow, pending);
       finishCompaniesLoad(list, {skipDraft});
+      if(s && !opts.quiet){
+        const dropped=Math.max(0, (localNow||[]).length - list.length);
+        s.textContent=dropped
+          ? "Kundenliste mit GitHub abgeglichen ("+list.length+" Firmen, lokal entfernte gelöscht)."
+          : "Kundenliste mit GitHub abgeglichen ("+list.length+" Firmen).";
+      }
       try{ window.dispatchEvent(new Event("sb-companies-updated")); }catch(e){}
       if(pending.length && window.sbLists.hasToken() && !opts.noPush){
         const pendingSnap=pending.slice();
@@ -5108,7 +5120,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.35";
+  const APP_VERSION=window.SB_APP_VERSION||"3.36";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
