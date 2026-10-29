@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.43">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.44">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.43</title>
+  <title>Servicebericht v3.44</title>
 <script>
-window.SB_APP_VERSION="3.43";
+window.SB_APP_VERSION="3.44";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.43</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.44</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5193,7 +5193,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.43";
+  const APP_VERSION=window.SB_APP_VERSION||"3.44";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5961,6 +5961,71 @@ finally{ window.__pdfBuilding=false; }
   function normalizeEmailMap(map){
     return mergeEmailMaps(map||{}, {});
   }
+  const EMAIL_PENDING_KEY="servicebericht_customer_emails_pending_v1";
+  function emailPendingId(firma, email){
+    const k=String(firma||"").trim().toLowerCase();
+    const e=String(email||"").trim().toLowerCase();
+    if(!k || e.indexOf("@")<1) return "";
+    return k+"\t"+e;
+  }
+  function readEmailPending(){
+    try{
+      const x=JSON.parse(localStorage.getItem(EMAIL_PENDING_KEY)||"[]");
+      if(!Array.isArray(x)) return [];
+      return x.map(s=>String(s||"")).filter(id=>{
+        const parts=id.split("\t");
+        return parts.length>=2 && parts[0] && parts[1].indexOf("@")>0;
+      });
+    }catch(e){ return []; }
+  }
+  function writeEmailPending(ids){
+    const uniq=[];
+    (ids||[]).forEach(id=>{
+      const s=String(id||"");
+      if(s && uniq.indexOf(s)<0) uniq.push(s);
+    });
+    try{
+      if(!uniq.length) localStorage.removeItem(EMAIL_PENDING_KEY);
+      else localStorage.setItem(EMAIL_PENDING_KEY, JSON.stringify(uniq));
+    }catch(e){}
+  }
+  function markEmailPending(firma, email){
+    const id=emailPendingId(firma, email);
+    if(!id) return;
+    const ids=readEmailPending();
+    if(ids.indexOf(id)<0) ids.push(id);
+    writeEmailPending(ids);
+  }
+  function unmarkEmailPending(firma, email){
+    const id=emailPendingId(firma, email);
+    if(!id) return;
+    writeEmailPending(readEmailPending().filter(x=>x!==id));
+  }
+  function clearPendingFoundIn(map){
+    const norm=normalizeEmailMap(map||{});
+    writeEmailPending(readEmailPending().filter(id=>{
+      const parts=id.split("\t");
+      const list=norm[parts[0]]||[];
+      return !list.some(e=>String(e||"").trim().toLowerCase()===parts[1]);
+    }));
+  }
+  // GitHub is the source of truth. A full union used to put the device copy
+  // back after customer-emails.json was deleted.
+  function applyPendingEmails(remoteMap, localMap){
+    const out=normalizeEmailMap(remoteMap||{});
+    const local=normalizeEmailMap(localMap||{});
+    readEmailPending().forEach(id=>{
+      const parts=id.split("\t");
+      const k=parts[0];
+      const want=parts[1];
+      const fromLocal=(local[k]||[]).find(e=>String(e||"").trim().toLowerCase()===want);
+      const list=(out[k]||[]).slice();
+      if(!list.some(e=>String(e||"").trim().toLowerCase()===want)) list.push(fromLocal||want);
+      const uniq=dedupeEmailList(list);
+      if(uniq.length) out[k]=uniq;
+    });
+    return out;
+  }
   async function fetchSharedMap(path){
     try{
       if(typeof window.sbOffline==="function" && window.sbOffline()) return {};
@@ -5978,12 +6043,14 @@ finally{ window.__pdfBuilding=false; }
     try{
       if(window.sbLists && typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken())
         return loadMap();
-      let remote={};
-      if(window.sbLists){
-        const got=await window.sbLists.pullFile("emails");
-        remote=window.sbLists.asMap(got.data);
-      }
-      const merged=mergeEmailMaps(loadMap(), remote);
+      if(!window.sbLists) return loadMap();
+      const got=await window.sbLists.pullFile("emails");
+      const failed=!got || got.reason==="network" || got.reason==="no-token" || (got.reason && got.status!==404);
+      if(failed) return loadMap();
+      if(got.status!==404 && !(got.data && typeof got.data==="object" && !Array.isArray(got.data)))
+        return loadMap();
+      const remote=got.status===404 ? {} : window.sbLists.asMap(got.data);
+      const merged=applyPendingEmails(remote, loadMap());
       saveMap(merged);
       return merged;
     }catch(e){
@@ -6041,7 +6108,7 @@ finally{ window.__pdfBuilding=false; }
     const k=customerKey();
     const displayName=String((typeof firmaName==="function"?firmaName():"")||k).trim();
     const emailPush=await window.sbLists.pushMerged("emails", loadMap(), message, function(remote, local){
-      const merged=normalizeEmailMap(mergeEmailMaps(window.sbLists.asMap(remote), local||{}));
+      const merged=applyPendingEmails(window.sbLists.asMap(remote), local||{});
       if(remove && email && k){
         const want=String(email).toLowerCase();
         Object.keys(merged).forEach(key=>{
@@ -6051,8 +6118,12 @@ finally{ window.__pdfBuilding=false; }
         });
       }
       return merged;
-    });
-    if(emailPush && emailPush.merged) saveMap(normalizeEmailMap(emailPush.merged));
+    }, {attempts:2});
+    if(emailPush && emailPush.result && emailPush.result.ok && emailPush.merged){
+      const saved=normalizeEmailMap(emailPush.merged);
+      saveMap(saved);
+      clearPendingFoundIn(saved);
+    }
     let companyPush=null;
     if(email && displayName){
       const localSnapshot=Array.isArray(companies)?companies.map(c=>Object.assign({},c)):[];
@@ -6170,6 +6241,7 @@ finally{ window.__pdfBuilding=false; }
     if(!list.some(x=>x.toLowerCase()===e.toLowerCase())) list.push(e);
     map[k]=list;
     saveMap(map);
+    markEmailPending(name, e);
     syncEmailCopyRow();
     if(opts && opts.cloud && window.sbLists){
       window.sbLists.pushMerged(
@@ -6177,11 +6249,15 @@ finally{ window.__pdfBuilding=false; }
         loadMap(),
         "E-Mail mit Kunde: "+name,
         function(remote, local){
-          return normalizeEmailMap(mergeEmailMaps(window.sbLists.asMap(remote), local||{}));
+          return applyPendingEmails(window.sbLists.asMap(remote), local||{});
         },
         {quiet:true, attempts:2}
       ).then(function(out){
-        if(out && out.merged) saveMap(normalizeEmailMap(out.merged));
+        if(out && out.result && out.result.ok && out.merged){
+          const saved=normalizeEmailMap(out.merged);
+          saveMap(saved);
+          clearPendingFoundIn(saved);
+        }
       }).catch(function(){});
     }
     return true;
@@ -6203,6 +6279,7 @@ finally{ window.__pdfBuilding=false; }
     if(wasNew) list.push(e);
     map[k]=list;
     saveMap(map);
+    markEmailPending(displayName, e);
     const firmCreated=ensureLocalCompanyWithEmail(displayName, e);
     syncEmailSaveButton();
     if((opts && opts.showOk) || wasNew) showEmailSaveOk();
@@ -6244,6 +6321,7 @@ finally{ window.__pdfBuilding=false; }
       if(next.length) map[key]=next;
       else delete map[key];
     });
+    unmarkEmailPending(displayName, e);
     saveMap(map);
     syncEmailSaveButton();
     try{
@@ -6446,10 +6524,7 @@ finally{ window.__pdfBuilding=false; }
       if(box) box.classList.add("is-open");
     }
     input.addEventListener("focus", ()=>{
-      if(!input.dataset.cloudOnce){
-        input.dataset.cloudOnce="1";
-        pullEmails().then(()=>{ syncEmailListToggle(); }).catch(()=>{});
-      }
+      pullEmails().then(()=>{ syncEmailListToggle(); }).catch(()=>{});
     });
     input.addEventListener("input",()=>{
       setEmail(input.value);
@@ -8213,8 +8288,13 @@ finally{ window.__pdfBuilding=false; }
   let companySyncTimer=0;
   function refreshSharedLists(){
     if(document.hidden) return;
-    if(typeof window.loadCompaniesFromCloud!=="function") return;
-    window.loadCompaniesFromCloud({cloud:true, skipDraft:true, quiet:true});
+    if(typeof window.loadCompaniesFromCloud==="function")
+      window.loadCompaniesFromCloud({cloud:true, skipDraft:true, quiet:true});
+    if(typeof window.pullCustomerEmails==="function"){
+      window.pullCustomerEmails().then(function(){
+        if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
+      }).catch(function(){});
+    }
   }
   function armCompanySync(){
     clearInterval(companySyncTimer);
