@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.67">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.68">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.67</title>
+  <title>Servicebericht v3.68</title>
 <script>
-window.SB_APP_VERSION="3.67";
+window.SB_APP_VERSION="3.68";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.67</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.68</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,7 +1167,7 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Einmal am Computer: in DSM Paket „Web Station“ mit PHP. Datei synology-historie.php per File Station in den Web-Ordner legen. Hier https://IP-der-NAS/synology-historie.php — gleiches WLAN, https nicht http.</p>
+    <p class="muted" id="historyCloudHint">Am Computer „PHP-Datei“ tippen — der Browser speichert synology-historie.php. Dann File Station: in den Web-Ordner der NAS legen. In der App https://IP-der-NAS/synology-historie.php (https, gleiches WLAN).</p>
     <label for="historyCloudUrl">Adresse der PHP-Datei</label>
     <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <label for="historyCloudUser">Benutzer (optional)</label>
@@ -5269,14 +5269,21 @@ finally{ window.__pdfBuilding=false; }
       closeHistoryCloudModal();
       $("status").textContent="NAS entfernt.";
     });
-    $("historyCloudFile")?.addEventListener("click", ()=>{
-      const href=new URL("synology-historie.php", location.href).href;
-      const w=window.open(href, "_blank", "noopener");
-      if(!w){
-        setHistoryCloudMsg("err", "Fenster blockiert. Am Computer öffnen: "+href);
-        return;
+    $("historyCloudFile")?.addEventListener("click", async ()=>{
+      const href=new URL("synology-historie.txt", location.href).href;
+      try{
+        const res=await fetch(href, {cache:"no-store"});
+        if(!res.ok) throw new Error("http");
+        const text=await res.text();
+        const file=new File([text], "synology-historie.php", {type:"application/x-php"});
+        downloadReportFile(file, "synology-historie.php");
+        setHistoryCloudMsg("ok", "Datei liegt bereit. Am Computer speichern, dann per File Station in den Web-Ordner legen.");
+        $("status").textContent="synology-historie.php zum Speichern geöffnet.";
+      }catch(e){
+        const raw="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/synology-historie.php";
+        setHistoryCloudMsg("wait", "Am Computer diesen Link öffnen und Speichern unter synology-historie.php: "+raw);
+        try{ window.open(raw, "_blank", "noopener"); }catch(_e){}
       }
-      setHistoryCloudMsg("wait", "Am Computer: Datei speichern und per File Station in den Web-Ordner der NAS legen.");
     });
     $("historyCloudOpen")?.addEventListener("click", ()=>{
       const cfg=readHistoryCloudForm();
@@ -5628,7 +5635,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.67";
+  const APP_VERSION=window.SB_APP_VERSION||"3.68";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
