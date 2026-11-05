@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.60">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.61">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.60</title>
+  <title>Servicebericht v3.61</title>
 <script>
-window.SB_APP_VERSION="3.60";
+window.SB_APP_VERSION="3.61";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -855,7 +855,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.60</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.61</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5025,6 +5025,19 @@ finally{ window.__pdfBuilding=false; }
         alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
         return;
       }
+      let cloudOk=false;
+      try{
+        if(window.sbLists && typeof window.sbLists.pushHistoryFile==="function"){
+          const {filename, json}=reportPayload(item);
+          const payload=JSON.parse(json);
+          const r=await window.sbLists.pushHistoryFile(filename, payload);
+          cloudOk=!!(r && r.ok);
+        }
+      }catch(e){}
+      if(cloudOk){
+        $("status").textContent="In der App und in der Cloud gespeichert.";
+        return;
+      }
       try{
         await exportReportFile(item);
       }catch(e){
@@ -5371,7 +5384,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.60";
+  const APP_VERSION=window.SB_APP_VERSION||"3.61";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -5670,6 +5683,16 @@ finally{ window.__pdfBuilding=false; }
     const r=dataRepo();
     return "https://api.github.com/repos/"+encodeURIComponent(r.owner)+"/"+encodeURIComponent(r.repo)+path;
   }
+  function isHeavyPath(kind, path){
+    return kind==="companies" || String(path||kind||"").indexOf("historie/")===0;
+  }
+  function historyCloudName(filename){
+    return String(filename||"bericht.json")
+      .replace(/[\\/:*?"<>|\u0000-\u001f]+/g,"_")
+      .replace(/^\.+/, "")
+      .replace(/\s+/g,"_")
+      .slice(0,180) || "bericht.json";
+  }
   async function readViaGit(path){
     const hdrs=headers(true);
     const r=dataRepo();
@@ -5684,7 +5707,7 @@ finally{ window.__pdfBuilding=false; }
       const commit=await commitRes.json();
       const treeSha=commit&&commit.tree&&commit.tree.sha;
       if(!treeSha) return {data:null, sha:"", status:0, reason:"no-sha"};
-      const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha), {headers:hdrs, timeoutMs:30000});
+      const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha+"?recursive=1"), {headers:hdrs, timeoutMs:30000});
       if(!treeRes.ok) return {data:null, sha:"", status:treeRes.status, reason:await readGithubError(treeRes)||"http"};
       const tree=await treeRes.json();
       const entry=((tree&&tree.tree)||[]).find(function(x){ return x.path===path; });
@@ -5723,7 +5746,7 @@ finally{ window.__pdfBuilding=false; }
       const treeSha=commit&&commit.tree&&commit.tree.sha;
       if(!treeSha) return {ok:false, reason:"no-sha", status:0};
       if(baseBlobSha){
-        const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha), {headers:hdrs, timeoutMs:30000});
+        const treeRes=await githubFetch(gitApi("/git/trees/"+treeSha+"?recursive=1"), {headers:hdrs, timeoutMs:30000});
         if(treeRes.ok){
           const tree=await treeRes.json();
           const entry=((tree&&tree.tree)||[]).find(function(x){ return x.path===path; });
@@ -5768,10 +5791,11 @@ finally{ window.__pdfBuilding=false; }
       return {data:null, sha:"", status:0, reason:"network"};
     if(!token()) return {data:null, sha:"", status:0, reason:"no-token"};
     const path=FILES[kind]||kind;
+    const heavy=isHeavyPath(kind, path);
     async function fromApi(withAuth){
       const res=await githubFetch(apiFileUrl(path, true), {
         headers:headers(withAuth),
-        timeoutMs: kind==="companies" ? 60000 : 20000
+        timeoutMs: heavy ? 60000 : 20000
       });
       if(res.status===404) return {data:null, sha:"", status:404};
       if(res.ok) return parseContents(res);
@@ -5780,9 +5804,10 @@ finally{ window.__pdfBuilding=false; }
     try{
       const authed=await fromApi(true);
       // Contents API omits bodies over 1 MB. Do not treat that as an empty list.
-      if(kind==="companies" && shouldGitRead(authed)){
+      if(heavy && shouldGitRead(authed)){
         const via=await readViaGit(path);
-        if(via && (via.status===404 || companyDataReadable(via))) return via;
+        const readable=kind==="companies" ? companyDataReadable(via) : !!(via && (via.data || via.sha));
+        if(via && (via.status===404 || readable)) return via;
         return {data:null, sha:authed.sha||"", status:authed.status||(via&&via.status)||0, reason:(via&&via.reason)||authed.reason||"unreadable"};
       }
       return authed;
@@ -5805,17 +5830,18 @@ finally{ window.__pdfBuilding=false; }
     const t=token();
     if(!t) return {ok:false, reason:"no-token"};
     const path=FILES[kind]||kind;
+    const heavy=isHeavyPath(kind, path);
     const r=dataRepo();
     let text="";
     try{ text=JSON.stringify(data, null, 2)+"\n"; }
     catch(e){ return {ok:false, reason:"encode", status:0}; }
     // Contents PUT base64-inflates the body and rejects files over 1 MB.
-    if(kind==="companies" && text.length>700000)
+    if(heavy && text.length>700000)
       return putViaGit(path, text, message, sha||"");
     let content="";
     try{ content=encodeContent(text); }
     catch(e){
-      if(kind==="companies") return putViaGit(path, text, message, sha||"");
+      if(heavy) return putViaGit(path, text, message, sha||"");
       return {ok:false, reason:"encode", status:0};
     }
     const body={
@@ -5829,12 +5855,12 @@ finally{ window.__pdfBuilding=false; }
         method:"PUT",
         headers:Object.assign({"Content-Type":"application/json"}, headers(true)),
         body:JSON.stringify(body),
-        timeoutMs: kind==="companies" ? 60000 : 20000
+        timeoutMs: heavy ? 60000 : 20000
       });
       if(!res.ok){
         const reason=await readGithubError(res);
         const failed={ok:false, status:res.status, reason:reason||"http"};
-        if(kind==="companies" && res.status!==409 && res.status!==401 && (looksTooLarge(res.status, reason) || res.status===422)){
+        if(heavy && res.status!==409 && res.status!==401 && (looksTooLarge(res.status, reason) || res.status===422)){
           const gitRes=await putViaGit(path, text, message, sha||"");
           if(gitRes && gitRes.ok) return gitRes;
           return (gitRes && gitRes.reason) ? gitRes : failed;
@@ -5926,8 +5952,44 @@ finally{ window.__pdfBuilding=false; }
       return {merged:localData, result:last};
     });
   }
+  async function pushHistoryFile(filename, payload){
+    const safe=historyCloudName(filename);
+    const path="historie/"+safe;
+    return enqueueWrite(async ()=>{
+      if(typeof window.sbOffline==="function" && window.sbOffline())
+        return {ok:false, reason:"network", path};
+      if(!token()) return {ok:false, reason:"no-token", path};
+      let last={ok:false, reason:"retry", path};
+      for(let i=0;i<3;i++){
+        const remote=await pullFile(path);
+        if(remote && remote.reason==="network" && !remote.sha){
+          last={ok:false, reason:"network", status:0, path};
+          await sleep(250*(i+1));
+          continue;
+        }
+        const sha=remote && remote.sha || "";
+        if(!sha && remote && remote.status && remote.status!==404){
+          last={ok:false, reason:remote.reason||"no-sha", status:remote.status||0, path};
+          await sleep(250*(i+1));
+          continue;
+        }
+        const result=await putFile(path, payload, sha, "Historie "+safe);
+        if(result.ok) return {ok:true, sha:result.sha||"", path, via:result.via||""};
+        last=Object.assign({path}, result);
+        if(result.status!==409 && result.status!==422){
+          if(result.reason==="network" || result.status===502 || result.status===503 || result.status===504){
+            await sleep(400*(i+1));
+            continue;
+          }
+          return last;
+        }
+        await sleep(250*(i+1));
+      }
+      return last;
+    });
+  }
   window.sbLists={
-    token, setToken, hasToken:()=>!!token(), ensureToken, openTokenModal, pullFile, pushMerged, repo, dataRepo,
+    token, setToken, hasToken:()=>!!token(), ensureToken, openTokenModal, pullFile, pushMerged, pushHistoryFile, repo, dataRepo,
     appVersion:()=>APP_VERSION,
     asMap(o){ return o && typeof o==="object" && !Array.isArray(o) ? o : {}; }
   };
