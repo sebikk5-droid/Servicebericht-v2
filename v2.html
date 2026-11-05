@@ -1167,7 +1167,7 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Kein Ordner „web“? Am Computer in DSM Paket-Zentrum „Web Station“ und „PHP 8“ installieren — danach erscheint „web“ in File Station. PHP-Datei dorthin legen. In der App https://IP-der-NAS/synology-historie.php</p>
+    <p class="muted" id="historyCloudHint">PHP 8.0 reicht. Datei in den Ordner web legen. Adresse https://IP/synology-historie.php — nicht http, nicht QuickConnect. „NAS öffnen“: Seite muss „ok“ zeigen. Neue PHP-Datei nach jedem Update erneut auf die NAS kopieren.</p>
     <label for="historyCloudUrl">Adresse der PHP-Datei</label>
     <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <label for="historyCloudUser">Benutzer (optional)</label>
@@ -4565,7 +4565,8 @@ finally{ window.__pdfBuilding=false; }
     if(reason==="no-cloud") return "Bitte zuerst die Adresse der PHP-Datei eintragen.";
     if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte die https-Adresse der PHP-Datei auf der NAS.";
     if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht (in der PHP-Datei prüfen).";
-    if(reason==="cors" || reason==="network") return "Keine Verbindung. Gleiches WLAN? Zertifikat in Safari einmal erlauben (NAS öffnen)? Web Station + PHP aktiv?";
+    if(reason==="cors" || reason==="network") return "Keine Verbindung. „NAS öffnen“: die Seite muss „ok“ zeigen. Wenn PHP-Quelltext kommt, in Web Station PHP 8.0 einschalten. http:// geht nicht — nur https://. Gelbes Zertifikat in Safari einmal erlauben. Neue PHP-Datei auf die NAS legen (Private Network).";
+    if(reason==="abort") return "NAS antwortet nicht (Timeout). Gleiches WLAN? Web Station läuft?";
     if(status) return "NAS antwortet nicht richtig ("+status+").";
     return "NAS nicht erreichbar.";
   }
@@ -4595,6 +4596,7 @@ finally{ window.__pdfBuilding=false; }
       if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
       return {ok:false, status:res.status, reason:"http"};
     }catch(e){
+      if(e && (e.name==="AbortError" || e.code===20)) return {ok:false, reason:"abort"};
       return {ok:false, reason:"cors"};
     }finally{
       clearTimeout(to);

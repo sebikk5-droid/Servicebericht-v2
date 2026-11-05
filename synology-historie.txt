@@ -7,14 +7,16 @@ if ($allow) {
   header("Access-Control-Allow-Origin: ".$origin);
   header("Vary: Origin");
 }
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Authorization, Content-Type");
+header("Access-Control-Allow-Private-Network: true");
 header("Access-Control-Max-Age: 86400");
-if (($_SERVER["REQUEST_METHOD"] ?? "") === "OPTIONS") {
+$method = $_SERVER["REQUEST_METHOD"] ?? "GET";
+if ($method === "OPTIONS") {
   http_response_code(204);
   exit;
 }
-if (!$allow) {
+if ($origin !== "" && !$allow) {
   http_response_code(403);
   echo "origin";
   exit;
@@ -33,7 +35,11 @@ if ($SB_USER !== "") {
   }
 }
 
-if (($_SERVER["REQUEST_METHOD"] ?? "") !== "POST") {
+if ($method === "GET") {
+  echo "ok";
+  exit;
+}
+if ($method !== "POST") {
   http_response_code(405);
   echo "POST";
   exit;
