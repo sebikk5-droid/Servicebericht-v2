@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.53">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.54">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.53</title>
+  <title>Servicebericht v3.54</title>
 <script>
-window.SB_APP_VERSION="3.53";
+window.SB_APP_VERSION="3.54";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -619,7 +619,7 @@ select.is-nudge,input.is-nudge{
 #date{
   max-width:10.8em;min-height:28px;height:32px;padding:2px 7px;font-size:13px;width:auto;
 }
-#signdate{max-width:138px;min-height:32px;padding:4px 8px;font-size:13px;width:auto}
+#signdate{max-width:138px;min-height:32px;padding:4px 8px;font-size:13px;width:auto;background:#f3f3f6;color:#111}
 .sign-date-wrap{max-width:160px}
 #sigModal{
   display:none;position:fixed;inset:0;z-index:90;background:#d8d8de;
@@ -841,7 +841,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.53</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.54</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1024,7 +1024,7 @@ select.is-nudge,input.is-nudge{
     <div id="techResults" class="combo-results"></div>
   </div>
   <div><label>Name Kunde</label><input id="customersign" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false"></div>
-  <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date"></div>
+  <div class="sign-date-wrap"><label>Datum</label><input id="signdate" type="date" readonly></div>
 </div>
 <div class="sig-grid">
   <div class="sig-box">
@@ -1295,7 +1295,14 @@ function isoDateLocal(d){
   const day=String(x.getDate()).padStart(2,"0");
   return y+"-"+m+"-"+day;
 }
-const today=isoDateLocal(new Date()); $("date").value=today;$("signdate").value=today;
+function stampSignDateToday(){
+  const el=$("signdate");
+  const today=isoDateLocal(new Date());
+  if(el && today) el.value=today;
+  return today;
+}
+window.stampSignDateToday=stampSignDateToday;
+const today=isoDateLocal(new Date()); $("date").value=today; stampSignDateToday();
 
 function address(a){let p=(a||"").split(",").map(x=>x.trim()).filter(Boolean);if(p.length<2)return[a||"",""];let last=p.pop();return[p.join(", "),last]}
 let visibleDays=1;
@@ -1900,7 +1907,7 @@ function applyTodayEinsatzdatum(){
   const today=isoDateLocal(new Date());
   const oldMain=String($("date")?.value||"").trim();
   if($("date")) $("date").value=today;
-  if($("signdate")) $("signdate").value=today;
+  stampSignDateToday();
   document.querySelectorAll(".daydate").forEach(el=>{
     const d=Number(el.dataset.day||0);
     if(d<=1){
@@ -3772,6 +3779,7 @@ function initSignaturePads(){
 
   function openModal(id){
     activeId=id;
+    if(typeof stampSignDateToday==="function") stampSignDateToday();
     $("sigModalTitle").textContent=SIG_TITLES[id]||"Unterschrift";
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
@@ -4328,9 +4336,8 @@ if(pdfHasContent){
   if($("date").value){
     setFit(form,"Datum Einsatzbeginn",pdfDate($("date").value),7.5);
   }
-  if($("signdate").value){
-    setFit(form,"Datum Unterschrift",pdfDate($("signdate").value),7.5);
-  }
+  const signIso=typeof stampSignDateToday==="function" ? stampSignDateToday() : isoDateLocal(new Date());
+  if(signIso) setFit(form,"Datum Unterschrift",pdfDate(signIso),7.5);
 }
 
 // Übern.-kosten / Stau in the times table overnight column.
@@ -4559,7 +4566,7 @@ finally{ window.__pdfBuilding=false; }
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="company" || key==="__visibleDays" || key.startsWith("__") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="signdate" || key==="__visibleDays" || key.startsWith("__") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
@@ -4642,6 +4649,7 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
+    if(typeof stampSignDateToday==="function") stampSignDateToday();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -5088,6 +5096,8 @@ finally{ window.__pdfBuilding=false; }
       liveDraftApplied=true;
       applyForm(data);
       // Keep Einsatzdatum / Tag dates from the saved draft. Do not jump to today.
+      // Signature date is always the real current day.
+      if(typeof stampSignDateToday==="function") stampSignDateToday();
       return true;
     }
     window.saveLiveDraft=saveLiveDraft;
@@ -5325,7 +5335,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.53";
+  const APP_VERSION=window.SB_APP_VERSION||"3.54";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
