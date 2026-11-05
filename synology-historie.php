@@ -11,7 +11,7 @@ if ($method === "OPTIONS") { http_response_code(204); exit; }
 if ($method === "GET") {
   header("Content-Type: text/html; charset=utf-8");
   echo "<!doctype html><meta charset=utf-8><title>ok</title>";
-  echo "<p style=\"font:28px sans-serif;margin:48px\">ok</p>";
+  echo "<p style=\"font:18px sans-serif;margin:16px\">ok</p>";
   echo "<script>\n";
   echo "var A='https://sebikk5-droid.github.io';\n";
   echo "function send(m){try{if(window.opener)window.opener.postMessage(m,A);}catch(e){}}\n";
@@ -22,7 +22,7 @@ if ($method === "GET") {
   echo "if(d.type!=='put')return;\n";
   echo "var x=new XMLHttpRequest();\n";
   echo "x.open('POST',location.href,true);\n";
-  echo "x.onload=function(){send({type:'put-result',ok:(x.status===201||x.status===200),status:x.status});};\n";
+  echo "x.onload=function(){send({type:'put-result',ok:(x.status===201||x.status===200),status:x.status});setTimeout(function(){try{window.close();}catch(e){}},200);};\n";
   echo "x.onerror=function(){send({type:'put-result',ok:false});};\n";
   echo "x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');\n";
   echo "x.send('filename='+encodeURIComponent(d.filename||'')+'&json='+encodeURIComponent(d.json||''));\n";
