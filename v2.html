@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.58">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.59">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.58</title>
+  <title>Servicebericht v3.59</title>
 <script>
-window.SB_APP_VERSION="3.58";
+window.SB_APP_VERSION="3.59";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -855,7 +855,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.58</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.59</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1099,7 +1099,7 @@ select.is-nudge,input.is-nudge{
 <div id="historySaveModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Historie speichern?</h3>
-    <p class="muted" id="historySaveHint">Den Bericht in der Historie speichern, damit er nicht verloren geht.</p>
+    <p class="muted" id="historySaveHint">Zuerst in der Historie speichern, dann die E-Mail senden.</p>
     <div class="email-actions">
       <button type="button" class="clear" id="historySaveLater">Später</button>
       <button type="button" class="go" id="historySaveNow">Speichern</button>
@@ -5363,7 +5363,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.58";
+  const APP_VERSION=window.SB_APP_VERSION||"3.59";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7267,13 +7267,28 @@ finally{ window.__pdfBuilding=false; }
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden","true");
   }
-  function offerHistorySaveAfterEmail(){
-    setTimeout(function(){
-      const modal=$("historySaveModal");
-      if(!modal) return;
-      modal.classList.add("is-open");
-      modal.setAttribute("aria-hidden","false");
-    }, 400);
+  let historySaveThenEmail=false;
+  function offerHistorySaveBeforeEmail(){
+    historySaveThenEmail=true;
+    closePdfEmailSheet();
+    const modal=$("historySaveModal");
+    if(!modal){
+      window.sendPdfByEmail();
+      return;
+    }
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+  }
+  function finishHistorySaveThenEmail(doSave){
+    const go=historySaveThenEmail;
+    historySaveThenEmail=false;
+    closeHistorySaveSheet();
+    function send(){ if(go) window.sendPdfByEmail(); }
+    if(doSave && typeof window.saveCurrentHistory==="function"){
+      Promise.resolve(window.saveCurrentHistory()).then(send, send);
+      return;
+    }
+    send();
   }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
@@ -7373,7 +7388,6 @@ finally{ window.__pdfBuilding=false; }
               ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
               : "Mail: PDF angehängt. Empfänger eintragen: "+email)
             : "Mail: PDF angehängt. Empfänger eintragen.");
-          offerHistorySaveAfterEmail();
           return true;
         }
       }
@@ -7386,7 +7400,6 @@ finally{ window.__pdfBuilding=false; }
     setStatus(opened
       ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
-    if(opened) offerHistorySaveAfterEmail();
     return opened;
   };
   window.deliverLastPdf=async function(){
@@ -7756,17 +7769,14 @@ finally{ window.__pdfBuilding=false; }
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
-    $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail(); });
+    $("pdfEmailSend")?.addEventListener("click",()=>{ offerHistorySaveBeforeEmail(); });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
     });
-    $("historySaveLater")?.addEventListener("click", closeHistorySaveSheet);
-    $("historySaveNow")?.addEventListener("click",()=>{
-      closeHistorySaveSheet();
-      if(typeof window.saveCurrentHistory==="function") window.saveCurrentHistory();
-    });
+    $("historySaveLater")?.addEventListener("click",()=>finishHistorySaveThenEmail(false));
+    $("historySaveNow")?.addEventListener("click",()=>finishHistorySaveThenEmail(true));
     $("historySaveModal")?.addEventListener("click",e=>{
-      if(e.target===$("historySaveModal")) closeHistorySaveSheet();
+      if(e.target===$("historySaveModal")) finishHistorySaveThenEmail(false);
     });
     $("pdfPreviewBottom")?.addEventListener("click", startPdfPreview);
     $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
