@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.78">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.80">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.78</title>
+  <title>Servicebericht v3.80</title>
 <script>
-window.SB_APP_VERSION="3.78";
+window.SB_APP_VERSION="3.80";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -448,26 +448,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   height:28px;min-height:28px;margin:0;line-height:1;white-space:nowrap;
 }
 #historySave.history-file-btn{background:#163a5c;color:#fff}
-#historyCloud.history-file-btn.is-on{background:#163a5c;color:#fff}
-#historyCloudModal{
-  display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
-  align-items:flex-end;justify-content:center;
-}
-#historyCloudModal.is-open{display:flex}
-#historyCloudModal .token-sheet{
-  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
-  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
-  box-shadow:0 -8px 24px rgba(0,0,0,.18);
-}
-#historyCloudModal h3{margin:0 0 6px;font-size:18px}
-#historyCloudModal label{display:block;margin:8px 0 0;font-size:13px;font-weight:700}
-#historyCloudModal input{width:100%;margin:4px 0 0;min-height:40px;box-sizing:border-box}
-#historyCloudModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#historyCloudModal .email-actions button{flex:1 1 30%;min-width:90px}
-#historyCloudErr{min-height:1.35em;margin:10px 0 0;font-size:14px;line-height:1.35;font-weight:700;overflow-wrap:anywhere}
-#historyCloudErr.is-ok{color:#067a32}
-#historyCloudErr.is-err{color:#b42318}
-#historyCloudErr.is-wait{color:#163a5c}
 #historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
 #historyActionOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
@@ -875,7 +855,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.78</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.80</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -891,7 +871,6 @@ select.is-nudge,input.is-nudge{
     <div class="history-actions">
       <button type="button" id="historySave" class="history-file-btn">Speichern</button>
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
-      <button type="button" id="historyCloud" class="history-file-btn">Cloud</button>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
       <span id="historyActionOk" class="history-action-ok" aria-hidden="true"></span>
@@ -1161,24 +1140,6 @@ select.is-nudge,input.is-nudge{
       <button type="button" class="clear" id="tokenModalClear">Entfernen</button>
       <button type="button" class="clear" id="tokenModalSkip">Später</button>
       <button type="button" class="go" id="tokenModalSave">Speichern</button>
-    </div>
-  </div>
-</div>
-<div id="historyCloudModal" aria-hidden="true">
-  <div class="token-sheet">
-    <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Einmal NAS öffnen bis ok. Danach speichert die App still (ohne Fenster). Wenn Safari blockiert, kommt das ok-Fenster nur als Reserve.</p>
-    <label for="historyCloudUrl">Adresse der PHP-Datei</label>
-    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
-    <p id="historyCloudErr" role="status"></p>
-    <div class="email-actions">
-      <button type="button" class="clear" id="historyCloudFile">PHP speichern</button>
-      <button type="button" class="clear" id="historyCloudCopy">Adresse kopieren</button>
-      <button type="button" class="clear" id="historyCloudOpen">NAS öffnen</button>
-      <button type="button" class="clear" id="historyCloudClear">Entfernen</button>
-      <button type="button" class="clear" id="historyCloudSkip">Schließen</button>
-      <button type="button" class="clear" id="historyCloudTest">Prüfen</button>
-      <button type="button" class="go" id="historyCloudSave">Speichern</button>
     </div>
   </div>
 </div>
@@ -2005,7 +1966,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","historyCloudModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -4500,241 +4461,7 @@ finally{ window.__pdfBuilding=false; }
   const HISTORY_LEGACY_KEY="servicebericht_history_v26";
   const LIVE_KEY="servicebericht_live_draft_v2";
   const RESET_FLAG="servicebericht_reset_v2";
-  const SKIP_IDS={historySearch:1,historySelect:1,historyCloudUrl:1,historyCloudUser:1,historyCloudPass:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
-  const HISTORY_CLOUD_KEY="servicebericht_history_nas";
-  const HISTORY_CLOUD_PHP="synology-historie.php";
-
-  function loadHistoryCloud(){
-    try{
-      const c=JSON.parse(localStorage.getItem(HISTORY_CLOUD_KEY)||"{}");
-      if(c && typeof c==="object") return {url:String(c.url||"").trim()};
-    }catch(e){}
-    return {url:""};
-  }
-  function saveHistoryCloud(c){
-    const next={url:String(c&&c.url||"").trim()};
-    if(!next.url) localStorage.removeItem(HISTORY_CLOUD_KEY);
-    else localStorage.setItem(HISTORY_CLOUD_KEY, JSON.stringify(next));
-    syncHistoryCloudBtn();
-    if(next.url) ensureNasFrame(historyCloudPhpUrl(next.url));
-    else{
-      nasFrameReady=false;
-      nasFrameHref="";
-      if(nasFrame) try{ nasFrame.remove(); }catch(e){}
-      nasFrame=null;
-    }
-  }
-  function syncHistoryCloudBtn(){
-    const btn=$("historyCloud");
-    if(!btn) return;
-    const on=!!loadHistoryCloud().url;
-    btn.classList.toggle("is-on", on);
-    btn.setAttribute("title", on ? "NAS ist eingerichtet" : "NAS einrichten");
-  }
-  function historyCloudPhpUrl(raw){
-    let s=String(raw||"").trim();
-    if(!s) return "";
-    if(!/^[a-z][a-z0-9+.-]*:/i.test(s)) s="https://"+s;
-    try{
-      const u=new URL(s);
-      u.hash="";
-      let path=u.pathname||"/";
-      if(!/\.php$/i.test(path)){
-        if(!path.endsWith("/")) path+="/";
-        path+=HISTORY_CLOUD_PHP;
-      }
-      u.pathname=path;
-      return u.toString();
-    }catch(e){
-      return s;
-    }
-  }
-  function historyCloudUrlProblem(raw){
-    const s=String(raw||"").trim();
-    if(!s) return {reason:"no-cloud"};
-    if(/^[a-zA-Z]:[\\/]/.test(s) || s.indexOf("\\\\")===0 || /^file:/i.test(s))
-      return {reason:"local-path"};
-    let href=historyCloudPhpUrl(s);
-    let u=null;
-    try{ u=new URL(href); }catch(e){ return {reason:"https"}; }
-    const host=String(u.hostname||"").toLowerCase();
-    const port=String(u.port||"");
-    if(/quickconnect\.to$/i.test(host)) return {reason:"quickconnect"};
-    if(port==="5000" || port==="5001") return {reason:"dsm-port"};
-    if(port==="5006" || port==="5005") return {reason:"direct-webdav"};
-    if(u.protocol==="http:"){
-      if(typeof location!=="undefined" && location.protocol==="https:") return {reason:"http-mixed"};
-      return {reason:"https"};
-    }
-    if(u.protocol!=="https:") return {reason:"https"};
-    return null;
-  }
-  function historyCloudReasonText(r){
-    if(r && r.ok) return "Verbunden. Historie geht auf die NAS.";
-    const reason=r&&r.reason||"";
-    const status=Number(r&&r.status)||0;
-    if(reason==="quickconnect") return "QuickConnect ist DSM, nicht die PHP-Datei. Bitte https://IP/synology-historie.php";
-    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. Bitte https://IP/synology-historie.php (ohne Port).";
-    if(reason==="direct-webdav") return "Port 5005/5006 ist WebDAV. Bitte https://IP/synology-historie.php (Web Station).";
-    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP/synology-historie.php";
-    if(reason==="https") return "Bitte https://-Adresse der PHP-Datei, z. B. https://192.168.1.10/synology-historie.php";
-    if(reason==="no-cloud") return "Bitte zuerst die Adresse der PHP-Datei eintragen.";
-    if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte die https-Adresse der PHP-Datei.";
-    if(reason==="no-php") return "Die Datei kommt als PHP-Quelltext. In Web Station PHP 8.0 für den Ordner web einschalten.";
-    if(reason==="not-ok") return "NAS öffnen muss „ok“ zeigen. PHP-Datei in den Ordner web legen. Zertifikat der Web Station in DSM zuweisen.";
-    if(reason==="auth" || status===401 || status===403) return "Kein Zugriff (401/403). PHP-Datei in den Ordner web legen, nicht in DSM.";
-    if(reason==="cors" || reason==="network") return "Keine Verbindung. In Safari NAS öffnen bis ok (nicht nur die gelbe Warnung). Dann Prüfen. Gleiches WLAN.";
-    if(reason==="popup") return "Safari hat das Fenster blockiert. Prüfen noch einmal tippen.";
-    if(reason==="write" || status===500) return "NAS kann nicht speichern. In DSM Ordner web: Gruppe http auf Lesen/Schreiben stellen.";
-    if(reason==="abort") return "NAS antwortet nicht. Zuerst NAS öffnen bis ok, dann Prüfen. Ordner web: Gruppe http Lesen/Schreiben.";
-    if(status===404) return "PHP-Datei nicht gefunden. synology-historie.php in den Ordner web legen.";
-    if(status===502 || status===503 || status===504) return "Web Station nicht erreichbar. In DSM Zertifikat der Web Station zuweisen.";
-    if(status) return "NAS antwortet nicht richtig ("+status+").";
-    return "NAS nicht erreichbar.";
-  }
-  async function nasFetch(url, opt){
-    opt=opt||{};
-    const ctrl=new AbortController();
-    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, opt.timeoutMs||20000);
-    try{
-      return await fetch(url, {
-        method:opt.method||"GET",
-        mode:"cors",
-        credentials:"omit",
-        cache:"no-store",
-        headers:opt.headers||{},
-        body:opt.body,
-        signal:ctrl.signal
-      });
-    }finally{
-      clearTimeout(to);
-    }
-  }
-  let nasFrame=null;
-  let nasFrameReady=false;
-  let nasFrameHref="";
-  function nasFrameWin(){
-    try{ return nasFrame && nasFrame.contentWindow; }catch(e){ return null; }
-  }
-  function ensureNasFrame(href){
-    href=String(href||"");
-    if(!href) return null;
-    if(nasFrame && nasFrameHref===href) return nasFrame;
-    nasFrameReady=false;
-    nasFrameHref=href;
-    if(nasFrame) try{ nasFrame.remove(); }catch(e){}
-    nasFrame=document.createElement("iframe");
-    nasFrame.id="sbNasFrame";
-    nasFrame.setAttribute("aria-hidden","true");
-    nasFrame.tabIndex=-1;
-    nasFrame.style.cssText="position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0;pointer-events:none;";
-    nasFrame.addEventListener("load", function(){ nasFrameReady=true; });
-    nasFrame.src=href;
-    document.body.appendChild(nasFrame);
-    return nasFrame;
-  }
-  window.addEventListener("message", function(e){
-    const href=historyCloudPhpUrl(loadHistoryCloud().url||"");
-    let origin="";
-    try{ origin=new URL(href).origin; }catch(err){}
-    if(!origin || e.origin!==origin) return;
-    const d=e.data||{};
-    if(d.type==="ready") nasFrameReady=true;
-  });
-  function pushHistoryViaTarget(win, href, filename, jsonText, closeAfter){
-    return new Promise(function(resolve){
-      let nasOrigin="";
-      try{ nasOrigin=new URL(href).origin; }catch(e){}
-      let done=false;
-      let sent=false;
-      function finish(r){
-        if(done) return;
-        done=true;
-        clearTimeout(to);
-        window.removeEventListener("message", onMsg);
-        if(closeAfter){
-          try{ if(win && win.close && !win.closed) win.close(); }catch(e){}
-        }
-        resolve(r);
-      }
-      function sendPut(){
-        if(sent || done || !win) return;
-        sent=true;
-        try{ win.postMessage({type:"put", filename:filename, json:String(jsonText||"")}, nasOrigin||"*"); }catch(e){}
-      }
-      function onMsg(e){
-        if(nasOrigin && e.origin!==nasOrigin) return;
-        const d=e.data||{};
-        if(d.type==="ready"){ sendPut(); return; }
-        if(d.type==="put-result"){
-          finish(d.ok ? {ok:true, status:d.status||201} : {ok:false, reason:(d.status===500?"write":"http"), status:d.status});
-        }
-      }
-      window.addEventListener("message", onMsg);
-      const to=setTimeout(function(){ finish({ok:false, reason:"abort"}); }, closeAfter?25000:8000);
-      sendPut();
-      setTimeout(sendPut, closeAfter?400:200);
-    });
-  }
-  function pushHistoryViaBridge(href, filename, jsonText){
-    return new Promise(function(resolve){
-      let win=null;
-      try{ win=window.open(href, "sbNasBridge", "width=280,height=140,menubar=no,toolbar=no,location=no"); }catch(e){ win=null; }
-      if(!win){
-        resolve({ok:false, reason:"popup"});
-        return;
-      }
-      pushHistoryViaTarget(win, href, filename, jsonText, true).then(function(r){
-        if(r && r.ok) ensureNasFrame(href);
-        resolve(r);
-      });
-    });
-  }
-  async function pushHistoryToNas(filename, jsonText, cfg){
-    cfg=cfg||loadHistoryCloud();
-    const bad=historyCloudUrlProblem(cfg.url||"");
-    if(bad) return bad;
-    const href=historyCloudPhpUrl(cfg.url||"");
-    if(!href) return {ok:false, reason:"no-cloud"};
-    const skipFetch=typeof isIosDevice==="function" && isIosDevice();
-    if(!skipFetch){
-      try{
-        const res=await nasFetch(href, {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({filename:filename, json:String(jsonText||"")}),
-          timeoutMs:8000
-        });
-        const text=await res.text().catch(function(){ return ""; });
-        if(text.indexOf("<?php")!==-1) return {ok:false, reason:"no-php", status:res.status};
-        if(res.ok || res.status===201){
-          ensureNasFrame(href);
-          return {ok:true, status:res.status};
-        }
-        if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
-        if(res.status===404) return {ok:false, reason:"http", status:404};
-      }catch(e){}
-    }
-    ensureNasFrame(href);
-    if(nasFrameReady && nasFrameWin()){
-      const quiet=await pushHistoryViaTarget(nasFrameWin(), href, filename, String(jsonText||""), false);
-      if(quiet && quiet.ok) return quiet;
-    }
-    return pushHistoryViaBridge(href, filename, String(jsonText||""));
-  }
-  async function checkHistoryCloud(cfg){
-    cfg=cfg||loadHistoryCloud();
-    const bad=historyCloudUrlProblem(cfg.url||"");
-    if(bad) return bad;
-    const href=historyCloudPhpUrl(cfg.url||"");
-    if(!href) return {ok:false, reason:"no-cloud"};
-    return pushHistoryToNas(".servicebericht-cloud-check.json", "{\"ok\":true}\n", cfg);
-  }
-  window.pushHistoryToNas=pushHistoryToNas;
-  window.checkHistoryCloud=checkHistoryCloud;
-  window.historyCloudUrlProblem=historyCloudUrlProblem;
-  window.historyCloudPhpUrl=historyCloudPhpUrl;
-  window.historyCloudReasonText=historyCloudReasonText;
+  const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
 
   function loadHistory(){
     try {
@@ -5298,18 +5025,6 @@ finally{ window.__pdfBuilding=false; }
         alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
         return;
       }
-      if(loadHistoryCloud().url){
-        const {filename, json}=reportPayload(item);
-        let cloudRes=null;
-        try{ cloudRes=await pushHistoryToNas(filename, json); }
-        catch(e){ cloudRes={ok:false, reason:"cors"}; }
-        if(cloudRes && cloudRes.ok){
-          $("status").textContent="In der App und auf der NAS gespeichert.";
-          return;
-        }
-        $("status").textContent="In der App gespeichert. NAS: "+historyCloudReasonText(cloudRes);
-        return;
-      }
       try{
         await exportReportFile(item);
       }catch(e){
@@ -5328,135 +5043,6 @@ finally{ window.__pdfBuilding=false; }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
     window.saveCurrentHistory=saveCurrentHistory;
-
-    function setHistoryCloudMsg(kind, text){
-      const err=$("historyCloudErr");
-      if(!err) return;
-      err.classList.remove("is-ok","is-err","is-wait");
-      if(kind) err.classList.add("is-"+kind);
-      err.textContent=text||"";
-    }
-    function fillHistoryCloudForm(){
-      const cfg=loadHistoryCloud();
-      if($("historyCloudUrl")) $("historyCloudUrl").value=cfg.url||"";
-      setHistoryCloudMsg("", "");
-    }
-    function closeHistoryCloudModal(){
-      const modal=$("historyCloudModal");
-      if(!modal) return;
-      modal.classList.remove("is-open");
-      modal.setAttribute("aria-hidden","true");
-    }
-    function openHistoryCloudModal(){
-      const modal=$("historyCloudModal");
-      if(!modal) return;
-      fillHistoryCloudForm();
-      modal.classList.add("is-open");
-      modal.setAttribute("aria-hidden","false");
-      setTimeout(function(){ try{ $("historyCloudUrl")?.focus(); }catch(e){} }, 150);
-    }
-    function readHistoryCloudForm(){
-      return {url:String($("historyCloudUrl")?.value||"").trim()};
-    }
-    async function runHistoryCloudCheck(persist){
-      const cfg=readHistoryCloudForm();
-      const bad=cfg.url ? historyCloudUrlProblem(cfg.url) : {reason:"no-cloud"};
-      if(!cfg.url || bad){
-        setHistoryCloudMsg("err", historyCloudReasonText(bad||{reason:"no-cloud"}));
-        return false;
-      }
-      if(persist) saveHistoryCloud({url:historyCloudPhpUrl(cfg.url)});
-      setHistoryCloudMsg("wait", "Prüfe NAS…");
-      let r;
-      try{ r=await checkHistoryCloud(cfg); }
-      catch(e){ r={ok:false, reason:"cors"}; }
-      const text=historyCloudReasonText(r);
-      setHistoryCloudMsg(r&&r.ok ? "ok" : "err", text);
-      $("status").textContent=text;
-      return !!(r&&r.ok);
-    }
-    $("historyCloud")?.addEventListener("click", openHistoryCloudModal);
-    $("historyCloudSkip")?.addEventListener("click", closeHistoryCloudModal);
-    $("historyCloudTest")?.addEventListener("click", ()=>{ runHistoryCloudCheck(false); });
-    $("historyCloudSave")?.addEventListener("click", async ()=>{
-      const ok=await runHistoryCloudCheck(true);
-      if(ok) $("status").textContent="NAS gespeichert. Historie geht beim Speichern mit.";
-    });
-    $("historyCloudClear")?.addEventListener("click", ()=>{
-      saveHistoryCloud({url:""});
-      fillHistoryCloudForm();
-      closeHistoryCloudModal();
-      $("status").textContent="NAS entfernt.";
-    });
-    $("historyCloudFile")?.addEventListener("click", async ()=>{
-      const names=["synology-historie.php","synology-historie.txt"];
-      let text="";
-      for(let i=0;i<names.length;i++){
-        try{
-          const r=await fetch(names[i]+"?v="+(window.SB_APP_VERSION||""), {cache:"no-store"});
-          if(!r.ok) continue;
-          const t=await r.text();
-          if(t.indexOf("<?php")!==-1){ text=t; break; }
-        }catch(e){}
-      }
-      if(!text){
-        setHistoryCloudMsg("err", "PHP-Datei nicht geladen. Am Computer die App nochmal öffnen.");
-        return;
-      }
-      const blob=new Blob([text], {type:"application/octet-stream"});
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(blob);
-      a.download=HISTORY_CLOUD_PHP;
-      a.rel="noopener";
-      a.style.display="none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 8000);
-      setHistoryCloudMsg("wait", "Gespeichert. Per File Station in den Ordner web legen (einmal).");
-    });
-    $("historyCloudCopy")?.addEventListener("click", async ()=>{
-      const cfg=readHistoryCloudForm();
-      const href=historyCloudPhpUrl(cfg.url||"");
-      if(!href){
-        setHistoryCloudMsg("err", "Zuerst die Adresse eintragen.");
-        return;
-      }
-      try{
-        if(navigator.clipboard && navigator.clipboard.writeText)
-          await navigator.clipboard.writeText(href);
-        else throw new Error("clip");
-        setHistoryCloudMsg("ok", "Adresse kopiert.");
-      }catch(e){
-        setHistoryCloudMsg("wait", href);
-      }
-    });
-    $("historyCloudOpen")?.addEventListener("click", ()=>{
-      const cfg=readHistoryCloudForm();
-      const bad=cfg.url ? historyCloudUrlProblem(cfg.url) : {reason:"no-cloud"};
-      if(!cfg.url || bad){
-        setHistoryCloudMsg("err", historyCloudReasonText(bad||{reason:"no-cloud"}));
-        return;
-      }
-      const href=historyCloudPhpUrl(cfg.url);
-      saveHistoryCloud({url:href});
-      ensureNasFrame(href);
-      const w=window.open(href, "_blank");
-      if(!w){
-        setHistoryCloudMsg("err", "Safari hat das Fenster blockiert.");
-        return;
-      }
-      setHistoryCloudMsg("wait", "Gelbes Zertifikat: Details, Seite öffnen. Es muss ok stehen. Danach zurück und Prüfen.");
-    });
-    $("historyCloudModal")?.addEventListener("click", e=>{
-      if(e.target && e.target.id==="historyCloudModal") closeHistoryCloudModal();
-    });
-    syncHistoryCloudBtn();
-    try{
-      const boot=loadHistoryCloud().url;
-      if(boot) ensureNasFrame(historyCloudPhpUrl(boot));
-    }catch(e){}
-    window.runHistoryCloudCheck=runHistoryCloudCheck;
 
     fileInput?.addEventListener("change",async()=>{
       try{
@@ -5785,7 +5371,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.78";
+  const APP_VERSION=window.SB_APP_VERSION||"3.80";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
