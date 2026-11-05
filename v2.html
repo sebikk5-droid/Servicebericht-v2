@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.80">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.81">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.80</title>
+  <title>Servicebericht v3.81</title>
 <script>
-window.SB_APP_VERSION="3.80";
+window.SB_APP_VERSION="3.81";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -448,6 +448,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   height:28px;min-height:28px;margin:0;line-height:1;white-space:nowrap;
 }
 #historySave.history-file-btn{background:#163a5c;color:#fff}
+#historyFolder.history-file-btn.is-on{background:#163a5c;color:#fff}
 #historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
 #historyActionOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
@@ -855,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.80</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.81</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -870,6 +871,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <div class="history-actions">
       <button type="button" id="historySave" class="history-file-btn">Speichern</button>
+      <button type="button" id="historyFolder" class="history-file-btn">Ordner</button>
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
@@ -4857,13 +4859,113 @@ finally{ window.__pdfBuilding=false; }
     setTimeout(()=>URL.revokeObjectURL(url),10000);
     $("status").textContent="Datei zum Speichern geöffnet.";
   }
+  const HISTORY_DIR_DB="servicebericht_history_dir_v1";
+  const HISTORY_DIR_STORE="dir";
+  const HISTORY_DIR_KEY="handle";
+  const HISTORY_DIR_NAME_KEY="servicebericht_history_dir_name";
+  let historyDirHandle=null;
+  function historyDirDb(){
+    return new Promise(function(resolve, reject){
+      const req=indexedDB.open(HISTORY_DIR_DB, 1);
+      req.onupgradeneeded=function(){
+        const db=req.result;
+        if(!db.objectStoreNames.contains(HISTORY_DIR_STORE)) db.createObjectStore(HISTORY_DIR_STORE);
+      };
+      req.onsuccess=function(){ resolve(req.result); };
+      req.onerror=function(){ reject(req.error); };
+    });
+  }
+  async function loadHistoryDirHandle(){
+    if(historyDirHandle) return historyDirHandle;
+    try{
+      const db=await historyDirDb();
+      const handle=await new Promise(function(resolve, reject){
+        const tx=db.transaction(HISTORY_DIR_STORE, "readonly");
+        const r=tx.objectStore(HISTORY_DIR_STORE).get(HISTORY_DIR_KEY);
+        r.onsuccess=function(){ resolve(r.result||null); };
+        r.onerror=function(){ reject(r.error); };
+      });
+      if(handle) historyDirHandle=handle;
+      return handle||null;
+    }catch(e){
+      return null;
+    }
+  }
+  async function saveHistoryDirHandle(handle){
+    historyDirHandle=handle||null;
+    try{
+      if(handle && handle.name) localStorage.setItem(HISTORY_DIR_NAME_KEY, handle.name);
+      else localStorage.removeItem(HISTORY_DIR_NAME_KEY);
+    }catch(e){}
+    syncHistoryFolderBtn();
+    if(!handle) return;
+    try{
+      const db=await historyDirDb();
+      await new Promise(function(resolve, reject){
+        const tx=db.transaction(HISTORY_DIR_STORE, "readwrite");
+        tx.objectStore(HISTORY_DIR_STORE).put(handle, HISTORY_DIR_KEY);
+        tx.oncomplete=function(){ resolve(); };
+        tx.onerror=function(){ reject(tx.error); };
+      });
+    }catch(e){}
+  }
+  function historyFolderName(){
+    try{ return String(localStorage.getItem(HISTORY_DIR_NAME_KEY)||"").trim(); }
+    catch(e){ return ""; }
+  }
+  function syncHistoryFolderBtn(){
+    const btn=$("historyFolder");
+    if(!btn) return;
+    if(!window.showDirectoryPicker){
+      btn.hidden=true;
+      return;
+    }
+    btn.hidden=false;
+    const name=historyFolderName();
+    btn.classList.toggle("is-on", !!name);
+    btn.setAttribute("title", name ? ("Ordner: "+name) : "Ordner einmal wählen, die App merkt ihn.");
+  }
+  async function historyDirPermission(handle, interactive){
+    if(!handle) return false;
+    try{
+      const opts={mode:"readwrite"};
+      if((await handle.queryPermission(opts))==="granted") return true;
+      if(!interactive) return false;
+      return (await handle.requestPermission(opts))==="granted";
+    }catch(e){
+      return false;
+    }
+  }
+  async function pickHistoryDir(){
+    if(!window.showDirectoryPicker) return null;
+    const handle=await window.showDirectoryPicker({mode:"readwrite", startIn:"documents"});
+    await saveHistoryDirHandle(handle);
+    return handle;
+  }
+  async function writeHistoryToDir(handle, filename, json){
+    const fh=await handle.getFileHandle(filename, {create:true});
+    const w=await fh.createWritable();
+    await w.write(json);
+    await w.close();
+  }
   async function exportReportFile(item){
+    const {filename, json}=reportPayload(item);
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
-    const onIpad=!window.showSaveFilePicker || isIosDevice();
 
-    // iPad: only the share sheet can choose a Files folder. Call it once, immediately.
-    if(onIpad && navigator.share){
+    if(window.showDirectoryPicker){
+      let handle=await loadHistoryDirHandle();
+      if(handle && !(await historyDirPermission(handle, true))) handle=null;
+      if(!handle) handle=await pickHistoryDir();
+      if(handle){
+        await writeHistoryToDir(handle, filename, json);
+        const name=handle.name||historyFolderName();
+        $("status").textContent=name ? ("Gespeichert in Ordner "+name+".") : "Datei gespeichert.";
+        return;
+      }
+    }
+
+    if(isIosDevice() && navigator.share){
       await navigator.share({files:[textFile.file]});
       $("status").textContent="In Dateien sichern tippen, dann den Ordner wählen.";
       return;
@@ -5043,6 +5145,16 @@ finally{ window.__pdfBuilding=false; }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
     window.saveCurrentHistory=saveCurrentHistory;
+    $("historyFolder")?.addEventListener("click", async ()=>{
+      try{
+        const handle=await pickHistoryDir();
+        if(handle) $("status").textContent="Ordner "+(handle.name||"")+" merkt sich die App. Speichern legt die Datei dort ab.";
+      }catch(e){
+        if(e?.name!=="AbortError") $("status").textContent="Ordner konnte nicht gewählt werden.";
+      }
+    });
+    syncHistoryFolderBtn();
+    loadHistoryDirHandle().then(syncHistoryFolderBtn).catch(function(){});
 
     fileInput?.addEventListener("change",async()=>{
       try{
@@ -5371,7 +5483,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.80";
+  const APP_VERSION=window.SB_APP_VERSION||"3.81";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
