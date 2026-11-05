@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.62">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.63">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.62</title>
+  <title>Servicebericht v3.63</title>
 <script>
-window.SB_APP_VERSION="3.62";
+window.SB_APP_VERSION="3.63";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.62</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.63</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,9 +1167,9 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Meine Cloud</h3>
-    <p class="muted" id="historyCloudHint">Historie als JSON per WebDAV (Nextcloud, NAS, MagentaCLOUD, HiDrive). Nicht GitHub. Adresse des Ordners einfügen, dann speichert Speichern automatisch dorthin.</p>
+    <p class="muted" id="historyCloudHint">Historie als JSON per WebDAV. Nicht GitHub, nicht die NAS-Startseite (QuickConnect). Synology: Paket „WebDAV Server“, dann z. B. https://192.168.1.10:5006/ oder DDNS mit Port 5006.</p>
     <label for="historyCloudUrl">WebDAV-Adresse</label>
-    <input id="historyCloudUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://cloud.example/remote.php/dav/files/ich/Servicebericht/">
+    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5006/">
     <label for="historyCloudUser">Benutzer</label>
     <input id="historyCloudUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
     <label for="historyCloudPass">Passwort</label>
@@ -4549,10 +4549,34 @@ finally{ window.__pdfBuilding=false; }
     try{ return "Basic "+btoa(unescape(encodeURIComponent(s))); }
     catch(e){ return "Basic "+btoa(s); }
   }
+  function historyCloudUrlProblem(raw){
+    const s=String(raw||"").trim();
+    if(!s) return {reason:"no-cloud"};
+    let href=s;
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(href)) href="https://"+href;
+    let u=null;
+    try{ u=new URL(href); }catch(e){ return {reason:"https"}; }
+    const host=String(u.hostname||"").toLowerCase();
+    const path=String(u.pathname||"");
+    const port=String(u.port||"");
+    const looksDav=port==="5006" || port==="5005" || /webdav|remote\.php\/dav|\/dav\/files/i.test(path);
+    if(/quickconnect\.to$/i.test(host) && !looksDav)
+      return {reason:"quickconnect"};
+    if(port==="5000" || port==="5001") return {reason:"dsm-port"};
+    if(u.protocol==="http:"){
+      if(typeof location!=="undefined" && location.protocol==="https:") return {reason:"http-mixed"};
+      return {reason:"https"};
+    }
+    if(u.protocol!=="https:") return {reason:"https"};
+    return null;
+  }
   function historyCloudReasonText(r){
     if(r && r.ok) return "Angemeldet. Verbindung zur Cloud steht.";
     const reason=r&&r.reason||"";
     const status=Number(r&&r.status)||0;
+    if(reason==="quickconnect") return "QuickConnect.to/… ist die NAS-Startseite, kein WebDAV. Auf der NAS das Paket „WebDAV Server“ installieren und z. B. https://192.168.1.10:5006/ oder https://xxx.synology.me:5006/ eintragen (https, nicht http).";
+    if(reason==="dsm-port") return "Port 5000/5001 ist DSM, nicht WebDAV. WebDAV Server nutzt Port 5006 (https).";
+    if(reason==="http-mixed") return "http:// wird in dieser App vom Browser blockiert. Bitte https://-WebDAV verwenden.";
     if(reason==="https") return "Bitte https://-Adresse der Cloud verwenden.";
     if(reason==="no-cloud") return "Bitte zuerst die WebDAV-Adresse eintragen.";
     if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht.";
@@ -4595,7 +4619,8 @@ finally{ window.__pdfBuilding=false; }
     cfg=cfg||loadHistoryCloud();
     const url=historyCloudFileUrl(filename, cfg);
     if(!url) return {ok:false, reason:"no-cloud"};
-    if(!/^https:\/\//i.test(url)) return {ok:false, reason:"https"};
+    const bad=historyCloudUrlProblem(cfg.url||url);
+    if(bad) return bad;
     if(typeof window.sbOffline==="function" && window.sbOffline()) return {ok:false, reason:"network"};
     const headers={"Content-Type":"application/json"};
     const auth=historyCloudAuthHeader(cfg);
@@ -4627,7 +4652,8 @@ finally{ window.__pdfBuilding=false; }
     cfg=cfg||loadHistoryCloud();
     const folder=historyCloudFolderUrl(cfg);
     if(!folder) return {ok:false, reason:"no-cloud"};
-    if(!/^https:\/\//i.test(folder)) return {ok:false, reason:"https"};
+    const bad=historyCloudUrlProblem(cfg.url||folder);
+    if(bad) return bad;
     if(typeof window.sbOffline==="function" && window.sbOffline()) return {ok:false, reason:"network"};
     const auth=historyCloudAuthHeader(cfg);
     const headers={"Depth":"0","Content-Type":"application/xml"};
@@ -4656,6 +4682,7 @@ finally{ window.__pdfBuilding=false; }
   }
   window.pushHistoryToPrivateCloud=pushHistoryToPrivateCloud;
   window.checkHistoryCloud=checkHistoryCloud;
+  window.historyCloudUrlProblem=historyCloudUrlProblem;
 
   function loadHistory(){
     try {
@@ -5306,8 +5333,9 @@ finally{ window.__pdfBuilding=false; }
     }
     async function runHistoryCloudCheck(persist){
       const cfg=readHistoryCloudForm();
-      if(cfg.url && !/^https:\/\//i.test(cfg.url)){
-        setHistoryCloudMsg("err", "Bitte https://-Adresse der Cloud verwenden.");
+      const bad=cfg.url ? historyCloudUrlProblem(cfg.url) : null;
+      if(bad){
+        setHistoryCloudMsg("err", historyCloudReasonText(bad));
         return false;
       }
       if(persist) saveHistoryCloud(cfg);
@@ -5329,6 +5357,7 @@ finally{ window.__pdfBuilding=false; }
     $("historyCloud")?.addEventListener("click", openHistoryCloudModal);
     $("historyCloudSkip")?.addEventListener("click", closeHistoryCloudModal);
     $("historyCloudTest")?.addEventListener("click", ()=>{ runHistoryCloudCheck(false); });
+    window.runHistoryCloudCheck=runHistoryCloudCheck;
     $("historyCloudSave")?.addEventListener("click", async ()=>{
       const ok=await runHistoryCloudCheck(true);
       if(!readHistoryCloudForm().url){
@@ -5676,7 +5705,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.62";
+  const APP_VERSION=window.SB_APP_VERSION||"3.63";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
