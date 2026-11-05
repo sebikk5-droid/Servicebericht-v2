@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.70">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.73">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.70</title>
+  <title>Servicebericht v3.73</title>
 <script>
-window.SB_APP_VERSION="3.70";
+window.SB_APP_VERSION="3.73";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.70</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.73</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1166,17 +1166,13 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
-    <h3>Synology WebDAV</h3>
-    <p class="muted" id="historyCloudHint">Am einfachsten: WebDAV Port 5006. Einmal am Computer CORS setzen — „Header kopieren“, dann DSM Systemsteuerung → Anmeldeportal → Reverse Proxy → Ziel localhost:5006, diese Header einfügen. Danach hier https://IP:5006/ und Prüfen.</p>
-    <label for="historyCloudUrl">WebDAV-Adresse</label>
-    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5006/">
-    <label for="historyCloudUser">Benutzer</label>
-    <input id="historyCloudUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
-    <label for="historyCloudPass">Passwort</label>
-    <input id="historyCloudPass" type="password" autocomplete="current-password">
+    <h3>Synology NAS</h3>
+    <p class="muted" id="historyCloudHint">Kein Reverse Proxy. PHP-Datei in den Ordner web legen. In der App https://IP/synology-historie.php — NAS öffnen muss ok zeigen, dann Prüfen.</p>
+    <label for="historyCloudUrl">Adresse der PHP-Datei</label>
+    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <p id="historyCloudErr" role="status"></p>
     <div class="email-actions">
-      <button type="button" class="clear" id="historyCloudHeaders">Header kopieren</button>
+      <button type="button" class="clear" id="historyCloudFile">PHP-Datei</button>
       <button type="button" class="clear" id="historyCloudOpen">NAS öffnen</button>
       <button type="button" class="clear" id="historyCloudClear">Entfernen</button>
       <button type="button" class="clear" id="historyCloudSkip">Schließen</button>
@@ -4504,23 +4500,18 @@ finally{ window.__pdfBuilding=false; }
   const LIVE_KEY="servicebericht_live_draft_v2";
   const RESET_FLAG="servicebericht_reset_v2";
   const SKIP_IDS={historySearch:1,historySelect:1,historyCloudUrl:1,historyCloudUser:1,historyCloudPass:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
-  const HISTORY_CLOUD_KEY="servicebericht_history_webdav";
-  const HISTORY_CLOUD_CORS=[
-    "Access-Control-Allow-Origin: https://sebikk5-droid.github.io",
-    "Access-Control-Allow-Methods: GET, PUT, POST, OPTIONS, PROPFIND, MKCOL, DELETE",
-    "Access-Control-Allow-Headers: Authorization, Content-Type, Depth, Destination, Overwrite",
-    "Access-Control-Allow-Private-Network: true"
-  ].join("\n");
+  const HISTORY_CLOUD_KEY="servicebericht_history_nas";
+  const HISTORY_CLOUD_PHP="synology-historie.php";
 
   function loadHistoryCloud(){
     try{
       const c=JSON.parse(localStorage.getItem(HISTORY_CLOUD_KEY)||"{}");
-      if(c && typeof c==="object") return {url:String(c.url||"").trim(), user:String(c.user||"").trim(), pass:String(c.pass||"")};
+      if(c && typeof c==="object") return {url:String(c.url||"").trim()};
     }catch(e){}
-    return {url:"", user:"", pass:""};
+    return {url:""};
   }
   function saveHistoryCloud(c){
-    const next={url:String(c&&c.url||"").trim(), user:String(c&&c.user||"").trim(), pass:String(c&&c.pass||"")};
+    const next={url:String(c&&c.url||"").trim()};
     if(!next.url) localStorage.removeItem(HISTORY_CLOUD_KEY);
     else localStorage.setItem(HISTORY_CLOUD_KEY, JSON.stringify(next));
     syncHistoryCloudBtn();
@@ -4530,30 +4521,24 @@ finally{ window.__pdfBuilding=false; }
     if(!btn) return;
     const on=!!loadHistoryCloud().url;
     btn.classList.toggle("is-on", on);
-    btn.setAttribute("title", on ? "WebDAV ist eingerichtet" : "WebDAV einrichten");
+    btn.setAttribute("title", on ? "NAS ist eingerichtet" : "NAS einrichten");
   }
-  function historyCloudAuthHeader(cfg){
-    const user=String(cfg&&cfg.user||"");
-    const pass=String(cfg&&cfg.pass||"");
-    if(!user && !pass) return "";
-    const s=user+":"+pass;
-    try{ return "Basic "+btoa(unescape(encodeURIComponent(s))); }
-    catch(e){ return "Basic "+btoa(s); }
-  }
-  function historyCloudFileUrl(filename, cfg){
-    cfg=cfg||loadHistoryCloud();
-    let base=String(cfg.url||"").trim();
-    if(!base) return "";
-    if(!/^[a-z][a-z0-9+.-]*:/i.test(base)) base="https://"+base;
+  function historyCloudPhpUrl(raw){
+    let s=String(raw||"").trim();
+    if(!s) return "";
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(s)) s="https://"+s;
     try{
-      const u=new URL(base);
+      const u=new URL(s);
       u.hash="";
       let path=u.pathname||"/";
-      if(!path.endsWith("/")) path+="/";
-      u.pathname=path+encodeURIComponent(String(filename||"").replace(/^\/+/, ""));
-      return u.protocol+"//"+u.host+u.pathname+u.search;
+      if(!/\.php$/i.test(path)){
+        if(!path.endsWith("/")) path+="/";
+        path+=HISTORY_CLOUD_PHP;
+      }
+      u.pathname=path;
+      return u.toString();
     }catch(e){
-      return base.replace(/\/+$/,"")+"/"+String(filename||"").replace(/^\/+/, "");
+      return s;
     }
   }
   function historyCloudUrlProblem(raw){
@@ -4561,14 +4546,14 @@ finally{ window.__pdfBuilding=false; }
     if(!s) return {reason:"no-cloud"};
     if(/^[a-zA-Z]:[\\/]/.test(s) || s.indexOf("\\\\")===0 || /^file:/i.test(s))
       return {reason:"local-path"};
-    let href=s;
-    if(!/^[a-z][a-z0-9+.-]*:/i.test(href)) href="https://"+href;
+    let href=historyCloudPhpUrl(s);
     let u=null;
     try{ u=new URL(href); }catch(e){ return {reason:"https"}; }
     const host=String(u.hostname||"").toLowerCase();
     const port=String(u.port||"");
     if(/quickconnect\.to$/i.test(host)) return {reason:"quickconnect"};
     if(port==="5000" || port==="5001") return {reason:"dsm-port"};
+    if(port==="5006" || port==="5005") return {reason:"direct-webdav"};
     if(u.protocol==="http:"){
       if(typeof location!=="undefined" && location.protocol==="https:") return {reason:"http-mixed"};
       return {reason:"https"};
@@ -4577,22 +4562,27 @@ finally{ window.__pdfBuilding=false; }
     return null;
   }
   function historyCloudReasonText(r){
-    if(r && r.ok) return "Angemeldet. Historie geht per WebDAV auf die NAS.";
+    if(r && r.ok) return "Verbunden. Historie geht auf die NAS.";
     const reason=r&&r.reason||"";
     const status=Number(r&&r.status)||0;
-    if(reason==="quickconnect") return "QuickConnect ist nicht WebDAV. Bitte https://IP-der-NAS:5006/";
-    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. WebDAV nutzt Port 5006 (https).";
-    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP:5006/";
-    if(reason==="https") return "Bitte https://-WebDAV-Adresse, z. B. https://192.168.1.10:5006/";
-    if(reason==="no-cloud") return "Bitte zuerst die WebDAV-Adresse eintragen.";
-    if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte https://IP:5006/";
-    if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht.";
-    if(reason==="cors" || reason==="network") return "Die App darf die NAS nicht ansprechen (CORS). Am Computer: Header kopieren und im Reverse Proxy einfügen. Dann „NAS öffnen“ (Zertifikat), Prüfen.";
-    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? WebDAV Server läuft auf 5006?";
+    if(reason==="quickconnect") return "QuickConnect ist DSM, nicht die PHP-Datei. Bitte https://IP/synology-historie.php";
+    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. Bitte https://IP/synology-historie.php (ohne Port).";
+    if(reason==="direct-webdav") return "Port 5005/5006 ist WebDAV. Bitte https://IP/synology-historie.php (Web Station).";
+    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP/synology-historie.php";
+    if(reason==="https") return "Bitte https://-Adresse der PHP-Datei, z. B. https://192.168.1.10/synology-historie.php";
+    if(reason==="no-cloud") return "Bitte zuerst die Adresse der PHP-Datei eintragen.";
+    if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte die https-Adresse der PHP-Datei.";
+    if(reason==="no-php") return "Die Datei kommt als PHP-Quelltext. In Web Station PHP 8.0 für den Ordner web einschalten.";
+    if(reason==="not-ok") return "NAS öffnen muss „ok“ zeigen. PHP-Datei in den Ordner web legen. Zertifikat der Web Station in DSM zuweisen.";
+    if(reason==="auth" || status===401 || status===403) return "Kein Zugriff (401/403). PHP-Datei in den Ordner web legen, nicht in DSM.";
+    if(reason==="cors" || reason==="network") return "Keine Verbindung. Gleiches WLAN? NAS öffnen muss ok zeigen. Gelbes Zertifikat in Safari erlauben. Adresse https://IP/synology-historie.php";
+    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? Web Station läuft? https://IP/synology-historie.php in Safari öffnen.";
+    if(status===404) return "PHP-Datei nicht gefunden. synology-historie.php in den Ordner web legen.";
+    if(status===502 || status===503 || status===504) return "Web Station nicht erreichbar. In DSM Zertifikat der Web Station zuweisen.";
     if(status) return "NAS antwortet nicht richtig ("+status+").";
     return "NAS nicht erreichbar.";
   }
-  async function davFetch(url, opt){
+  async function nasFetch(url, opt){
     opt=opt||{};
     const ctrl=new AbortController();
     const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, opt.timeoutMs||20000);
@@ -4614,15 +4604,20 @@ finally{ window.__pdfBuilding=false; }
     cfg=cfg||loadHistoryCloud();
     const bad=historyCloudUrlProblem(cfg.url||"");
     if(bad) return bad;
-    const url=historyCloudFileUrl(filename, cfg);
-    if(!url) return {ok:false, reason:"no-cloud"};
-    const headers={"Content-Type":"application/json"};
-    const auth=historyCloudAuthHeader(cfg);
-    if(auth) headers.Authorization=auth;
+    const href=historyCloudPhpUrl(cfg.url||"");
+    if(!href) return {ok:false, reason:"no-cloud"};
     try{
-      const res=await davFetch(url, {method:"PUT", headers:headers, body:String(jsonText||""), timeoutMs:20000});
-      if(res.ok || res.status===201 || res.status===204) return {ok:true, status:res.status};
+      const res=await nasFetch(href, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({filename:filename, json:String(jsonText||"")}),
+        timeoutMs:20000
+      });
+      const text=await res.text().catch(function(){ return ""; });
+      if(text.indexOf("<?php")!==-1) return {ok:false, reason:"no-php", status:res.status};
+      if(res.ok || res.status===201) return {ok:true, status:res.status};
       if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
+      if(res.status===404) return {ok:false, reason:"http", status:404};
       return {ok:false, status:res.status, reason:"http"};
     }catch(e){
       if(e && (e.name==="AbortError" || e.code===20)) return {ok:false, reason:"abort"};
@@ -4631,21 +4626,31 @@ finally{ window.__pdfBuilding=false; }
   }
   async function checkHistoryCloud(cfg){
     cfg=cfg||loadHistoryCloud();
-    const put=await pushHistoryToNas(".servicebericht-cloud-check.json", "{\"ok\":true}\n", cfg);
-    if(put.ok){
-      try{
-        const headers={};
-        const auth=historyCloudAuthHeader(cfg);
-        if(auth) headers.Authorization=auth;
-        await davFetch(historyCloudFileUrl(".servicebericht-cloud-check.json", cfg), {method:"DELETE", headers:headers, timeoutMs:8000});
-      }catch(e){}
+    const bad=historyCloudUrlProblem(cfg.url||"");
+    if(bad) return bad;
+    const href=historyCloudPhpUrl(cfg.url||"");
+    if(!href) return {ok:false, reason:"no-cloud"};
+    try{
+      const res=await nasFetch(href, {method:"GET", timeoutMs:12000});
+      const text=await res.text().catch(function(){ return ""; });
+      if(text.indexOf("<?php")!==-1) return {ok:false, reason:"no-php", status:res.status};
+      if(res.status===404) return {ok:false, reason:"http", status:404};
+      if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
+      if(res.status===502 || res.status===503 || res.status===504)
+        return {ok:false, reason:"http", status:res.status};
+      if(!res.ok) return {ok:false, reason:"http", status:res.status};
+      if(!/\bok\b/i.test(text)) return {ok:false, reason:"not-ok", status:res.status};
+    }catch(e){
+      if(e && (e.name==="AbortError" || e.code===20)) return {ok:false, reason:"abort"};
+      return {ok:false, reason:"cors"};
     }
-    return put;
+    return pushHistoryToNas(".servicebericht-cloud-check.json", "{\"ok\":true}\n", cfg);
   }
   window.pushHistoryToNas=pushHistoryToNas;
   window.checkHistoryCloud=checkHistoryCloud;
   window.historyCloudUrlProblem=historyCloudUrlProblem;
-  window.HISTORY_CLOUD_CORS=HISTORY_CLOUD_CORS;
+  window.historyCloudPhpUrl=historyCloudPhpUrl;
+  window.historyCloudReasonText=historyCloudReasonText;
 
   function loadHistory(){
     try {
@@ -5250,8 +5255,6 @@ finally{ window.__pdfBuilding=false; }
     function fillHistoryCloudForm(){
       const cfg=loadHistoryCloud();
       if($("historyCloudUrl")) $("historyCloudUrl").value=cfg.url||"";
-      if($("historyCloudUser")) $("historyCloudUser").value=cfg.user||"";
-      if($("historyCloudPass")) $("historyCloudPass").value=cfg.pass||"";
       setHistoryCloudMsg("", "");
     }
     function closeHistoryCloudModal(){
@@ -5269,11 +5272,7 @@ finally{ window.__pdfBuilding=false; }
       setTimeout(function(){ try{ $("historyCloudUrl")?.focus(); }catch(e){} }, 150);
     }
     function readHistoryCloudForm(){
-      return {
-        url:String($("historyCloudUrl")?.value||"").trim(),
-        user:String($("historyCloudUser")?.value||"").trim(),
-        pass:String($("historyCloudPass")?.value||"")
-      };
+      return {url:String($("historyCloudUrl")?.value||"").trim()};
     }
     async function runHistoryCloudCheck(persist){
       const cfg=readHistoryCloudForm();
@@ -5282,8 +5281,8 @@ finally{ window.__pdfBuilding=false; }
         setHistoryCloudMsg("err", historyCloudReasonText(bad||{reason:"no-cloud"}));
         return false;
       }
-      if(persist) saveHistoryCloud(cfg);
-      setHistoryCloudMsg("wait", "Prüfe WebDAV…");
+      if(persist) saveHistoryCloud({url:historyCloudPhpUrl(cfg.url)});
+      setHistoryCloudMsg("wait", "Prüfe NAS…");
       let r;
       try{ r=await checkHistoryCloud(cfg); }
       catch(e){ r={ok:false, reason:"cors"}; }
@@ -5297,22 +5296,39 @@ finally{ window.__pdfBuilding=false; }
     $("historyCloudTest")?.addEventListener("click", ()=>{ runHistoryCloudCheck(false); });
     $("historyCloudSave")?.addEventListener("click", async ()=>{
       const ok=await runHistoryCloudCheck(true);
-      if(ok) $("status").textContent="WebDAV gespeichert. Historie geht beim Speichern mit.";
+      if(ok) $("status").textContent="NAS gespeichert. Historie geht beim Speichern mit.";
     });
     $("historyCloudClear")?.addEventListener("click", ()=>{
-      saveHistoryCloud({url:"", user:"", pass:""});
+      saveHistoryCloud({url:""});
       fillHistoryCloudForm();
       closeHistoryCloudModal();
-      $("status").textContent="WebDAV entfernt.";
+      $("status").textContent="NAS entfernt.";
     });
-    $("historyCloudHeaders")?.addEventListener("click", async ()=>{
+    $("historyCloudFile")?.addEventListener("click", async ()=>{
       try{
-        if(navigator.clipboard && navigator.clipboard.writeText)
-          await navigator.clipboard.writeText(HISTORY_CLOUD_CORS);
-        else throw new Error("clip");
-        setHistoryCloudMsg("ok", "Header kopiert. In DSM Reverse Proxy als Custom Header einfügen, Ziel Port 5006.");
+        const r=await fetch("synology-historie.php?v="+(window.SB_APP_VERSION||""), {cache:"no-store"});
+        if(!r.ok) throw new Error("fetch");
+        const text=await r.text();
+        if(text.indexOf("<?php")===-1) throw new Error("not-php");
+        const blob=new Blob([text], {type:"application/octet-stream"});
+        const a=document.createElement("a");
+        a.href=URL.createObjectURL(blob);
+        a.download=HISTORY_CLOUD_PHP;
+        a.rel="noopener";
+        a.style.display="none";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 8000);
+        setHistoryCloudMsg("wait", "Datei speichern und per File Station in den Ordner web legen.");
       }catch(e){
-        setHistoryCloudMsg("wait", HISTORY_CLOUD_CORS.replace(/\n/g," · "));
+        const href=new URL(HISTORY_CLOUD_PHP, location.href).href;
+        const w=window.open(href, "_blank", "noopener");
+        if(!w){
+          setHistoryCloudMsg("err", "Fenster blockiert. Am Computer öffnen: "+href);
+          return;
+        }
+        setHistoryCloudMsg("wait", "Am Computer: Datei speichern und per File Station in den Ordner web legen.");
       }
     });
     $("historyCloudOpen")?.addEventListener("click", ()=>{
@@ -5322,15 +5338,14 @@ finally{ window.__pdfBuilding=false; }
         setHistoryCloudMsg("err", historyCloudReasonText(bad||{reason:"no-cloud"}));
         return;
       }
-      saveHistoryCloud(cfg);
-      let href=cfg.url;
-      if(!/^[a-z][a-z0-9+.-]*:/i.test(href)) href="https://"+href;
+      const href=historyCloudPhpUrl(cfg.url);
+      saveHistoryCloud({url:href});
       const w=window.open(href, "_blank", "noopener");
       if(!w){
         setHistoryCloudMsg("err", "Safari hat das Fenster blockiert.");
         return;
       }
-      setHistoryCloudMsg("wait", "Im Safari Zertifikat erlauben, zurück, Prüfen.");
+      setHistoryCloudMsg("wait", "Seite muss „ok“ zeigen. Gelbes Zertifikat erlauben, zurück, Prüfen.");
     });
     $("historyCloudModal")?.addEventListener("click", e=>{
       if(e.target && e.target.id==="historyCloudModal") closeHistoryCloudModal();
@@ -5665,7 +5680,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.70";
+  const APP_VERSION=window.SB_APP_VERSION||"3.73";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
