@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v3-65";
+const CACHE_NAME = "servicebericht-v3-66";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
@@ -9,7 +9,6 @@ const APP_SHELL = [
   "./vendor/pdf.worker.min.js",
   "./machine-catalog.json",
   "./Leer.pdf",
-  "./cloud-bridge.html",
   "./favicon.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
