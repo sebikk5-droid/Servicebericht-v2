@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.72">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.73">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.72</title>
+  <title>Servicebericht v3.73</title>
 <script>
-window.SB_APP_VERSION="3.72";
+window.SB_APP_VERSION="3.73";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.72</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.73</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,9 +1167,9 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Kein WebDAV. PHP-Datei in den Ordner web legen. Reverse Proxy Ziel: HTTP localhost Port 80. In der App z. B. https://IP:5007/synology-historie.php — NAS öffnen muss ok zeigen, dann Prüfen.</p>
+    <p class="muted" id="historyCloudHint">Kein Reverse Proxy. PHP-Datei in den Ordner web legen. In der App https://IP/synology-historie.php — NAS öffnen muss ok zeigen, dann Prüfen.</p>
     <label for="historyCloudUrl">Adresse der PHP-Datei</label>
-    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5007/synology-historie.php">
+    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <p id="historyCloudErr" role="status"></p>
     <div class="email-actions">
       <button type="button" class="clear" id="historyCloudFile">PHP-Datei</button>
@@ -4565,20 +4565,20 @@ finally{ window.__pdfBuilding=false; }
     if(r && r.ok) return "Verbunden. Historie geht auf die NAS.";
     const reason=r&&r.reason||"";
     const status=Number(r&&r.status)||0;
-    if(reason==="quickconnect") return "QuickConnect ist DSM, nicht die PHP-Datei. Bitte https://IP:5007/synology-historie.php";
-    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. PHP liegt hinter Web Station, z. B. https://IP:5007/synology-historie.php";
-    if(reason==="direct-webdav") return "Port 5005/5006 ist WebDAV — nicht mehr nutzen. Reverse Proxy Ziel auf HTTP localhost Port 80 stellen.";
-    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP:5007/synology-historie.php";
-    if(reason==="https") return "Bitte https://-Adresse der PHP-Datei, z. B. https://192.168.1.10:5007/synology-historie.php";
+    if(reason==="quickconnect") return "QuickConnect ist DSM, nicht die PHP-Datei. Bitte https://IP/synology-historie.php";
+    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. Bitte https://IP/synology-historie.php (ohne Port).";
+    if(reason==="direct-webdav") return "Port 5005/5006 ist WebDAV. Bitte https://IP/synology-historie.php (Web Station).";
+    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP/synology-historie.php";
+    if(reason==="https") return "Bitte https://-Adresse der PHP-Datei, z. B. https://192.168.1.10/synology-historie.php";
     if(reason==="no-cloud") return "Bitte zuerst die Adresse der PHP-Datei eintragen.";
     if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte die https-Adresse der PHP-Datei.";
     if(reason==="no-php") return "Die Datei kommt als PHP-Quelltext. In Web Station PHP 8.0 für den Ordner web einschalten.";
-    if(reason==="not-ok") return "NAS öffnen muss „ok“ zeigen. PHP-Datei in den Ordner web legen, Reverse Proxy Ziel HTTP localhost 80.";
-    if(reason==="auth" || status===401 || status===403) return "Kein Zugriff (401/403). PHP-Datei liegt nicht im Web-Ordner oder Reverse Proxy zeigt noch auf WebDAV.";
-    if(reason==="cors" || reason==="network") return "Keine Verbindung. Gleiches WLAN? NAS öffnen muss ok zeigen. Zertifikat in Safari erlauben. Reverse Proxy Ziel: HTTP localhost Port 80.";
-    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? Reverse Proxy Ziel HTTP localhost 80 (Web Station), nicht 5005.";
+    if(reason==="not-ok") return "NAS öffnen muss „ok“ zeigen. PHP-Datei in den Ordner web legen. Zertifikat der Web Station in DSM zuweisen.";
+    if(reason==="auth" || status===401 || status===403) return "Kein Zugriff (401/403). PHP-Datei in den Ordner web legen, nicht in DSM.";
+    if(reason==="cors" || reason==="network") return "Keine Verbindung. Gleiches WLAN? NAS öffnen muss ok zeigen. Gelbes Zertifikat in Safari erlauben. Adresse https://IP/synology-historie.php";
+    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? Web Station läuft? https://IP/synology-historie.php in Safari öffnen.";
     if(status===404) return "PHP-Datei nicht gefunden. synology-historie.php in den Ordner web legen.";
-    if(status===502 || status===503 || status===504) return "Reverse Proxy erreicht Web Station nicht. Ziel: HTTP localhost Port 80 (nicht 5005).";
+    if(status===502 || status===503 || status===504) return "Web Station nicht erreichbar. In DSM Zertifikat der Web Station zuweisen.";
     if(status) return "NAS antwortet nicht richtig ("+status+").";
     return "NAS nicht erreichbar.";
   }
@@ -5680,7 +5680,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.72";
+  const APP_VERSION=window.SB_APP_VERSION||"3.73";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
