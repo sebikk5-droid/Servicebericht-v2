@@ -14,7 +14,7 @@ if ($method === "GET") {
   echo "<p style=\"font:18px sans-serif;margin:16px\">ok</p>";
   echo "<script>\n";
   echo "var A='https://sebikk5-droid.github.io';\n";
-  echo "function send(m){try{if(window.opener)window.opener.postMessage(m,A);}catch(e){}}\n";
+  echo "function send(m){try{if(window.opener)window.opener.postMessage(m,A);}catch(e){}try{if(window.parent&&window.parent!==window)window.parent.postMessage(m,A);}catch(e){}}\n";
   echo "send({type:'ready'});\n";
   echo "window.addEventListener('message',function(e){\n";
   echo "if(e.origin!==A)return;\n";
@@ -22,7 +22,7 @@ if ($method === "GET") {
   echo "if(d.type!=='put')return;\n";
   echo "var x=new XMLHttpRequest();\n";
   echo "x.open('POST',location.href,true);\n";
-  echo "x.onload=function(){send({type:'put-result',ok:(x.status===201||x.status===200),status:x.status});setTimeout(function(){try{window.close();}catch(e){}},200);};\n";
+  echo "x.onload=function(){send({type:'put-result',ok:(x.status===201||x.status===200),status:x.status});if(window.parent===window)setTimeout(function(){try{window.close();}catch(e){}},200);};\n";
   echo "x.onerror=function(){send({type:'put-result',ok:false});};\n";
   echo "x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');\n";
   echo "x.send('filename='+encodeURIComponent(d.filename||'')+'&json='+encodeURIComponent(d.json||''));\n";
