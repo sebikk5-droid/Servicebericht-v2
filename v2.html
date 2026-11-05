@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.78">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.79">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.78</title>
+  <title>Servicebericht v3.79</title>
 <script>
-window.SB_APP_VERSION="3.78";
+window.SB_APP_VERSION="3.79";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.78</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.79</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,7 +1167,7 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Einmal NAS öffnen bis ok. Danach speichert die App still (ohne Fenster). Wenn Safari blockiert, kommt das ok-Fenster nur als Reserve.</p>
+    <p class="muted" id="historyCloudHint">Einmal NAS öffnen bis ok. PHP liegt schon auf der NAS – nichts kopieren. Danach speichert die App still, ohne Fenster.</p>
     <label for="historyCloudUrl">Adresse der PHP-Datei</label>
     <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <p id="historyCloudErr" role="status"></p>
@@ -4690,6 +4690,60 @@ finally{ window.__pdfBuilding=false; }
       });
     });
   }
+  function pushHistoryViaForm(href, filename, jsonText){
+    return new Promise(function(resolve){
+      let frame=document.getElementById("sbNasPostFrame");
+      const created=!frame;
+      if(!frame){
+        frame=document.createElement("iframe");
+        frame.id="sbNasPostFrame";
+        frame.name="sbNasPostFrame";
+        frame.setAttribute("aria-hidden","true");
+        frame.tabIndex=-1;
+        frame.style.cssText="position:fixed;width:1px;height:1px;left:-9999px;top:0;border:0;opacity:0;pointer-events:none;";
+        document.body.appendChild(frame);
+      }
+      let started=false;
+      function start(){
+        if(started) return;
+        started=true;
+        let done=false;
+        const form=document.createElement("form");
+        form.method="POST";
+        form.action=href+(href.indexOf("?")>=0?"&":"?")+"_="+Date.now();
+        form.target="sbNasPostFrame";
+        form.acceptCharset="UTF-8";
+        form.enctype="application/x-www-form-urlencoded";
+        form.style.cssText="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;";
+        function field(n,v){
+          const t=document.createElement("textarea");
+          t.name=n;
+          t.value=v;
+          form.appendChild(t);
+        }
+        field("filename", String(filename||""));
+        field("json", String(jsonText||""));
+        function finish(r){
+          if(done) return;
+          done=true;
+          clearTimeout(to);
+          try{ frame.onload=null; }catch(e){}
+          try{ form.remove(); }catch(e){}
+          resolve(r);
+        }
+        const to=setTimeout(function(){ finish({ok:false, reason:"abort"}); }, 8000);
+        frame.onload=function(){ finish({ok:true, status:201}); };
+        document.body.appendChild(form);
+        try{ form.submit(); }catch(e){ finish({ok:false, reason:"network"}); }
+      }
+      if(created){
+        frame.addEventListener("load", start, {once:true});
+        try{
+          if(frame.contentDocument && frame.contentDocument.readyState==="complete") start();
+        }catch(e){}
+      }else start();
+    });
+  }
   async function pushHistoryToNas(filename, jsonText, cfg){
     cfg=cfg||loadHistoryCloud();
     const bad=historyCloudUrlProblem(cfg.url||"");
@@ -4714,6 +4768,11 @@ finally{ window.__pdfBuilding=false; }
         if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
         if(res.status===404) return {ok:false, reason:"http", status:404};
       }catch(e){}
+    }
+    const posted=await pushHistoryViaForm(href, filename, String(jsonText||""));
+    if(posted && posted.ok){
+      ensureNasFrame(href);
+      return posted;
     }
     ensureNasFrame(href);
     if(nasFrameReady && nasFrameWin()){
@@ -5785,7 +5844,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.78";
+  const APP_VERSION=window.SB_APP_VERSION||"3.79";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
