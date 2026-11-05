@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.75">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.76">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.75</title>
+  <title>Servicebericht v3.76</title>
 <script>
-window.SB_APP_VERSION="3.75";
+window.SB_APP_VERSION="3.76";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.75</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.76</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4577,7 +4577,8 @@ finally{ window.__pdfBuilding=false; }
     if(reason==="auth" || status===401 || status===403) return "Kein Zugriff (401/403). PHP-Datei in den Ordner web legen, nicht in DSM.";
     if(reason==="cors" || reason==="network") return "Keine Verbindung. In Safari NAS öffnen bis ok (nicht nur die gelbe Warnung). Dann Prüfen. Gleiches WLAN.";
     if(reason==="popup") return "Safari hat das Fenster blockiert. Prüfen noch einmal tippen.";
-    if(reason==="abort") return "NAS antwortet nicht. Zuerst NAS öffnen bis ok, gelbes Zertifikat erlauben, dann Prüfen.";
+    if(reason==="write" || status===500) return "NAS kann nicht speichern. In DSM Ordner web: Gruppe http auf Lesen/Schreiben stellen.";
+    if(reason==="abort") return "NAS antwortet nicht. Zuerst NAS öffnen bis ok, dann Prüfen. Ordner web: Gruppe http Lesen/Schreiben.";
     if(status===404) return "PHP-Datei nicht gefunden. synology-historie.php in den Ordner web legen.";
     if(status===502 || status===503 || status===504) return "Web Station nicht erreichbar. In DSM Zertifikat der Web Station zuweisen.";
     if(status) return "NAS antwortet nicht richtig ("+status+").";
@@ -4607,6 +4608,7 @@ finally{ window.__pdfBuilding=false; }
       try{ nasOrigin=new URL(href).origin; }catch(e){}
       let done=false;
       let win=null;
+      let sent=false;
       function finish(r){
         if(done) return;
         done=true;
@@ -4614,39 +4616,27 @@ finally{ window.__pdfBuilding=false; }
         window.removeEventListener("message", onMsg);
         resolve(r);
       }
+      function sendPut(){
+        if(sent || done || !win) return;
+        sent=true;
+        try{ win.postMessage({type:"put", filename:filename, json:String(jsonText||"")}, nasOrigin||"*"); }catch(e){}
+      }
       function onMsg(e){
         if(nasOrigin && e.origin!==nasOrigin) return;
         const d=e.data||{};
+        if(d.type==="ready"){ sendPut(); return; }
         if(d.type==="put-result"){
-          finish(d.ok ? {ok:true, status:d.status||201} : {ok:false, reason:"http", status:d.status});
+          finish(d.ok ? {ok:true, status:d.status||201} : {ok:false, reason:(d.status===500?"write":"http"), status:d.status});
         }
       }
       window.addEventListener("message", onMsg);
       const to=setTimeout(function(){ finish({ok:false, reason:"abort"}); }, 25000);
-      try{ win=window.open("about:blank", "sbNasBridge"); }catch(e){ win=null; }
+      try{ win=window.open(href, "sbNasBridge"); }catch(e){ win=null; }
       if(!win){
         finish({ok:false, reason:"popup"});
         return;
       }
-      try{
-        const f=document.createElement("form");
-        f.method="POST";
-        f.action=href;
-        f.target="sbNasBridge";
-        f.style.display="none";
-        [["filename",filename],["json",String(jsonText||"")]].forEach(function(p){
-          const i=document.createElement("input");
-          i.type="hidden";
-          i.name=p[0];
-          i.value=p[1];
-          f.appendChild(i);
-        });
-        document.body.appendChild(f);
-        f.submit();
-        setTimeout(function(){ try{ f.remove(); }catch(e){} }, 4000);
-      }catch(e){
-        finish({ok:false, reason:"cors"});
-      }
+      setTimeout(sendPut, 1500);
     });
   }
   async function pushHistoryToNas(filename, jsonText, cfg){
@@ -5715,7 +5705,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.75";
+  const APP_VERSION=window.SB_APP_VERSION||"3.76";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
