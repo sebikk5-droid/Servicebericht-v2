@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.70">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.71">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.70</title>
+  <title>Servicebericht v3.71</title>
 <script>
-window.SB_APP_VERSION="3.70";
+window.SB_APP_VERSION="3.71";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.70</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.71</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,9 +1167,9 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology WebDAV</h3>
-    <p class="muted" id="historyCloudHint">Am einfachsten: WebDAV Port 5006. Einmal am Computer CORS setzen — „Header kopieren“, dann DSM Systemsteuerung → Anmeldeportal → Reverse Proxy → Ziel localhost:5006, diese Header einfügen. Danach hier https://IP:5006/ und Prüfen.</p>
+    <p class="muted" id="historyCloudHint">In der App den Reverse-Proxy-Port nutzen, z. B. https://IP:5007/ — nicht 5006. In DSM Ziel der Regel: HTTP localhost Port 5005 (nicht 5006). Dann Header kopieren, NAS öffnen, Prüfen.</p>
     <label for="historyCloudUrl">WebDAV-Adresse</label>
-    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5006/">
+    <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5007/">
     <label for="historyCloudUser">Benutzer</label>
     <input id="historyCloudUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
     <label for="historyCloudPass">Passwort</label>
@@ -4569,6 +4569,7 @@ finally{ window.__pdfBuilding=false; }
     const port=String(u.port||"");
     if(/quickconnect\.to$/i.test(host)) return {reason:"quickconnect"};
     if(port==="5000" || port==="5001") return {reason:"dsm-port"};
+    if(port==="5006" || port==="5005") return {reason:"direct-webdav"};
     if(u.protocol==="http:"){
       if(typeof location!=="undefined" && location.protocol==="https:") return {reason:"http-mixed"};
       return {reason:"https"};
@@ -4580,15 +4581,17 @@ finally{ window.__pdfBuilding=false; }
     if(r && r.ok) return "Angemeldet. Historie geht per WebDAV auf die NAS.";
     const reason=r&&r.reason||"";
     const status=Number(r&&r.status)||0;
-    if(reason==="quickconnect") return "QuickConnect ist nicht WebDAV. Bitte https://IP-der-NAS:5006/";
-    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. WebDAV nutzt Port 5006 (https).";
-    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP:5006/";
-    if(reason==="https") return "Bitte https://-WebDAV-Adresse, z. B. https://192.168.1.10:5006/";
-    if(reason==="no-cloud") return "Bitte zuerst die WebDAV-Adresse eintragen.";
-    if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte https://IP:5006/";
+    if(reason==="quickconnect") return "QuickConnect ist nicht WebDAV. Bitte https://IP:5007/ (Reverse-Proxy-Port).";
+    if(reason==="dsm-port") return "Port 5000/5001 ist DSM. In der App den Reverse-Proxy-Port nutzen, z. B. https://IP:5007/";
+    if(reason==="direct-webdav") return "Port 5005/5006 ist der direkte WebDAV — die App wird blockiert. Bitte die Reverse-Proxy-Adresse, z. B. https://IP:5007/";
+    if(reason==="http-mixed") return "http:// wird in dieser App blockiert. Bitte https://IP:5007/";
+    if(reason==="https") return "Bitte https://-Adresse des Reverse Proxy, z. B. https://192.168.1.10:5007/";
+    if(reason==="no-cloud") return "Bitte zuerst die Reverse-Proxy-Adresse eintragen (https://IP:5007/).";
+    if(reason==="local-path") return "Das ist ein Ordner auf dem Computer. Bitte https://IP:5007/";
     if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht.";
-    if(reason==="cors" || reason==="network") return "Die App darf die NAS nicht ansprechen (CORS). Am Computer: Header kopieren und im Reverse Proxy einfügen. Dann „NAS öffnen“ (Zertifikat), Prüfen.";
-    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? WebDAV Server läuft auf 5006?";
+    if(reason==="cors" || reason==="network") return "Keine Verbindung. In der App https://IP:5007/ (nicht 5006). In DSM Ziel: HTTP localhost 5005. Vier CORS-Header. Dann NAS öffnen (Zertifikat) und Prüfen.";
+    if(reason==="abort") return "NAS antwortet nicht. Gleiches WLAN? Reverse Proxy läuft? Ziel in DSM auf HTTP 5005 stellen.";
+    if(status===502 || status===503 || status===504) return "Reverse Proxy erreicht WebDAV nicht. In DSM Ziel auf HTTP localhost Port 5005 stellen (nicht 5006).";
     if(status) return "NAS antwortet nicht richtig ("+status+").";
     return "NAS nicht erreichbar.";
   }
@@ -5310,7 +5313,7 @@ finally{ window.__pdfBuilding=false; }
         if(navigator.clipboard && navigator.clipboard.writeText)
           await navigator.clipboard.writeText(HISTORY_CLOUD_CORS);
         else throw new Error("clip");
-        setHistoryCloudMsg("ok", "Header kopiert. In DSM Reverse Proxy als Custom Header einfügen, Ziel Port 5006.");
+        setHistoryCloudMsg("ok", "Header kopiert. In DSM bei der Reverse-Proxy-Regel einfügen. Ziel: HTTP localhost 5005. In der App https://IP:5007/");
       }catch(e){
         setHistoryCloudMsg("wait", HISTORY_CLOUD_CORS.replace(/\n/g," · "));
       }
@@ -5665,7 +5668,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.70";
+  const APP_VERSION=window.SB_APP_VERSION||"3.71";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
