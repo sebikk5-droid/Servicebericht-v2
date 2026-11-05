@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.61">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.62">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.61</title>
+  <title>Servicebericht v3.62</title>
 <script>
-window.SB_APP_VERSION="3.61";
+window.SB_APP_VERSION="3.62";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -777,6 +777,10 @@ select.is-nudge,input.is-nudge{
 #historyCloudModal input{width:100%;margin:4px 0 0;min-height:40px;box-sizing:border-box}
 #historyCloudModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #historyCloudModal .email-actions button{flex:1 1 30%;min-width:90px}
+#historyCloudErr{min-height:1.35em;margin:10px 0 0;font-size:14px;line-height:1.35;font-weight:700;overflow-wrap:anywhere}
+#historyCloudErr.is-ok{color:#067a32}
+#historyCloudErr.is-err{color:#b42318}
+#historyCloudErr.is-wait{color:#163a5c}
 #historyCloud.history-file-btn.is-on{background:#163a5c;color:#fff}
 #routeModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
@@ -871,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.61</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.62</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1170,10 +1174,11 @@ select.is-nudge,input.is-nudge{
     <input id="historyCloudUser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false">
     <label for="historyCloudPass">Passwort</label>
     <input id="historyCloudPass" type="password" autocomplete="current-password">
-    <p class="muted" id="historyCloudErr"></p>
+    <p id="historyCloudErr" role="status"></p>
     <div class="email-actions">
       <button type="button" class="clear" id="historyCloudClear">Entfernen</button>
       <button type="button" class="clear" id="historyCloudSkip">Schließen</button>
+      <button type="button" class="clear" id="historyCloudTest">Prüfen</button>
       <button type="button" class="go" id="historyCloudSave">Speichern</button>
     </div>
   </div>
@@ -4519,18 +4524,22 @@ finally{ window.__pdfBuilding=false; }
     btn.classList.toggle("is-on", on);
     btn.setAttribute("title", on ? "Meine Cloud ist eingerichtet" : "Meine Cloud einrichten");
   }
-  function historyCloudFileUrl(filename){
-    const cfg=loadHistoryCloud();
+  function historyCloudFileUrl(filename, cfg){
+    cfg=cfg||loadHistoryCloud();
     let base=String(cfg.url||"").trim();
     if(!base) return "";
     try{
       const u=new URL(base);
       u.hash="";
-      base=u.toString();
+      base=u.protocol+"//"+u.host+u.pathname+u.search;
     }catch(e){}
     base=base.replace(/\/+$/,"");
     const name=String(filename||"bericht.json").replace(/[\\/:*?"<>|\u0000-\u001f]+/g,"_").replace(/^\.+/,"");
     return base+"/"+name;
+  }
+  function historyCloudFolderUrl(cfg){
+    const file=historyCloudFileUrl("x.json", cfg);
+    return file ? file.replace(/\/[^/]+$/,"")+"/" : "";
   }
   function historyCloudAuthHeader(cfg){
     const user=String(cfg&&cfg.user||"");
@@ -4540,40 +4549,113 @@ finally{ window.__pdfBuilding=false; }
     try{ return "Basic "+btoa(unescape(encodeURIComponent(s))); }
     catch(e){ return "Basic "+btoa(s); }
   }
-  async function pushHistoryToPrivateCloud(filename, jsonText){
-    const cfg=loadHistoryCloud();
-    const url=historyCloudFileUrl(filename);
+  function historyCloudReasonText(r){
+    if(r && r.ok) return "Angemeldet. Verbindung zur Cloud steht.";
+    const reason=r&&r.reason||"";
+    const status=Number(r&&r.status)||0;
+    if(reason==="https") return "Bitte https://-Adresse der Cloud verwenden.";
+    if(reason==="no-cloud") return "Bitte zuerst die WebDAV-Adresse eintragen.";
+    if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht.";
+    if(reason==="cors") return "Die Cloud blockiert die App (CORS). Auf dem Server die App-Adresse erlauben.";
+    if(reason==="network") return "Keine Verbindung zur Cloud (Netzwerk, Adresse oder CORS).";
+    if(status===404) return "Ordner nicht gefunden. WebDAV-Adresse prüfen.";
+    if(status===405) return "Das ist kein WebDAV-Ordner. Adresse prüfen (nicht die Webseite).";
+    if(status) return "Cloud antwortet nicht wie erwartet (HTTP "+status+").";
+    return "Cloud nicht erreichbar.";
+  }
+  async function davFetch(url, opt){
+    opt=opt||{};
+    const ctrl=new AbortController();
+    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, opt.timeoutMs||20000);
+    try{
+      return await fetch(url, {
+        method:opt.method||"GET",
+        headers:opt.headers||{},
+        body:opt.body,
+        mode:"cors",
+        credentials:"omit",
+        cache:"no-store",
+        signal:ctrl.signal
+      });
+    }finally{
+      clearTimeout(to);
+    }
+  }
+  function classifyDavResult(res, err){
+    if(err){
+      if(err.name==="AbortError") return {ok:false, reason:"network"};
+      return {ok:false, reason:"cors"};
+    }
+    if(!res) return {ok:false, reason:"network"};
+    if(res.status===401 || res.status===403) return {ok:false, reason:"auth", status:res.status};
+    if(res.ok || res.status===201 || res.status===204 || res.status===207) return {ok:true, status:res.status};
+    return {ok:false, reason:"http", status:res.status};
+  }
+  async function pushHistoryToPrivateCloud(filename, jsonText, cfg){
+    cfg=cfg||loadHistoryCloud();
+    const url=historyCloudFileUrl(filename, cfg);
     if(!url) return {ok:false, reason:"no-cloud"};
     if(!/^https:\/\//i.test(url)) return {ok:false, reason:"https"};
     if(typeof window.sbOffline==="function" && window.sbOffline()) return {ok:false, reason:"network"};
     const headers={"Content-Type":"application/json"};
     const auth=historyCloudAuthHeader(cfg);
     if(auth) headers.Authorization=auth;
-    const ctrl=new AbortController();
-    const to=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 20000);
     try{
-      const res=await fetch(url, {method:"PUT", headers, body:String(jsonText||""), mode:"cors", credentials:"omit", cache:"no-store", signal:ctrl.signal});
-      if(res.ok || res.status===201 || res.status===204) return {ok:true, status:res.status, url};
-      if(res.status===404 || res.status===409){
+      const res=await davFetch(url, {method:"PUT", headers, body:String(jsonText||"")});
+      const first=classifyDavResult(res);
+      if(first.ok) return Object.assign({url}, first);
+      if(res && (res.status===404 || res.status===409)){
         const folder=url.replace(/\/[^/]+$/,"");
         if(folder && folder!==url){
+          try{ await davFetch(folder, {method:"MKCOL", headers: auth?{Authorization:auth}:{}}); }catch(e){}
           try{
-            await fetch(folder, {method:"MKCOL", headers: auth?{Authorization:auth}:{}, mode:"cors", credentials:"omit", cache:"no-store", signal:ctrl.signal});
-          }catch(e){}
-          const retry=await fetch(url, {method:"PUT", headers, body:String(jsonText||""), mode:"cors", credentials:"omit", cache:"no-store", signal:ctrl.signal});
-          if(retry.ok || retry.status===201 || retry.status===204) return {ok:true, status:retry.status, url};
-          return {ok:false, status:retry.status, reason:"http"};
+            const retry=await davFetch(url, {method:"PUT", headers, body:String(jsonText||"")});
+            const second=classifyDavResult(retry);
+            if(second.ok) return Object.assign({url}, second);
+            return second;
+          }catch(e){
+            return classifyDavResult(null, e);
+          }
         }
       }
-      return {ok:false, status:res.status, reason:res.status===401||res.status===403?"auth":"http"};
+      return first;
     }catch(e){
-      if(e && e.name==="AbortError") return {ok:false, reason:"network"};
-      return {ok:false, reason:"network"};
-    }finally{
-      clearTimeout(to);
+      return classifyDavResult(null, e);
     }
   }
+  async function checkHistoryCloud(cfg){
+    cfg=cfg||loadHistoryCloud();
+    const folder=historyCloudFolderUrl(cfg);
+    if(!folder) return {ok:false, reason:"no-cloud"};
+    if(!/^https:\/\//i.test(folder)) return {ok:false, reason:"https"};
+    if(typeof window.sbOffline==="function" && window.sbOffline()) return {ok:false, reason:"network"};
+    const auth=historyCloudAuthHeader(cfg);
+    const headers={"Depth":"0","Content-Type":"application/xml"};
+    if(auth) headers.Authorization=auth;
+    try{
+      const res=await davFetch(folder, {method:"PROPFIND", headers, body:"<?xml version=\"1.0\"?><propfind xmlns=\"DAV:\"><prop><displayname/></prop></propfind>"});
+      const via=classifyDavResult(res);
+      if(via.ok || via.reason==="auth") return Object.assign({via:"propfind"}, via);
+    }catch(e){
+      const blocked=classifyDavResult(null, e);
+      if(blocked.reason==="cors"){
+        // PUT can still work when PROPFIND is blocked.
+      }else{
+        return blocked;
+      }
+    }
+    const put=await pushHistoryToPrivateCloud(".servicebericht-cloud-check.json", "{\"ok\":true}\n", cfg);
+    if(put.ok){
+      try{
+        const delHeaders=auth?{Authorization:auth}:{};
+        await davFetch(historyCloudFileUrl(".servicebericht-cloud-check.json", cfg), {method:"DELETE", headers:delHeaders});
+      }catch(e){}
+      return Object.assign({via:"put"}, put);
+    }
+    return put;
+  }
   window.pushHistoryToPrivateCloud=pushHistoryToPrivateCloud;
+  window.checkHistoryCloud=checkHistoryCloud;
 
   function loadHistory(){
     try {
@@ -5138,16 +5220,20 @@ finally{ window.__pdfBuilding=false; }
         return;
       }
       let cloudOk=false;
+      let cloudRes=null;
       try{
         if(loadHistoryCloud().url){
           const {filename, json}=reportPayload(item);
-          const r=await pushHistoryToPrivateCloud(filename, json);
-          cloudOk=!!(r && r.ok);
+          cloudRes=await pushHistoryToPrivateCloud(filename, json);
+          cloudOk=!!(cloudRes && cloudRes.ok);
         }
       }catch(e){}
       if(cloudOk){
         $("status").textContent="In der App und in meiner Cloud gespeichert.";
         return;
+      }
+      if(cloudRes && loadHistoryCloud().url){
+        $("status").textContent="In der App gespeichert. Cloud: "+historyCloudReasonText(cloudRes);
       }
       try{
         await exportReportFile(item);
@@ -5173,11 +5259,17 @@ finally{ window.__pdfBuilding=false; }
       const url=$("historyCloudUrl");
       const user=$("historyCloudUser");
       const pass=$("historyCloudPass");
-      const err=$("historyCloudErr");
       if(url) url.value=cfg.url||"";
       if(user) user.value=cfg.user||"";
       if(pass) pass.value=cfg.pass||"";
-      if(err) err.textContent="";
+      setHistoryCloudMsg("", "");
+    }
+    function setHistoryCloudMsg(kind, text){
+      const err=$("historyCloudErr");
+      if(!err) return;
+      err.classList.remove("is-ok","is-err","is-wait");
+      if(kind) err.classList.add("is-"+kind);
+      err.textContent=text||"";
     }
     function closeHistoryCloudModal(){
       const modal=$("historyCloudModal");
@@ -5193,7 +5285,7 @@ finally{ window.__pdfBuilding=false; }
       modal.setAttribute("aria-hidden","false");
       setTimeout(function(){ try{ $("historyCloudUrl")?.focus(); }catch(e){} }, 150);
     }
-    function applyHistoryCloudFromForm(){
+    function readHistoryCloudForm(){
       const raw=String($("historyCloudUrl")?.value||"").trim();
       let url=raw, user=String($("historyCloudUser")?.value||"").trim(), pass=String($("historyCloudPass")?.value||"");
       try{
@@ -5201,29 +5293,50 @@ finally{ window.__pdfBuilding=false; }
         if(u.username || u.password){
           user=user||decodeURIComponent(u.username||"");
           pass=pass||decodeURIComponent(u.password||"");
-          u.username="";
-          u.password="";
-          url=u.toString();
+          url=u.protocol+"//"+u.host+u.pathname+u.search;
         }
       }catch(e){}
-      url=String(url||"").trim();
-      const err=$("historyCloudErr");
-      if(url && !/^https:\/\//i.test(url)){
-        if(err) err.textContent="Bitte https://-Adresse der Cloud verwenden.";
+      return {url:String(url||"").trim(), user, pass};
+    }
+    function setHistoryCloudBusy(on){
+      ["historyCloudSave","historyCloudTest","historyCloudClear","historyCloudSkip"].forEach(function(id){
+        const b=$(id);
+        if(b) b.disabled=!!on;
+      });
+    }
+    async function runHistoryCloudCheck(persist){
+      const cfg=readHistoryCloudForm();
+      if(cfg.url && !/^https:\/\//i.test(cfg.url)){
+        setHistoryCloudMsg("err", "Bitte https://-Adresse der Cloud verwenden.");
         return false;
       }
-      saveHistoryCloud({url, user, pass});
-      if(err) err.textContent="";
-      return true;
+      if(persist) saveHistoryCloud(cfg);
+      if(!cfg.url){
+        setHistoryCloudMsg("", "");
+        return true;
+      }
+      setHistoryCloudMsg("wait", "Prüfe Anmeldung…");
+      setHistoryCloudBusy(true);
+      let r;
+      try{ r=await checkHistoryCloud(cfg); }
+      catch(e){ r={ok:false, reason:"network"}; }
+      setHistoryCloudBusy(false);
+      const text=historyCloudReasonText(r);
+      setHistoryCloudMsg(r&&r.ok ? "ok" : "err", text);
+      $("status").textContent=text;
+      return !!(r&&r.ok);
     }
     $("historyCloud")?.addEventListener("click", openHistoryCloudModal);
     $("historyCloudSkip")?.addEventListener("click", closeHistoryCloudModal);
-    $("historyCloudSave")?.addEventListener("click", ()=>{
-      if(!applyHistoryCloudFromForm()) return;
-      closeHistoryCloudModal();
-      $("status").textContent=loadHistoryCloud().url
-        ? "Meine Cloud gespeichert. Nächstes Speichern legt die Historie dort ab."
-        : "Meine Cloud entfernt.";
+    $("historyCloudTest")?.addEventListener("click", ()=>{ runHistoryCloudCheck(false); });
+    $("historyCloudSave")?.addEventListener("click", async ()=>{
+      const ok=await runHistoryCloudCheck(true);
+      if(!readHistoryCloudForm().url){
+        closeHistoryCloudModal();
+        $("status").textContent="Meine Cloud entfernt.";
+        return;
+      }
+      if(ok) $("status").textContent="Angemeldet. Historie wird beim Speichern in die Cloud gelegt.";
     });
     $("historyCloudClear")?.addEventListener("click", ()=>{
       saveHistoryCloud({url:"", user:"", pass:""});
@@ -5563,7 +5676,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.61";
+  const APP_VERSION=window.SB_APP_VERSION||"3.62";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
