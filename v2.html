@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.55">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.56">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.55</title>
+  <title>Servicebericht v3.56</title>
 <script>
-window.SB_APP_VERSION="3.55";
+window.SB_APP_VERSION="3.56";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -841,7 +841,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.55</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.56</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4571,7 +4571,7 @@ finally{ window.__pdfBuilding=false; }
     if(addBtn) addBtn.style.display=visibleDays>=6?"none":"";
 
     Object.keys(data).forEach(key=>{
-      if(key==="company" || key==="signdate" || key==="__visibleDays" || key.startsWith("__") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
+      if(key==="company" || key==="__visibleDays" || key.startsWith("__") || /_collapsed$/.test(key) || /_rueckfahrtOff$/.test(key) || /_anfahrtOff$/.test(key) || SKIP_IDS[key]) return;
       const el=findField(key);
       if(!el) return;
       if(el.type==="checkbox" || el.type==="radio") el.checked=!!data[key];
@@ -4654,7 +4654,7 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
-    if(typeof stampSignDateToday==="function") stampSignDateToday();
+    if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -5101,10 +5101,6 @@ finally{ window.__pdfBuilding=false; }
       liveDraftApplied=true;
       applyForm(data);
       // Keep Einsatzdatum / Tag dates from the saved draft. Do not jump to today.
-      // History gets today's signature date; a live-draft edit of Datum stays.
-      const savedSign=String(data.signdate||"").trim();
-      if(savedSign && $("signdate")) $("signdate").value=savedSign;
-      else if(typeof stampSignDateToday==="function") stampSignDateToday();
       return true;
     }
     window.saveLiveDraft=saveLiveDraft;
@@ -5342,7 +5338,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.55";
+  const APP_VERSION=window.SB_APP_VERSION||"3.56";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
