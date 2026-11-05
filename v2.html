@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.76">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.77">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.76</title>
+  <title>Servicebericht v3.77</title>
 <script>
-window.SB_APP_VERSION="3.76";
+window.SB_APP_VERSION="3.77";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -875,7 +875,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.76</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.77</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1167,12 +1167,13 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Synology NAS</h3>
-    <p class="muted" id="historyCloudHint">Zuerst NAS öffnen: gelbes Zertifikat → Details → Seite öffnen, bis ok. Neue PHP-Datei auf die NAS legen. Dann Prüfen — ein kurzes Fenster mit ok ist richtig.</p>
+    <p class="muted" id="historyCloudHint">Einmal: PHP speichern, in File Station in den Ordner web legen. NAS öffnen bis ok. Beim Speichern schließt sich das ok-Fenster selbst.</p>
     <label for="historyCloudUrl">Adresse der PHP-Datei</label>
     <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10/synology-historie.php">
     <p id="historyCloudErr" role="status"></p>
     <div class="email-actions">
-      <button type="button" class="clear" id="historyCloudFile">PHP-Datei</button>
+      <button type="button" class="clear" id="historyCloudFile">PHP speichern</button>
+      <button type="button" class="clear" id="historyCloudCopy">Adresse kopieren</button>
       <button type="button" class="clear" id="historyCloudOpen">NAS öffnen</button>
       <button type="button" class="clear" id="historyCloudClear">Entfernen</button>
       <button type="button" class="clear" id="historyCloudSkip">Schließen</button>
@@ -4614,6 +4615,7 @@ finally{ window.__pdfBuilding=false; }
         done=true;
         clearTimeout(to);
         window.removeEventListener("message", onMsg);
+        try{ if(win && !win.closed) win.close(); }catch(e){}
         resolve(r);
       }
       function sendPut(){
@@ -4631,12 +4633,12 @@ finally{ window.__pdfBuilding=false; }
       }
       window.addEventListener("message", onMsg);
       const to=setTimeout(function(){ finish({ok:false, reason:"abort"}); }, 25000);
-      try{ win=window.open(href, "sbNasBridge"); }catch(e){ win=null; }
+      try{ win=window.open(href, "sbNasBridge", "width=280,height=140,menubar=no,toolbar=no,location=no"); }catch(e){ win=null; }
       if(!win){
         finish({ok:false, reason:"popup"});
         return;
       }
-      setTimeout(sendPut, 1500);
+      setTimeout(sendPut, 400);
     });
   }
   async function pushHistoryToNas(filename, jsonText, cfg){
@@ -5330,30 +5332,46 @@ finally{ window.__pdfBuilding=false; }
       $("status").textContent="NAS entfernt.";
     });
     $("historyCloudFile")?.addEventListener("click", async ()=>{
+      const names=["synology-historie.php","synology-historie.txt"];
+      let text="";
+      for(let i=0;i<names.length;i++){
+        try{
+          const r=await fetch(names[i]+"?v="+(window.SB_APP_VERSION||""), {cache:"no-store"});
+          if(!r.ok) continue;
+          const t=await r.text();
+          if(t.indexOf("<?php")!==-1){ text=t; break; }
+        }catch(e){}
+      }
+      if(!text){
+        setHistoryCloudMsg("err", "PHP-Datei nicht geladen. Am Computer die App nochmal öffnen.");
+        return;
+      }
+      const blob=new Blob([text], {type:"application/octet-stream"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=HISTORY_CLOUD_PHP;
+      a.rel="noopener";
+      a.style.display="none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 8000);
+      setHistoryCloudMsg("wait", "Gespeichert. Per File Station in den Ordner web legen (einmal).");
+    });
+    $("historyCloudCopy")?.addEventListener("click", async ()=>{
+      const cfg=readHistoryCloudForm();
+      const href=historyCloudPhpUrl(cfg.url||"");
+      if(!href){
+        setHistoryCloudMsg("err", "Zuerst die Adresse eintragen.");
+        return;
+      }
       try{
-        const r=await fetch("synology-historie.php?v="+(window.SB_APP_VERSION||""), {cache:"no-store"});
-        if(!r.ok) throw new Error("fetch");
-        const text=await r.text();
-        if(text.indexOf("<?php")===-1) throw new Error("not-php");
-        const blob=new Blob([text], {type:"application/octet-stream"});
-        const a=document.createElement("a");
-        a.href=URL.createObjectURL(blob);
-        a.download=HISTORY_CLOUD_PHP;
-        a.rel="noopener";
-        a.style.display="none";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(function(){ try{ URL.revokeObjectURL(a.href); }catch(e){} }, 8000);
-        setHistoryCloudMsg("wait", "Datei speichern und per File Station in den Ordner web legen.");
+        if(navigator.clipboard && navigator.clipboard.writeText)
+          await navigator.clipboard.writeText(href);
+        else throw new Error("clip");
+        setHistoryCloudMsg("ok", "Adresse kopiert.");
       }catch(e){
-        const href=new URL(HISTORY_CLOUD_PHP, location.href).href;
-        const w=window.open(href, "_blank", "noopener");
-        if(!w){
-          setHistoryCloudMsg("err", "Fenster blockiert. Am Computer öffnen: "+href);
-          return;
-        }
-        setHistoryCloudMsg("wait", "Am Computer: Datei speichern und per File Station in den Ordner web legen.");
+        setHistoryCloudMsg("wait", href);
       }
     });
     $("historyCloudOpen")?.addEventListener("click", ()=>{
@@ -5705,7 +5723,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.76";
+  const APP_VERSION=window.SB_APP_VERSION||"3.77";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
