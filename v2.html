@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.56">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.57">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.56</title>
+  <title>Servicebericht v3.57</title>
 <script>
-window.SB_APP_VERSION="3.56";
+window.SB_APP_VERSION="3.57";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -278,6 +278,19 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfEmailModal h3{margin:0 0 6px;font-size:18px}
 #pdfEmailModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #pdfEmailModal .email-actions button{flex:1}
+#historySaveModal{
+  display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
+  align-items:flex-end;justify-content:center;
+}
+#historySaveModal.is-open{display:flex}
+#historySaveModal .token-sheet{
+  width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 24px rgba(0,0,0,.18);
+}
+#historySaveModal h3{margin:0 0 6px;font-size:18px}
+#historySaveModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#historySaveModal .email-actions button{flex:1}
 #status{font-size:13px;color:#555;margin:7px 2px}
 #status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
@@ -841,7 +854,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.56</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.57</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1079,6 +1092,16 @@ select.is-nudge,input.is-nudge{
     <div class="email-actions">
       <button type="button" class="clear" id="pdfEmailLater">Später</button>
       <button type="button" class="go" id="pdfEmailSend">Senden</button>
+    </div>
+  </div>
+</div>
+<div id="historySaveModal" aria-hidden="true">
+  <div class="token-sheet">
+    <h3>Historie speichern?</h3>
+    <p class="muted" id="historySaveHint">Den Bericht in der Historie speichern, damit er nicht verloren geht.</p>
+    <div class="email-actions">
+      <button type="button" class="clear" id="historySaveLater">Später</button>
+      <button type="button" class="go" id="historySaveNow">Speichern</button>
     </div>
   </div>
 </div>
@@ -1942,7 +1965,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -5010,6 +5033,7 @@ finally{ window.__pdfBuilding=false; }
     }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
+    window.saveCurrentHistory=saveCurrentHistory;
 
     fileInput?.addEventListener("change",async()=>{
       try{
@@ -5338,7 +5362,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.56";
+  const APP_VERSION=window.SB_APP_VERSION||"3.57";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7236,6 +7260,20 @@ finally{ window.__pdfBuilding=false; }
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden","true");
   }
+  function closeHistorySaveSheet(){
+    const modal=$("historySaveModal");
+    if(!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+  }
+  function offerHistorySaveAfterEmail(){
+    setTimeout(function(){
+      const modal=$("historySaveModal");
+      if(!modal) return;
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden","false");
+    }, 400);
+  }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
       setStatus("Bitte zuerst „PDF erstellen & speichern“ klicken.");
@@ -7334,6 +7372,7 @@ finally{ window.__pdfBuilding=false; }
               ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
               : "Mail: PDF angehängt. Empfänger eintragen: "+email)
             : "Mail: PDF angehängt. Empfänger eintragen.");
+          offerHistorySaveAfterEmail();
           return true;
         }
       }
@@ -7346,6 +7385,7 @@ finally{ window.__pdfBuilding=false; }
     setStatus(opened
       ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
+    if(opened) offerHistorySaveAfterEmail();
     return opened;
   };
   window.deliverLastPdf=async function(){
@@ -7718,6 +7758,14 @@ finally{ window.__pdfBuilding=false; }
     $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail(); });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
+    });
+    $("historySaveLater")?.addEventListener("click", closeHistorySaveSheet);
+    $("historySaveNow")?.addEventListener("click",()=>{
+      closeHistorySaveSheet();
+      if(typeof window.saveCurrentHistory==="function") window.saveCurrentHistory();
+    });
+    $("historySaveModal")?.addEventListener("click",e=>{
+      if(e.target===$("historySaveModal")) closeHistorySaveSheet();
     });
     $("pdfPreviewBottom")?.addEventListener("click", startPdfPreview);
     $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
