@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.64">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.65">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.64</title>
+  <title>Servicebericht v3.65</title>
 <script>
-window.SB_APP_VERSION="3.64";
+window.SB_APP_VERSION="3.65";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -782,7 +782,7 @@ select.is-nudge,input.is-nudge{
 #historyCloudErr.is-err{color:#b42318}
 #historyCloudErr.is-wait{color:#163a5c}
 #historyCloud.history-file-btn.is-on{background:#163a5c;color:#fff}
-#historyCloudBridgeDl{font-weight:700;color:#163a5c}
+#historyCloudInstall{flex:1 1 100%}
 #routeModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -876,7 +876,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.64</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.65</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1168,8 +1168,7 @@ select.is-nudge,input.is-nudge{
 <div id="historyCloudModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Meine Cloud</h3>
-    <p class="muted" id="historyCloudHint">Historie als JSON per WebDAV. Nicht GitHub, nicht QuickConnect. Synology: Paket „WebDAV Server“, Adresse z. B. https://192.168.1.10:5006/. Bei CORS die Brücke-Datei einmal in denselben Ordner legen.</p>
-    <p class="muted"><a id="historyCloudBridgeDl" href="./cloud-bridge.html" download="servicebericht-cloud-bridge.html">Brücke-Datei laden</a> → in den WebDAV-Ordner kopieren → Prüfen.</p>
+    <p class="muted" id="historyCloudHint">Historie als JSON per WebDAV. Nicht GitHub, nicht QuickConnect. Synology: Paket „WebDAV Server“, Adresse z. B. https://192.168.1.10:5006/. Bei CORS in der App „Auf NAS legen“ tippen — nicht File Station.</p>
     <label for="historyCloudUrl">WebDAV-Adresse</label>
     <input id="historyCloudUrl" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://192.168.1.10:5006/">
     <label for="historyCloudUser">Benutzer</label>
@@ -1178,6 +1177,7 @@ select.is-nudge,input.is-nudge{
     <input id="historyCloudPass" type="password" autocomplete="current-password">
     <p id="historyCloudErr" role="status"></p>
     <div class="email-actions">
+      <button type="button" class="go" id="historyCloudInstall">Auf NAS legen</button>
       <button type="button" class="clear" id="historyCloudClear">Entfernen</button>
       <button type="button" class="clear" id="historyCloudSkip">Schließen</button>
       <button type="button" class="clear" id="historyCloudTest">Prüfen</button>
@@ -4582,8 +4582,8 @@ finally{ window.__pdfBuilding=false; }
     if(reason==="https") return "Bitte https://-Adresse der Cloud verwenden.";
     if(reason==="no-cloud") return "Bitte zuerst die WebDAV-Adresse eintragen.";
     if(reason==="auth" || status===401 || status===403) return "Nicht angemeldet: Benutzer oder Passwort stimmt nicht.";
-    if(reason==="no-bridge") return "Die Cloud blockiert die App (CORS). Brücke-Datei laden, in den WebDAV-Ordner legen (File Station), dann erneut Prüfen. Die NAS darf einmal nach Anmeldung fragen.";
-    if(reason==="cors") return "Die Cloud blockiert die App (CORS). Brücke-Datei laden, in den WebDAV-Ordner legen, dann erneut Prüfen.";
+    if(reason==="no-bridge") return "Die Cloud blockiert die App (CORS). In der App „Auf NAS legen“ tippen, die Datei im WebDAV-Ordner sichern, dann Prüfen.";
+    if(reason==="cors") return "Die Cloud blockiert die App (CORS). In der App „Auf NAS legen“ tippen, dann Prüfen.";
     if(reason==="network") return "Keine Verbindung zur Cloud (Netzwerk, Adresse oder CORS).";
     if(status===404) return "Ordner nicht gefunden. WebDAV-Adresse prüfen.";
     if(status===405) return "Das ist kein WebDAV-Ordner. Adresse prüfen (nicht die Webseite).";
@@ -5157,6 +5157,34 @@ finally{ window.__pdfBuilding=false; }
     const ua=navigator.userAgent||"";
     return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
   }
+  function historyCloudBridgeHtml(){
+    const js="(function(){function allowed(o){o=String(o||'');return o==='https://sebikk5-droid.github.io'||/^http:\\/\\/(127\\.0\\.0\\.1|localhost)(:\\d+)?$/.test(o);}function auth(u,p){var s=String(u||'')+':'+String(p||'');if(s===':')return '';try{return 'Basic '+btoa(unescape(encodeURIComponent(s)));}catch(e){return 'Basic '+btoa(s);}}window.addEventListener('message',function(ev){if(!allowed(ev.origin))return;var msg=ev.data||{};if(!msg||msg.type!=='sb-dav')return;var headers={};var a=auth(msg.user,msg.pass);if(a)headers.Authorization=a;if(msg.contentType)headers['Content-Type']=msg.contentType;if(msg.depth!=null)headers.Depth=String(msg.depth);var name=String(msg.filename||msg.path||'').replace(/^\\/+/, '');var url=new URL(name||'.',location.href).href;fetch(url,{method:msg.method||'PUT',headers:headers,body:msg.body,credentials:'omit',cache:'no-store'}).then(function(r){ev.source.postMessage({type:'sb-dav-result',id:msg.id,ok:!!(r.ok||r.status===201||r.status===204||r.status===207),status:r.status},ev.origin);}).catch(function(){ev.source.postMessage({type:'sb-dav-result',id:msg.id,ok:false,reason:'network'},ev.origin);});});try{if(window.parent&&window.parent!==window)window.parent.postMessage({type:'sb-dav-ready'},'*');}catch(e){}})();";
+    return "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\"><title>Servicebericht Cloud-Brücke</title></head><body><p>Servicebericht Cloud-Brücke. Diese Datei bleibt im WebDAV-Ordner.</p><"+"script>"+js+"</"+"script></body></html>";
+  }
+  function historyCloudBridgeFile(){
+    return new File([historyCloudBridgeHtml()], HISTORY_CLOUD_BRIDGE, {type:"text/html"});
+  }
+  async function exportCloudBridgeFile(){
+    const file=historyCloudBridgeFile();
+    const onIpad=!window.showSaveFilePicker || isIosDevice();
+    if(onIpad && navigator.share){
+      await navigator.share({files:[file], title:HISTORY_CLOUD_BRIDGE});
+      return {ok:true, via:"share"};
+    }
+    if(window.showSaveFilePicker){
+      const fh=await window.showSaveFilePicker({
+        suggestedName:HISTORY_CLOUD_BRIDGE,
+        types:[{description:"HTML", accept:{"text/html":[".html"]}}]
+      });
+      const w=await fh.createWritable();
+      await w.write(file);
+      await w.close();
+      return {ok:true, via:"picker"};
+    }
+    downloadReportFile(file, HISTORY_CLOUD_BRIDGE);
+    return {ok:true, via:"download"};
+  }
+  window.exportCloudBridgeFile=exportCloudBridgeFile;
   function reportPayload(item){
     const datePart=(historyDate(item)||formatDeDate(new Date().toISOString())||"Bericht").replace(/[\\/:*?"<>|]/g,"_");
     const initials=historyTechInitials(item).replace(/[\\/:*?"<>|]/g,"_");
@@ -5442,7 +5470,7 @@ finally{ window.__pdfBuilding=false; }
       return {url:String(url||"").trim(), user, pass};
     }
     function setHistoryCloudBusy(on){
-      ["historyCloudSave","historyCloudTest","historyCloudClear","historyCloudSkip"].forEach(function(id){
+      ["historyCloudSave","historyCloudTest","historyCloudClear","historyCloudSkip","historyCloudInstall"].forEach(function(id){
         const b=$(id);
         if(b) b.disabled=!!on;
       });
@@ -5473,6 +5501,26 @@ finally{ window.__pdfBuilding=false; }
     $("historyCloud")?.addEventListener("click", openHistoryCloudModal);
     $("historyCloudSkip")?.addEventListener("click", closeHistoryCloudModal);
     $("historyCloudTest")?.addEventListener("click", ()=>{ runHistoryCloudCheck(false); });
+    $("historyCloudInstall")?.addEventListener("click", async ()=>{
+      const cfg=readHistoryCloudForm();
+      const bad=cfg.url ? historyCloudUrlProblem(cfg.url) : {reason:"no-cloud"};
+      if(!cfg.url || bad){
+        setHistoryCloudMsg("err", historyCloudReasonText(bad||{reason:"no-cloud"}));
+        return;
+      }
+      saveHistoryCloud(cfg);
+      try{
+        await exportCloudBridgeFile();
+        setHistoryCloudMsg("wait", "In Dateien sichern, denselben WebDAV-Ordner wählen. Danach Prüfen.");
+        $("status").textContent="Brücke aus der App gelegt. Ordner wählen, dann Prüfen.";
+      }catch(e){
+        if(e && e.name==="AbortError"){
+          setHistoryCloudMsg("err", "Sichern abgebrochen.");
+          return;
+        }
+        setHistoryCloudMsg("err", "Datei konnte in der App nicht geöffnet werden.");
+      }
+    });
     window.runHistoryCloudCheck=runHistoryCloudCheck;
     $("historyCloudSave")?.addEventListener("click", async ()=>{
       const ok=await runHistoryCloudCheck(true);
@@ -5821,7 +5869,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.64";
+  const APP_VERSION=window.SB_APP_VERSION||"3.65";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
