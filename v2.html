@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.85">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.86">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.85</title>
+  <title>Servicebericht v3.86</title>
 <script>
-window.SB_APP_VERSION="3.85";
+window.SB_APP_VERSION="3.86";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.85</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.86</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -2542,6 +2542,7 @@ function bindCompanySelect(){
   if(!sel || sel.dataset.boundChange==="1") return;
   sel.dataset.boundChange="1";
   sel.onchange=()=>{
+    if(window.__sbApplyingForm) return;
     const c=selectedCompany();
     if(!c)return;
     if($("customerSearch")) $("customerSearch").value=c.firma||c.name||"";
@@ -3604,7 +3605,16 @@ function inkPngFromCanvas(srcCanvas){
     }
   }
   octx.putImageData(img,0,0);
-  return out.toDataURL("image/png");
+  const maxW=480, maxH=240;
+  if(cw<=maxW && ch<=maxH) return out.toDataURL("image/png");
+  const s=Math.min(maxW/cw, maxH/ch);
+  const dw=Math.max(1, Math.round(cw*s)), dh=Math.max(1, Math.round(ch*s));
+  const small=document.createElement("canvas");
+  small.width=dw; small.height=dh;
+  const sctx=small.getContext("2d",{alpha:true});
+  sctx.imageSmoothingEnabled=true;
+  sctx.drawImage(out,0,0,dw,dh);
+  return small.toDataURL("image/png");
 }
 function pngFromCanvas(canvas){
   return Promise.resolve(inkPngFromCanvas(canvas));
@@ -4465,6 +4475,7 @@ finally{ window.__pdfBuilding=false; }
   const RESET_FLAG="servicebericht_reset_v2";
   const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
   let historyMem=null;
+  let historyHydrate=null;
 
   function loadHistoryFromLs(){
     try {
@@ -4522,6 +4533,15 @@ finally{ window.__pdfBuilding=false; }
     const ls=tryPersistHistoryLs(next);
     const idb=await persistHistoryIdb(next);
     return ls || idb;
+  }
+  function newHistoryId(){
+    return "h"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  }
+  async function readyHistoryList(){
+    if(historyHydrate){
+      try{ await historyHydrate; }catch(e){}
+    }
+    return loadHistory();
   }
   function fieldKey(el){
     if(el.id && SKIP_IDS[el.id]) return "";
@@ -4614,6 +4634,8 @@ finally{ window.__pdfBuilding=false; }
   }
   function applyForm(data){
     if(!data || typeof data!=="object") return;
+    window.__sbApplyingForm=true;
+    try{
     const target=Math.max(1,Math.min(6,Number(data.__visibleDays)||1));
     const times=document.getElementById("times");
     const addBtn=document.getElementById("addDay");
@@ -4716,6 +4738,9 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
+    }finally{
+      window.__sbApplyingForm=false;
+    }
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -4827,10 +4852,10 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
     $("status").textContent="Bericht wurde geöffnet.";
   }
-  function importPayloadText(text){
+  async function importPayloadText(text){
     if(!text) return;
     const payload=JSON.parse(text);
-    let list=loadHistory();
+    let list=await readyHistoryList();
     let imported=null;
     if(Array.isArray(payload)) list=payload;
     else if(Array.isArray(payload.history)) list=payload.history;
@@ -4843,7 +4868,7 @@ finally{ window.__pdfBuilding=false; }
       if(existing>=0) list[existing]=imported;
       else list.unshift(imported);
     }
-    saveHistory(list);
+    await saveHistory(list);
     refresh(imported ? "0" : "");
     if(imported){
       applyForm(historyItemData(imported));
@@ -4900,28 +4925,144 @@ finally{ window.__pdfBuilding=false; }
   const HISTORY_DIR_NAME_KEY="servicebericht_history_dir_name";
   const HISTORY_LIST_STORE="list";
   const HISTORY_LIST_KEY="items";
+  const HISTORY_SIG_STORE="sigs";
   let historyDirHandle=null;
   function historyDirDb(){
     return new Promise(function(resolve, reject){
-      const req=indexedDB.open(HISTORY_DIR_DB, 2);
+      const req=indexedDB.open(HISTORY_DIR_DB, 3);
       req.onupgradeneeded=function(){
         const db=req.result;
         if(!db.objectStoreNames.contains(HISTORY_DIR_STORE)) db.createObjectStore(HISTORY_DIR_STORE);
         if(!db.objectStoreNames.contains(HISTORY_LIST_STORE)) db.createObjectStore(HISTORY_LIST_STORE);
+        if(!db.objectStoreNames.contains(HISTORY_SIG_STORE)) db.createObjectStore(HISTORY_SIG_STORE);
       };
       req.onsuccess=function(){ resolve(req.result); };
       req.onerror=function(){ reject(req.error); };
     });
   }
-  async function persistHistoryIdb(list){
+  function historyItemKey(item){
+    if(item && item.id) return "id:"+String(item.id);
+    return "at:"+String(item&&item.savedAt||"")+"\n"+String(item&&item.name||"");
+  }
+  function historySigCount(item){
+    const d=historyItemData(item)||{};
+    let n=0;
+    if(d.__sigTech) n++;
+    if(d.__sigKunde) n++;
+    return n;
+  }
+  function mergeHistoryLists(a, b){
+    const map=new Map();
+    function consider(item){
+      if(!item || typeof item!=="object") return;
+      const k=historyItemKey(item);
+      const prev=map.get(k);
+      if(!prev){ map.set(k, item); return; }
+      const sc=historySigCount(item), pc=historySigCount(prev);
+      if(sc>pc) map.set(k, item);
+      else if(sc===pc && String(item.savedAt||"")>String(prev.savedAt||"")) map.set(k, item);
+    }
+    (Array.isArray(a)?a:[]).forEach(consider);
+    (Array.isArray(b)?b:[]).forEach(consider);
+    return Array.from(map.values()).sort(function(x,y){
+      return String(y.savedAt||"").localeCompare(String(x.savedAt||""));
+    }).slice(0,100);
+  }
+  function applyHistorySigMap(list, map){
+    if(!map || typeof map!=="object") return list||[];
+    return (list||[]).map(function(item){
+      if(!item) return item;
+      const d=historyItemData(item);
+      if(!d) return item;
+      const extra=map[historyItemKey(item)];
+      if(!extra) return item;
+      const data=Object.assign({}, d);
+      if(!data.__sigTech && extra.__sigTech) data.__sigTech=extra.__sigTech;
+      if(!data.__sigKunde && extra.__sigKunde) data.__sigKunde=extra.__sigKunde;
+      if(item.data && typeof item.data==="object") return Object.assign({}, item, {data:data});
+      if(item.formData && typeof item.formData==="object") return Object.assign({}, item, {formData:data});
+      return Object.assign({}, item, data);
+    });
+  }
+  function historySigEntries(list){
+    const entries=[];
+    (list||[]).forEach(function(item){
+      const d=historyItemData(item);
+      if(!d || (!d.__sigTech && !d.__sigKunde)) return;
+      entries.push([historyItemKey(item), {__sigTech:d.__sigTech||null, __sigKunde:d.__sigKunde||null}]);
+    });
+    return entries;
+  }
+  async function persistHistorySigs(db, list){
+    const entries=historySigEntries(list);
+    if(!db.objectStoreNames.contains(HISTORY_SIG_STORE)) return false;
     try{
-      const db=await historyDirDb();
       await new Promise(function(resolve, reject){
-        const tx=db.transaction(HISTORY_LIST_STORE, "readwrite");
-        tx.objectStore(HISTORY_LIST_STORE).put(Array.isArray(list)?list:[], HISTORY_LIST_KEY);
+        const tx=db.transaction(HISTORY_SIG_STORE, "readwrite");
+        const st=tx.objectStore(HISTORY_SIG_STORE);
+        st.clear();
+        entries.forEach(function(e){ st.put(e[1], e[0]); });
         tx.oncomplete=function(){ resolve(); };
         tx.onerror=function(){ reject(tx.error); };
       });
+      return true;
+    }catch(e){
+      let ok=false;
+      for(let i=0;i<entries.length;i++){
+        try{
+          await new Promise(function(resolve, reject){
+            const tx=db.transaction(HISTORY_SIG_STORE, "readwrite");
+            tx.objectStore(HISTORY_SIG_STORE).put(entries[i][1], entries[i][0]);
+            tx.oncomplete=function(){ resolve(); };
+            tx.onerror=function(){ reject(tx.error); };
+          });
+          ok=true;
+        }catch(_e){}
+      }
+      return ok;
+    }
+  }
+  async function loadHistorySigMap(db){
+    if(!db.objectStoreNames.contains(HISTORY_SIG_STORE)) return null;
+    try{
+      return await new Promise(function(resolve, reject){
+        const tx=db.transaction(HISTORY_SIG_STORE, "readonly");
+        const st=tx.objectStore(HISTORY_SIG_STORE);
+        const keysReq=st.getAllKeys();
+        const valsReq=st.getAll();
+        tx.oncomplete=function(){
+          const map={};
+          const keys=keysReq.result||[];
+          const vals=valsReq.result||[];
+          for(let i=0;i<keys.length;i++) map[keys[i]]=vals[i];
+          resolve(map);
+        };
+        tx.onerror=function(){ reject(tx.error); };
+      });
+    }catch(e){
+      return null;
+    }
+  }
+  async function persistHistoryIdb(list){
+    const full=Array.isArray(list)?list:[];
+    try{
+      const db=await historyDirDb();
+      try{
+        await new Promise(function(resolve, reject){
+          const tx=db.transaction(HISTORY_LIST_STORE, "readwrite");
+          tx.objectStore(HISTORY_LIST_STORE).put(full, HISTORY_LIST_KEY);
+          tx.oncomplete=function(){ resolve(); };
+          tx.onerror=function(){ reject(tx.error); };
+        });
+      }catch(e){
+        await new Promise(function(resolve, reject){
+          const tx=db.transaction(HISTORY_LIST_STORE, "readwrite");
+          tx.objectStore(HISTORY_LIST_STORE).put(historyWithoutSigs(full), HISTORY_LIST_KEY);
+          tx.oncomplete=function(){ resolve(); };
+          tx.onerror=function(){ reject(tx.error); };
+        });
+      }
+      await persistHistorySigs(db, full);
       return true;
     }catch(e){
       return false;
@@ -4930,25 +5071,25 @@ finally{ window.__pdfBuilding=false; }
   async function loadHistoryIdb(){
     try{
       const db=await historyDirDb();
-      return await new Promise(function(resolve, reject){
+      const list=await new Promise(function(resolve, reject){
         const tx=db.transaction(HISTORY_LIST_STORE, "readonly");
         const r=tx.objectStore(HISTORY_LIST_STORE).get(HISTORY_LIST_KEY);
         r.onsuccess=function(){ resolve(Array.isArray(r.result)?r.result:null); };
         r.onerror=function(){ reject(r.error); };
       });
+      if(!Array.isArray(list)) return null;
+      const sigs=await loadHistorySigMap(db);
+      return applyHistorySigMap(list, sigs);
     }catch(e){
       return null;
     }
   }
   async function hydrateHistory(){
-    const fromIdb=await loadHistoryIdb();
-    if(Array.isArray(fromIdb)){
-      historyMem=fromIdb;
-      return;
-    }
     const fromLs=loadHistoryFromLs();
-    historyMem=fromLs;
-    if(fromLs.length) await persistHistoryIdb(fromLs);
+    const fromIdb=await loadHistoryIdb();
+    const merged=mergeHistoryLists(fromIdb, fromLs);
+    historyMem=merged;
+    if(merged.length) await persistHistoryIdb(merged);
   }
   async function loadHistoryDirHandle(){
     if(historyDirHandle) return historyDirHandle;
@@ -5064,7 +5205,7 @@ finally{ window.__pdfBuilding=false; }
   function init(){
     historyMem=loadHistoryFromLs();
     refresh("");
-    hydrateHistory().then(function(){ refresh(""); }).catch(function(){});
+    historyHydrate=hydrateHistory().then(function(){ refresh(""); }).catch(function(){});
     const save=document.getElementById("historySave");
     const saveBottom=document.getElementById("historySaveBottom");
     const fileInput=document.getElementById("historyFileInput");
@@ -5180,16 +5321,18 @@ finally{ window.__pdfBuilding=false; }
 
     async function saveCurrentHistory(opts){
       opts=opts||{};
+      const list=await readyHistoryList();
       const savedAt=new Date().toISOString();
       const data=collectForm();
+      const idx=selectedHistory;
+      const prev=(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]) ? list[Number(idx)] : null;
       const item={
+        id:(prev && prev.id) || newHistoryId(),
         name:historyLabel({savedAt, data}),
         savedAt,
         data
       };
-      const list=loadHistory();
-      const idx=selectedHistory;
-      if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
+      if(prev){
         list[Number(idx)]=item;
         setSelectedHistory(Number(idx), item);
       }else{
@@ -5240,24 +5383,24 @@ finally{ window.__pdfBuilding=false; }
         const f=fileInput.files && fileInput.files[0];
         fileInput.value="";
         if(!f) return;
-        importPayloadText(await f.text());
+        await importPayloadText(await f.text());
       }catch(e){
         if(e?.name!=="AbortError")
           alert("Historie konnte nicht geöffnet werden: "+(e?.message||e));
       }
     });
 
-    del?.addEventListener("click",()=>{
+    del?.addEventListener("click",async ()=>{
       const idx=selectedHistory;
       if(idx==null || Number.isNaN(idx)){
         alert("Bitte zuerst einen Bericht auswählen.");
         return;
       }
-      const list=loadHistory();
+      const list=await readyHistoryList();
       if(!list[idx]) return;
       if(!confirm("Diesen Bericht aus der Historie löschen?")) return;
       list.splice(idx,1);
-      saveHistory(list);
+      await saveHistory(list);
       setSelectedHistory(null, null);
       closeResults();
       showHistoryActionOk("del");
@@ -5405,6 +5548,7 @@ finally{ window.__pdfBuilding=false; }
       if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
     }
     function clearListIfManual(){
+      if(window.__sbApplyingForm) return;
       const typed=input.value.trim();
       const current=select.selectedOptions[0];
       if(current && current.value!=="" && current.textContent.trim()!==typed){
@@ -5562,7 +5706,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.85";
+  const APP_VERSION=window.SB_APP_VERSION||"3.86";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
