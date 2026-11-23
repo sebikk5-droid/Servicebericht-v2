@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.82">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.83">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.82</title>
+  <title>Servicebericht v3.83</title>
 <script>
-window.SB_APP_VERSION="3.82";
+window.SB_APP_VERSION="3.83";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.82</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.83</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4464,8 +4464,9 @@ finally{ window.__pdfBuilding=false; }
   const LIVE_KEY="servicebericht_live_draft_v2";
   const RESET_FLAG="servicebericht_reset_v2";
   const SKIP_IDS={historySearch:1,historySelect:1,travelTotal:1,workTotal:1,kmTotal:1,allTotal:1};
+  let historyMem=null;
 
-  function loadHistory(){
+  function loadHistoryFromLs(){
     try {
       const raw=localStorage.getItem(HISTORY_KEY);
       if(raw!=null){
@@ -4481,12 +4482,46 @@ finally{ window.__pdfBuilding=false; }
     }
     catch(e){ return []; }
   }
-  function saveHistory(list){
+  function loadHistory(){
+    if(Array.isArray(historyMem)) return historyMem;
+    historyMem=loadHistoryFromLs();
+    return historyMem;
+  }
+  function historyWithoutSigs(list){
+    return (list||[]).map(function(item){
+      if(!item || !item.data || typeof item.data!=="object") return item;
+      const data=Object.assign({}, item.data);
+      delete data.__sigTech;
+      delete data.__sigKunde;
+      return Object.assign({}, item, {data:data});
+    });
+  }
+  function tryPersistHistoryLs(list){
+    const cap=(list||[]).slice(0,100);
     try{
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0,100)));
-    }catch(e){
-      throw new Error("Speicher auf diesem Gerät ist voll oder blockiert.");
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(cap));
+      return true;
+    }catch(e){}
+    try{
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(historyWithoutSigs(cap)));
+      return true;
+    }catch(e){}
+    let n=cap;
+    while(n.length>1){
+      n=n.slice(0, Math.max(1, Math.floor(n.length*0.7)));
+      try{
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(historyWithoutSigs(n)));
+        return true;
+      }catch(e){}
     }
+    return false;
+  }
+  async function saveHistory(list){
+    const next=Array.isArray(list) ? list.slice(0,100) : [];
+    historyMem=next;
+    const ls=tryPersistHistoryLs(next);
+    const idb=await persistHistoryIdb(next);
+    return ls || idb;
   }
   function fieldKey(el){
     if(el.id && SKIP_IDS[el.id]) return "";
@@ -4863,17 +4898,57 @@ finally{ window.__pdfBuilding=false; }
   const HISTORY_DIR_STORE="dir";
   const HISTORY_DIR_KEY="handle";
   const HISTORY_DIR_NAME_KEY="servicebericht_history_dir_name";
+  const HISTORY_LIST_STORE="list";
+  const HISTORY_LIST_KEY="items";
   let historyDirHandle=null;
   function historyDirDb(){
     return new Promise(function(resolve, reject){
-      const req=indexedDB.open(HISTORY_DIR_DB, 1);
+      const req=indexedDB.open(HISTORY_DIR_DB, 2);
       req.onupgradeneeded=function(){
         const db=req.result;
         if(!db.objectStoreNames.contains(HISTORY_DIR_STORE)) db.createObjectStore(HISTORY_DIR_STORE);
+        if(!db.objectStoreNames.contains(HISTORY_LIST_STORE)) db.createObjectStore(HISTORY_LIST_STORE);
       };
       req.onsuccess=function(){ resolve(req.result); };
       req.onerror=function(){ reject(req.error); };
     });
+  }
+  async function persistHistoryIdb(list){
+    try{
+      const db=await historyDirDb();
+      await new Promise(function(resolve, reject){
+        const tx=db.transaction(HISTORY_LIST_STORE, "readwrite");
+        tx.objectStore(HISTORY_LIST_STORE).put(Array.isArray(list)?list:[], HISTORY_LIST_KEY);
+        tx.oncomplete=function(){ resolve(); };
+        tx.onerror=function(){ reject(tx.error); };
+      });
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+  async function loadHistoryIdb(){
+    try{
+      const db=await historyDirDb();
+      return await new Promise(function(resolve, reject){
+        const tx=db.transaction(HISTORY_LIST_STORE, "readonly");
+        const r=tx.objectStore(HISTORY_LIST_STORE).get(HISTORY_LIST_KEY);
+        r.onsuccess=function(){ resolve(Array.isArray(r.result)?r.result:null); };
+        r.onerror=function(){ reject(r.error); };
+      });
+    }catch(e){
+      return null;
+    }
+  }
+  async function hydrateHistory(){
+    const fromIdb=await loadHistoryIdb();
+    if(Array.isArray(fromIdb)){
+      historyMem=fromIdb;
+      return;
+    }
+    const fromLs=loadHistoryFromLs();
+    historyMem=fromLs;
+    if(fromLs.length) await persistHistoryIdb(fromLs);
   }
   async function loadHistoryDirHandle(){
     if(historyDirHandle) return historyDirHandle;
@@ -4987,7 +5062,9 @@ finally{ window.__pdfBuilding=false; }
   }
 
   function init(){
+    historyMem=loadHistoryFromLs();
     refresh("");
+    hydrateHistory().then(function(){ refresh(""); }).catch(function(){});
     const save=document.getElementById("historySave");
     const saveBottom=document.getElementById("historySaveBottom");
     const fileInput=document.getElementById("historyFileInput");
@@ -5109,26 +5186,21 @@ finally{ window.__pdfBuilding=false; }
         savedAt,
         data
       };
-      try{
-        const list=loadHistory();
-        const idx=selectedHistory;
-        // Updating the open entry avoids two identical Historie rows.
-        if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
-          list[Number(idx)]=item;
-          saveHistory(list);
-          setSelectedHistory(Number(idx), item);
-        }else{
-          list.unshift(item);
-          saveHistory(list);
-          setSelectedHistory(0, item);
-        }
-        showHistoryActionOk("ok");
-      }catch(e){
-        alert("In der App konnte nicht gespeichert werden: "+(e?.message||e));
-        return;
+      const list=loadHistory();
+      const idx=selectedHistory;
+      if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
+        list[Number(idx)]=item;
+        setSelectedHistory(Number(idx), item);
+      }else{
+        list.unshift(item);
+        setSelectedHistory(0, item);
       }
+      const inApp=await saveHistory(list);
+      showHistoryActionOk("ok");
+      let fileOk=false;
       try{
         await exportReportFile(item);
+        fileOk=true;
       }catch(e){
         if(e?.name==="AbortError"){
           $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
@@ -5137,10 +5209,14 @@ finally{ window.__pdfBuilding=false; }
         try{
           const {filename, file}=reportFileFromItem(item);
           downloadReportFile(file, filename);
+          fileOk=true;
         }catch(_e){
-          $("status").textContent="In der App gespeichert. Datei fehlgeschlagen.";
+          if(inApp) $("status").textContent="In der App gespeichert. Datei fehlgeschlagen.";
+          else alert("Speicher auf diesem Gerät ist voll oder blockiert.");
         }
       }
+      if(inApp || fileOk) return;
+      alert("Speicher auf diesem Gerät ist voll oder blockiert.");
     }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
@@ -5483,7 +5559,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.82";
+  const APP_VERSION=window.SB_APP_VERSION||"3.83";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
