@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.84">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.85">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.84</title>
+  <title>Servicebericht v3.85</title>
 <script>
-window.SB_APP_VERSION="3.84";
+window.SB_APP_VERSION="3.85";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.84</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.85</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5562,7 +5562,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.84";
+  const APP_VERSION=window.SB_APP_VERSION||"3.85";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7562,11 +7562,13 @@ finally{ window.__pdfBuilding=false; }
     }
   }
   async function sharePdfFile(file, label){
-    if(!navigator.share || !file) return false;
+    if(!navigator.share || !file) return null;
     const files=[file];
+    // Outlook nimmt den Share-title als Betreff. text weglassen: auf iOS
+    // scheitert files+title+text oft und dann bleibt der Betreff leer.
     const attempts=isIosPdfDevice()
-      ? [{files:files}]
-      : [{files:files, title:label, text:label}, {files:files}];
+      ? [{files:files, title:label}, {files:files}]
+      : [{files:files, title:label}, {files:files, title:label, text:label}, {files:files}];
     for(let i=0;i<attempts.length;i++){
       const data=attempts[i];
       try{
@@ -7576,20 +7578,26 @@ finally{ window.__pdfBuilding=false; }
           if(!ok) continue;
         }
         await navigator.share(data);
-        return true;
+        return data;
       }catch(e){
         if(e && e.name==="AbortError") throw e;
       }
     }
     if(isIosPdfDevice()){
       try{
+        await navigator.share({files:files, title:label});
+        return {files:files, title:label};
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
+      }
+      try{
         await navigator.share({files:files});
-        return true;
+        return {files:files};
       }catch(e){
         if(e && e.name==="AbortError") throw e;
       }
     }
-    return false;
+    return null;
   }
   window.sendPdfByEmail=async function(){
     const email=customerPdfEmail();
@@ -7615,13 +7623,20 @@ finally{ window.__pdfBuilding=false; }
 
     const emailFile=pdfFileForEmail(emailName);
     try{
-      if(emailFile && await sharePdfFile(emailFile, label)){
-        const copiedTo=await copyTextQuiet(email);
-        setStatus(email
-          ? (copiedTo
-            ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
-            : "Mail: PDF angehängt. Empfänger eintragen: "+email)
-          : "Mail: PDF angehängt. Empfänger eintragen.");
+      const shared=emailFile ? await sharePdfFile(emailFile, label) : null;
+      if(shared){
+        const usedTitle=!!shared.title;
+        if(!usedTitle) await copyTextQuiet(label);
+        else await copyTextQuiet(email);
+        if(usedTitle){
+          setStatus(email
+            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger: "+email
+            : "Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
+        }else{
+          setStatus(email
+            ? "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen. Empfänger: "+email
+            : "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
+        }
         return true;
       }
     }catch(e){
