@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.83">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.84">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.83</title>
+  <title>Servicebericht v3.84</title>
 <script>
-window.SB_APP_VERSION="3.83";
+window.SB_APP_VERSION="3.84";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.83</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.84</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5178,7 +5178,8 @@ finally{ window.__pdfBuilding=false; }
       closeResults();
     });
 
-    async function saveCurrentHistory(){
+    async function saveCurrentHistory(opts){
+      opts=opts||{};
       const savedAt=new Date().toISOString();
       const data=collectForm();
       const item={
@@ -5197,6 +5198,7 @@ finally{ window.__pdfBuilding=false; }
       }
       const inApp=await saveHistory(list);
       showHistoryActionOk("ok");
+      if(opts.skipFile) return inApp;
       let fileOk=false;
       try{
         await exportReportFile(item);
@@ -5204,7 +5206,7 @@ finally{ window.__pdfBuilding=false; }
       }catch(e){
         if(e?.name==="AbortError"){
           $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
-          return;
+          return inApp;
         }
         try{
           const {filename, file}=reportFileFromItem(item);
@@ -5215,8 +5217,9 @@ finally{ window.__pdfBuilding=false; }
           else alert("Speicher auf diesem Gerät ist voll oder blockiert.");
         }
       }
-      if(inApp || fileOk) return;
+      if(inApp || fileOk) return inApp||fileOk;
       alert("Speicher auf diesem Gerät ist voll oder blockiert.");
+      return false;
     }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
@@ -5559,7 +5562,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.83";
+  const APP_VERSION=window.SB_APP_VERSION||"3.84";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7479,12 +7482,10 @@ finally{ window.__pdfBuilding=false; }
     const go=historySaveThenEmail;
     historySaveThenEmail=false;
     closeHistorySaveSheet();
-    function send(){ if(go) window.sendPdfByEmail(); }
     if(doSave && typeof window.saveCurrentHistory==="function"){
-      Promise.resolve(window.saveCurrentHistory()).then(send, send);
-      return;
+      try{ window.saveCurrentHistory({skipFile:true}); }catch(e){}
     }
-    send();
+    if(go) window.sendPdfByEmail();
   }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
@@ -7551,13 +7552,46 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return false;
   }
-  window.sendPdfByEmail=async function(){
-    setStatus("PDF wird erstellt…");
-    const ready=await window.ensurePdfForCurrentForm();
-    if(!ready || !lastPdfBlob){
-      setStatus("PDF konnte nicht erstellt werden.");
-      return false;
+  function pdfFileForEmail(filename){
+    if(!lastPdfBlob) return null;
+    const name=filename||"Servicebericht.pdf";
+    try{
+      return new File([lastPdfBlob], name, {type:"application/pdf", lastModified:Date.now()});
+    }catch(e){
+      return null;
     }
+  }
+  async function sharePdfFile(file, label){
+    if(!navigator.share || !file) return false;
+    const files=[file];
+    const attempts=isIosPdfDevice()
+      ? [{files:files}]
+      : [{files:files, title:label, text:label}, {files:files}];
+    for(let i=0;i<attempts.length;i++){
+      const data=attempts[i];
+      try{
+        if(typeof navigator.canShare==="function"){
+          let ok=true;
+          try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+          if(!ok) continue;
+        }
+        await navigator.share(data);
+        return true;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
+      }
+    }
+    if(isIosPdfDevice()){
+      try{
+        await navigator.share({files:files});
+        return true;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
+      }
+    }
+    return false;
+  }
+  window.sendPdfByEmail=async function(){
     const email=customerPdfEmail();
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
@@ -7569,29 +7603,31 @@ finally{ window.__pdfBuilding=false; }
       +"&body="+encodeURIComponent(body);
     closePdfEmailSheet();
 
-    // Przywrócone z v3.22: Share z prawdziwym PDF (bez .eml).
-    // mailto nie może dołączyć pliku; .eml dawał dziwny format załącznika.
-    const copiedTo=await copyTextQuiet(email);
+    const matches=typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm();
+    if(!lastPdfBlob || !matches){
+      setStatus("PDF wird erstellt…");
+      const ready=await window.ensurePdfForCurrentForm();
+      if(!ready || !lastPdfBlob){
+        setStatus("PDF konnte nicht erstellt werden.");
+        return false;
+      }
+    }
+
+    const emailFile=pdfFileForEmail(emailName);
     try{
-      const shareFile=await pdfFileForShare();
-      if(shareFile){
-        const emailFile=new File([shareFile], emailName, {type:"application/pdf", lastModified:Date.now()});
-        const shareData={files:[emailFile], title:label, text:label};
-        if(navigator.share && navigator.canShare && navigator.canShare({files:shareData.files})){
-          await navigator.share(shareData);
-          setStatus(email
-            ? (copiedTo
-              ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
-              : "Mail: PDF angehängt. Empfänger eintragen: "+email)
-            : "Mail: PDF angehängt. Empfänger eintragen.");
-          return true;
-        }
+      if(emailFile && await sharePdfFile(emailFile, label)){
+        const copiedTo=await copyTextQuiet(email);
+        setStatus(email
+          ? (copiedTo
+            ? "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen. Betreff ≈ Dateiname."
+            : "Mail: PDF angehängt. Empfänger eintragen: "+email)
+          : "Mail: PDF angehängt. Empfänger eintragen.");
+        return true;
       }
     }catch(e){
       if(e && e.name==="AbortError") return false;
     }
 
-    // Fallback: mailto mit Betreff (ohne Anhang), ohne location.href.
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
       ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
