@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.85">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.86">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.85</title>
+  <title>Servicebericht v3.86</title>
 <script>
-window.SB_APP_VERSION="3.85";
+window.SB_APP_VERSION="3.86";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.85</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.86</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4516,10 +4516,11 @@ finally{ window.__pdfBuilding=false; }
     }
     return false;
   }
-  async function saveHistory(list){
+  async function saveHistory(list, opts){
     const next=Array.isArray(list) ? list.slice(0,100) : [];
     historyMem=next;
     const ls=tryPersistHistoryLs(next);
+    if(opts && opts.deferIdb) return ls;
     const idb=await persistHistoryIdb(next);
     return ls || idb;
   }
@@ -4991,7 +4992,8 @@ finally{ window.__pdfBuilding=false; }
   function syncHistoryFolderBtn(){
     const btn=$("historyFolder");
     if(!btn) return;
-    if(!window.showDirectoryPicker){
+    // iPad/Safari cannot remember a folder. Hide Ordner; Speichern opens Dateien.
+    if(isIosDevice() || !window.showDirectoryPicker){
       btn.hidden=true;
       return;
     }
@@ -5023,12 +5025,36 @@ finally{ window.__pdfBuilding=false; }
     await w.write(json);
     await w.close();
   }
+  async function shareHistoryFile(file){
+    if(!navigator.share || !file) return false;
+    const data={files:[file]};
+    try{
+      if(typeof navigator.canShare==="function"){
+        let ok=true;
+        try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+        if(!ok) return false;
+      }
+      await navigator.share(data);
+      return true;
+    }catch(e){
+      if(e && e.name==="AbortError") throw e;
+      return false;
+    }
+  }
   async function exportReportFile(item){
     const {filename, json}=reportPayload(item);
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
 
-    if(window.showDirectoryPicker){
+    // iPad: no remembered folder. Share immediately so Dateien can pick a folder.
+    if(isIosDevice()){
+      const shared=await shareHistoryFile(textFile.file)
+        || await shareHistoryFile(jsonFile.file);
+      if(shared){
+        $("status").textContent="In der App gespeichert. In Dateien den Ordner wählen.";
+        return;
+      }
+    }else if(window.showDirectoryPicker){
       let handle=await loadHistoryDirHandle();
       if(handle && !(await historyDirPermission(handle, true))) handle=null;
       if(!handle) handle=await pickHistoryDir();
@@ -5038,12 +5064,6 @@ finally{ window.__pdfBuilding=false; }
         $("status").textContent=name ? ("Gespeichert in Ordner "+name+".") : "Datei gespeichert.";
         return;
       }
-    }
-
-    if(isIosDevice() && navigator.share){
-      await navigator.share({files:[textFile.file]});
-      $("status").textContent="In Dateien sichern tippen, dann den Ordner wählen.";
-      return;
     }
 
     if(window.showSaveFilePicker){
@@ -5196,7 +5216,8 @@ finally{ window.__pdfBuilding=false; }
         list.unshift(item);
         setSelectedHistory(0, item);
       }
-      const inApp=await saveHistory(list);
+      const shareNow=isIosDevice() && !opts.skipFile;
+      const inApp=await saveHistory(list, {deferIdb:shareNow});
       showHistoryActionOk("ok");
       if(opts.skipFile) return inApp;
       let fileOk=false;
@@ -5205,6 +5226,7 @@ finally{ window.__pdfBuilding=false; }
         fileOk=true;
       }catch(e){
         if(e?.name==="AbortError"){
+          if(shareNow) await persistHistoryIdb(historyMem);
           $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
           return inApp;
         }
@@ -5217,6 +5239,7 @@ finally{ window.__pdfBuilding=false; }
           else alert("Speicher auf diesem Gerät ist voll oder blockiert.");
         }
       }
+      if(shareNow) await persistHistoryIdb(historyMem);
       if(inApp || fileOk) return inApp||fileOk;
       alert("Speicher auf diesem Gerät ist voll oder blockiert.");
       return false;
@@ -5562,7 +5585,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.85";
+  const APP_VERSION=window.SB_APP_VERSION||"3.86";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
