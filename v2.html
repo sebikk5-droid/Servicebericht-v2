@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.86">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.87">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.86</title>
+  <title>Servicebericht v3.87</title>
 <script>
-window.SB_APP_VERSION="3.86";
+window.SB_APP_VERSION="3.87";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.86</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.87</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5585,7 +5585,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.86";
+  const APP_VERSION=window.SB_APP_VERSION||"3.87";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8639,9 +8639,15 @@ finally{ window.__pdfBuilding=false; }
   async function pushMachines(message, removeMatch, opts){
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote){
-      const next=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), loadAll()));
+      const localNow=loadAll();
+      const next=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), localNow));
       if(removeMatch && removeMatch.k && Array.isArray(next[removeMatch.k])){
-        next[removeMatch.k]=next[removeMatch.k].filter(m=>!sameMachine(m, removeMatch.rec));
+        const keep=Array.isArray(localNow[removeMatch.k])?localNow[removeMatch.k]:[];
+        next[removeMatch.k]=next[removeMatch.k].filter(function(m){
+          if(!sameMachine(m, removeMatch.rec)) return true;
+          // Same Nr/Typ as the old row, but still on the device (NC/PLC overwrite).
+          return keep.some(function(x){ return sameNr(x.machineNo, m.machineNo); });
+        });
         if(!next[removeMatch.k].length) delete next[removeMatch.k];
       }
       return next;
@@ -8818,7 +8824,8 @@ finally{ window.__pdfBuilding=false; }
       await new Promise(r=>setTimeout(r,0));
       const s=$("status");
       try{
-        const pushed=await pushMachines("Maschine für "+k, oldRec ? {k, rec: oldRec} : null, {quiet:true});
+        const dropOld=oldRec && !sameMachine(oldRec, rec) ? oldRec : null;
+        const pushed=await pushMachines("Maschine für "+k, dropOld ? {k, rec: dropOld} : null, {quiet:true});
         if(s){
           if(mode==="overwrite" && pushed && pushed.ok) s.textContent="Gespeicherte Maschine überschrieben.";
           else if(mode==="new" && pushed && pushed.ok) s.textContent="Zweite Maschine (gleicher Typ, andere Nr.) gespeichert.";
