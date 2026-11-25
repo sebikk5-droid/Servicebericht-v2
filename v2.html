@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.88">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.87</title>
+  <title>Servicebericht v3.88</title>
 <script>
-window.SB_APP_VERSION="3.87";
+window.SB_APP_VERSION="3.88";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -856,7 +856,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.87</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.88;</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -3991,14 +3991,88 @@ function forceWinAnsiHelvetica(pdf){
       if(!obj || typeof obj.get!=="function") return;
       const type=pdfNameStr(obj.get(Name.of("Type")));
       const subtype=pdfNameStr(obj.get(Name.of("Subtype")));
-      if(!/Font/i.test(type) && !/Type1|TrueType/i.test(subtype)) return;
+      // Embedded TrueType subsets keep their own encoding (often MacRoman).
+      // Forcing WinAnsi there makes Edge/PDFium paint symbols instead of letters.
+      if(/TrueType|Type0|CIDFont/i.test(subtype)) return;
+      if(!/Font/i.test(type) && !/Type1/i.test(subtype)) return;
       const base=pdfNameStr(obj.get(Name.of("BaseFont")));
       const fname=pdfNameStr(obj.get(Name.of("Name")));
+      if(/^[A-Z]{6}\+/.test(base.replace(/^\//,""))) return;
       if(!/Helvetica/i.test(base) && !/Helv/i.test(base) && !/Helv/i.test(fname)) return;
       try{ obj.set(Name.of("Encoding"), Name.of("WinAnsiEncoding")); }catch(e){}
       try{ obj.delete(Name.of("Differences")); }catch(e){}
     });
   }catch(e){}
+}
+function pdfFontSizeFromField(field){
+  function fromDa(da){
+    const m=String(da||"").match(/\/\S+\s+([\d.]+)\s+Tf/);
+    const n=m?parseFloat(m[1]):0;
+    return n>=1?n:0;
+  }
+  try{
+    const n=fromDa(field.acroField.getDefaultAppearance());
+    if(n) return n;
+  }catch(e){}
+  try{
+    const n=fromDa(field.acroField.getWidgets()[0].getDefaultAppearance());
+    if(n) return n;
+  }catch(e){}
+  try{ return fitSizeForField(field.getName()); }catch(e){ return 9; }
+}
+function winAnsiPdfText(font, text){
+  const s=String(text||"");
+  if(!s || !font) return "";
+  try{ font.encodeText(s); return s; }catch(e){}
+  const swap={
+    "ą":"a","ć":"c","ę":"e","ł":"l","ń":"n","ó":"o","ś":"s","ź":"z","ż":"z",
+    "Ą":"A","Ć":"C","Ę":"E","Ł":"L","Ń":"N","Ó":"O","Ś":"S","Ź":"Z","Ż":"Z",
+    "–":"-","—":"-","“":'"',"”":'"',"‘":"'","’":"'","…":"...","€":"EUR"
+  };
+  let out="";
+  for(const ch of s){
+    const alt=swap[ch]||ch;
+    try{ font.encodeText(alt); out+=alt; }
+    catch(e2){ out+="?"; }
+  }
+  return out;
+}
+function paintPdfTextFields(pdf, form, font){
+  if(!pdf || !form || !font) return;
+  const page=pdf.getPages()[0];
+  const ink=PDFLib.rgb(0,0,0);
+  form.getFields().forEach(function(field){
+    if(!field || typeof field.getText!=="function") return;
+    let raw="";
+    try{ raw=String(field.getText()||""); }catch(e){ return; }
+    const text=winAnsiPdfText(font, raw);
+    if(!text) return;
+    let widgets=[];
+    try{ widgets=field.acroField.getWidgets()||[]; }catch(e){ return; }
+    widgets.forEach(function(w){
+      const r=w.getRectangle();
+      if(!r || r.width<4 || r.height<4) return;
+      let size=pdfFontSizeFromField(field);
+      const maxW=Math.max(4, r.width-4);
+      while(size>4.2 && font.widthOfTextAtSize(text,size)>maxW) size-=0.15;
+      const tw=font.widthOfTextAtSize(text,size);
+      let x=r.x+2;
+      try{
+        const align=typeof field.getAlignment==="function"?field.getAlignment():0;
+        if(align===1) x=r.x+Math.max(1,(r.width-tw)/2);
+        else if(align===2) x=r.x+Math.max(1,r.width-tw-2);
+      }catch(e){}
+      const y=r.y+Math.max(0.8,(r.height-size)*0.32);
+      try{ page.drawText(text,{x,y,size,font,color:ink}); }catch(e){}
+    });
+  });
+}
+function removePdfTextFields(form){
+  if(!form) return;
+  form.getFields().slice().forEach(function(field){
+    if(!field || typeof field.getText!=="function") return;
+    try{ form.removeField(field); }catch(e){}
+  });
 }
 function bindPdfFormFont(form, font){
   if(!form || !font) return;
@@ -4424,12 +4498,17 @@ try{
     w.getOrCreateBorderStyle().setWidth(0);
   });
 }catch(e){}
-if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
-else form.updateFieldAppearances();
+// Edge/PDFium paints flattened AcroForm XObjects (font name /Helvetica)
+// as symbols. Draw the typed values onto the page, then flatten only
+// remaining checkboxes.
+paintPdfTextFields(pdf, form, pdfFitFont);
 const sigBoxes=signatureFieldBoxes(form);
 ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
   try{ form.removeField(form.getTextField(name)); }catch(e){}
 });
+removePdfTextFields(form);
+if(pdfFitFont) form.updateFieldAppearances(pdfFitFont);
+else form.updateFieldAppearances();
 form.flatten({updateFieldAppearances:false});
 forceWinAnsiHelvetica(pdf);
 // Layout 2: totals row under the times table.
@@ -5585,7 +5664,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.87";
+  const APP_VERSION=window.SB_APP_VERSION||"3.88";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
