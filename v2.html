@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.38">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.39">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.38</title>
+  <title>Servicebericht v4.39</title>
 <script>
-window.SB_APP_VERSION="4.38";
+window.SB_APP_VERSION="4.39";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -170,9 +170,9 @@ window.sbReloadHeld=function(){
 </script>
 <style>
 *{box-sizing:border-box}
-html,body{height:100%;height:100dvh;width:100%;margin:0;overflow:hidden;overscroll-behavior:none}
-body{display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0}
-header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto}
+html,body{height:100%;height:100dvh;width:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none}
+body{position:fixed;inset:0;display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0;touch-action:none}
+header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto;touch-action:none}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
 .header-top h1{flex:none;min-width:0}
@@ -251,8 +251,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
-html.kb-open .bottom{display:none}
+.bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible;touch-action:none}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
@@ -1008,7 +1007,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.38</span>
+      <span id="appCreditVer" class="app-ver">v4.39</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1499,14 +1498,9 @@ function layoutComboResults(results, box){
     results.style.width="100%";
   }
   results.scrollTop=0;
-  const tech=results.id==="techResults";
   const locked=results.dataset.place;
   let below;
-  if(tech){
-    // Techniker sitzt unten im Formular — Liste immer nach oben, sonst unter die Tastatur.
-    below=false;
-    if(spaceAbove<minH && spaceBelow>spaceAbove) below=true;
-  }else if(locked==="below" && spaceBelow>=minH) below=true;
+  if(locked==="below" && spaceBelow>=minH) below=true;
   else if(locked==="above" && spaceAbove>=minH) below=false;
   else below=(spaceBelow>=96 || spaceBelow>=spaceAbove);
   results.dataset.place=below?"below":"above";
@@ -1521,14 +1515,13 @@ function layoutComboResults(results, box){
     results.style.bottom="100%";
     results.style.marginTop="0";
     results.style.marginBottom=gap+"px";
-    results.style.maxHeight=Math.min(maxH, Math.max(minH, Math.max(spaceAbove, tech?140:minH)))+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceAbove))+"px";
   }
 }
 function openComboResults(results, box){
   if(!results) return;
   const closed=results.hidden || (results.style.display||"")==="none";
   if(closed) delete results.dataset.place;
-  if(results.id==="techResults") results.dataset.place="above";
   results.hidden=false;
   results.style.display="block";
   layoutComboResults(results, box);
@@ -6099,7 +6092,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.38";
+  const APP_VERSION=window.SB_APP_VERSION||"4.39";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10050,6 +10043,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const main=()=>document.querySelector("main");
+  const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
       if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
@@ -10071,63 +10065,69 @@ finally{ window.__pdfBuilding=false; }
       top:0, bottom:window.innerHeight, height:window.innerHeight
     };
   }
-  function kbCovered(){
-    const vv=window.visualViewport;
-    if(vv && vv.height) return Math.max(0, Math.round(window.innerHeight-vv.height));
-    const frame=vis();
-    return Math.max(0, Math.round(window.innerHeight-frame.bottom));
+  function safeTop(frame, sr){
+    const header=document.querySelector("header");
+    return Math.max(
+      sr.top+8,
+      frame.top+8,
+      header?header.getBoundingClientRect().bottom+8:0
+    );
   }
   function syncKeyboardPad(){
-    const covered=kbCovered();
+    const frame=vis();
+    const covered=Math.max(0, window.innerHeight-frame.bottom);
     document.documentElement.style.setProperty("--sb-kb", covered+"px");
-    document.documentElement.classList.toggle("kb-open", covered>80);
     const scroller=main();
     if(!scroller) return;
-    const combo=openComboEl();
-    if(!combo){
-      if(covered<80) scroller.style.paddingBottom="";
-      return;
-    }
-    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
-    const extra=Math.min(260, Math.max(160, combo.scrollHeight||180));
-    scroller.style.paddingBottom=(overlap+extra)+"px";
+    const combo=openComboEl();
+    const extra=combo ? Math.min(220, Math.max(120, combo.scrollHeight||160)) : 0;
+    const pad=overlap+extra;
+    scroller.style.paddingBottom=pad ? pad+"px" : "";
   }
-  function keepNotesInView(el){
+  function keepFieldInView(el, extraBelow){
     const scroller=main();
     if(!scroller || !el) return;
-    const vv=window.visualViewport;
-    const viewTop=vv ? vv.offsetTop : 0;
-    const viewBottom=vv ? vv.offsetTop+vv.height : window.innerHeight;
+    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const er=el.getBoundingClientRect();
-    const topLimit=Math.max(sr.top+8, viewTop+8);
-    const bottomLimit=Math.min(sr.bottom-8, viewBottom-8);
+    const topLimit=safeTop(frame, sr);
+    const extra=Math.max(0, extraBelow||0);
+    const bottomLimit=Math.min(sr.bottom-8, frame.bottom-12)-extra;
+    if(bottomLimit<topLimit+er.height+8){
+      scroller.scrollTop+=er.top-topLimit;
+      return;
+    }
     if(er.bottom>bottomLimit)
       scroller.scrollTop+=er.bottom-bottomLimit;
     else if(er.top<topLimit)
       scroller.scrollTop-=topLimit-er.top;
   }
-  function keepComboInView(){
-    const results=openComboEl();
-    if(!results) return;
-    const box=results.closest(".combo-box, .parts-box");
-    const scroller=main();
-    if(!box || !scroller) return;
-    const frame=vis();
-    const need=Math.min(260, Math.max(160, results.scrollHeight||180));
-    const cr=box.getBoundingClientRect();
-    const place=results.dataset.place||"below";
-    if(place==="above"){
-      // Feld tiefer setzen, damit die Liste nach oben Platz hat.
-      const targetTop=Math.min(frame.bottom-cr.height-16, frame.top+need+20);
-      scroller.scrollTop+=cr.top-targetTop;
-    }else{
-      const bottomLimit=frame.bottom-12-need;
-      if(cr.bottom>bottomLimit) scroller.scrollTop+=cr.bottom-bottomLimit;
-      else if(cr.top<frame.top+8) scroller.scrollTop-=(frame.top+8)-cr.top;
+  function keepNotesInView(el){
+    keepFieldInView(el, 0);
+  }
+  function keepKbInView(){
+    syncKeyboardPad();
+    const a=document.activeElement;
+    if(!isKbField(a)){
+      relayoutOpenCombo();
+      return;
     }
+    const combo=a.closest && a.closest(".combo-box, .parts-box");
+    const results=openComboEl();
+    const target=(combo&&results)?combo:a;
+    let extra=12;
+    if(results && results.dataset.place==="above") extra=12;
+    else if(results && target && target.getBoundingClientRect){
+      const frame=vis();
+      const sr=(main()||document.body).getBoundingClientRect();
+      const need=Math.min(180, Math.max(96, results.scrollHeight||140));
+      const avail=Math.max(0, Math.min(sr.bottom, frame.bottom)-12-safeTop(frame, sr)-target.getBoundingClientRect().height);
+      extra=Math.min(need, avail);
+    }
+    if(target && target.getBoundingClientRect) keepFieldInView(target, extra);
+    relayoutOpenCombo();
   }
   function relayoutOpenCombo(){
     const results=openComboEl();
@@ -10135,32 +10135,36 @@ finally{ window.__pdfBuilding=false; }
     const box=results.closest(".combo-box, .parts-box") || $("partsBox");
     if(typeof layoutComboResults==="function") layoutComboResults(results, box);
   }
-  function keepKbInView(){
-    syncKeyboardPad();
-    const a=document.activeElement;
-    if(openComboEl()){
-      keepComboInView();
-      relayoutOpenCombo();
-      return;
-    }
-    if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
+  function isKbField(el){
+    if(!el || !el.tagName) return false;
+    const t=el.tagName;
+    if(t!=="INPUT" && t!=="TEXTAREA" && t!=="SELECT") return false;
+    if(el.disabled) return false;
+    const type=(el.type||"").toLowerCase();
+    if(type==="checkbox" || type==="radio" || type==="file" || type==="hidden" || type==="button" || type==="submit") return false;
+    if(el.closest && el.closest(MODAL_ROOT)) return false;
+    return true;
   }
-  function onNotesFocus(el){
-    closeOpenCombos();
+  function onFieldFocus(el){
     const scroller=main();
     const keep=scroller ? scroller.scrollTop : 0;
     requestAnimationFrame(()=>{
       if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
-      keepNotesInView(el);
+      keepKbInView();
     });
-    setTimeout(()=>keepNotesInView(el), 280);
+    setTimeout(keepKbInView, 120);
+    setTimeout(keepKbInView, 320);
+    setTimeout(keepKbInView, 560);
   }
   window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
-    el.addEventListener("focus",()=>onNotesFocus(el));
-    el.addEventListener("input",()=>keepNotesInView(el));
+    el.addEventListener("focus",()=>{
+      closeOpenCombos();
+      onFieldFocus(el);
+    });
+    el.addEventListener("input",()=>keepFieldInView(el, 0));
     el.addEventListener("wheel",e=>{
       const scroller=main();
       if(!scroller) return;
@@ -10178,24 +10182,20 @@ finally{ window.__pdfBuilding=false; }
   });
   document.addEventListener("focusin",e=>{
     const t=e.target;
-    if(t && t.closest && t.closest(".combo-box")){
-      requestAnimationFrame(keepKbInView);
-      setTimeout(keepKbInView, 120);
-      setTimeout(keepKbInView, 320);
-      setTimeout(keepKbInView, 560);
-      return;
-    }
+    if(t && t.closest && t.closest(".combo-box")) return;
     closeOpenCombos();
+  }, true);
+  document.addEventListener("focusin",e=>{
+    if(isKbField(e.target)) onFieldFocus(e.target);
   }, true);
   document.addEventListener("focusout",()=>{
     setTimeout(()=>{
-      const a=document.activeElement;
-      if(a && (a.tagName==="INPUT" || a.tagName==="TEXTAREA" || a.tagName==="SELECT")) return;
-      if(kbCovered()>80) return;
+      if(isKbField(document.activeElement)) return;
+      const frame=vis();
+      if(window.innerHeight-frame.bottom>80) return;
       const scroller=main();
       if(scroller) scroller.style.paddingBottom="";
       document.documentElement.style.setProperty("--sb-kb","0px");
-      document.documentElement.classList.remove("kb-open");
     }, 220);
   }, true);
   const scroller=main();
@@ -10207,6 +10207,7 @@ finally{ window.__pdfBuilding=false; }
     }, {passive:true});
   }
   window.addEventListener("resize",()=>{
+    lockPageScroll();
     const a=document.activeElement;
     if(a && a.closest && a.closest(".combo-box, .parts-box")){
       keepKbInView();
@@ -10214,14 +10215,33 @@ finally{ window.__pdfBuilding=false; }
     }
     closeOpenCombos();
   }, {passive:true});
+  function lockPageScroll(){
+    try{
+      if(window.scrollX || window.scrollY) window.scrollTo(0,0);
+      if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
+      if(document.body.scrollTop) document.body.scrollTop=0;
+    }catch(e){}
+  }
+  function allowTouchScroll(el){
+    if(!el || !el.closest) return false;
+    if(el.closest("main, .combo-results, .token-sheet, #pdfPreviewModal, #sigModal")) return true;
+    return false;
+  }
+  document.addEventListener("touchmove",function(e){
+    if(e.touches && e.touches.length>1) return;
+    if(allowTouchScroll(e.target)) return;
+    e.preventDefault();
+  }, {passive:false});
   if(window.visualViewport){
+    let lastH=window.visualViewport.height;
+    window.visualViewport.addEventListener("scroll", lockPageScroll);
     window.visualViewport.addEventListener("resize",()=>{
+      lockPageScroll();
+      const h=window.visualViewport.height;
+      if(Math.abs(h-lastH)<24) return;
+      lastH=h;
       keepKbInView();
     });
-    window.visualViewport.addEventListener("scroll",()=>{
-      syncKeyboardPad();
-      if(openComboEl()) relayoutOpenCombo();
-    }, {passive:true});
   }
 
   let penField=null, penAt=0;
@@ -10246,6 +10266,7 @@ finally{ window.__pdfBuilding=false; }
       const back=penField;
       penField=null;
       try{ back.focus({preventScroll:true}); }catch(_e){ back.focus(); }
+      keepKbInView();
       return;
     }
     penField=null;
