@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.35">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.36">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.35</title>
+  <title>Servicebericht v4.36</title>
 <script>
-window.SB_APP_VERSION="4.35";
+window.SB_APP_VERSION="4.36";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -251,7 +251,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
+.bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
@@ -1007,7 +1007,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.35</span>
+      <span id="appCreditVer" class="app-ver">v4.36</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1499,7 +1499,10 @@ function layoutComboResults(results, box){
   }
   results.scrollTop=0;
   const locked=results.dataset.place;
-  const below=locked==="below" ? true : locked==="above" ? false : (spaceBelow>=96 || spaceBelow>=spaceAbove);
+  let below;
+  if(locked==="below" && spaceBelow>=minH) below=true;
+  else if(locked==="above" && spaceAbove>=minH) below=false;
+  else below=(spaceBelow>=96 || spaceBelow>=spaceAbove);
   results.dataset.place=below?"below":"above";
   if(below){
     results.style.top="100%";
@@ -6030,6 +6033,8 @@ finally{ window.__pdfBuilding=false; }
     function close(){
       results.style.display="none";
       results.innerHTML="";
+      delete results.dataset.place;
+      if(box) box.classList.remove("is-open");
     }
     function show(forceAll){
       const q=norm(input.value);
@@ -6041,6 +6046,7 @@ finally{ window.__pdfBuilding=false; }
         close();
         return;
       }
+      if(box) box.classList.add("is-open");
       options.forEach(n=>{
         const pick=document.createElement("div");
         pick.className="combo-pick";
@@ -6086,7 +6092,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.35";
+  const APP_VERSION=window.SB_APP_VERSION||"4.36";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10062,6 +10068,17 @@ finally{ window.__pdfBuilding=false; }
     const frame=vis();
     const covered=Math.max(0, window.innerHeight-frame.bottom);
     document.documentElement.style.setProperty("--sb-kb", covered+"px");
+    const scroller=main();
+    if(!scroller) return;
+    const combo=openComboEl();
+    if(!combo){
+      if(covered<80) scroller.style.paddingBottom="";
+      return;
+    }
+    const sr=scroller.getBoundingClientRect();
+    const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
+    const extra=Math.min(220, Math.max(140, combo.scrollHeight||160));
+    scroller.style.paddingBottom=(overlap+extra)+"px";
   }
   function keepNotesInView(el){
     const scroller=main();
@@ -10078,6 +10095,22 @@ finally{ window.__pdfBuilding=false; }
     else if(er.top<topLimit)
       scroller.scrollTop-=topLimit-er.top;
   }
+  function keepComboInView(){
+    const results=openComboEl();
+    if(!results) return;
+    const box=results.closest(".combo-box, .parts-box");
+    const scroller=main();
+    if(!box || !scroller) return;
+    const frame=vis();
+    const need=Math.min(240, Math.max(140, results.scrollHeight||160));
+    const cr=box.getBoundingClientRect();
+    const topLimit=frame.top+8;
+    const bottomLimit=frame.bottom-12-need;
+    if(bottomLimit>topLimit+cr.height && cr.bottom>bottomLimit)
+      scroller.scrollTop+=cr.bottom-bottomLimit;
+    else if(cr.top<topLimit)
+      scroller.scrollTop-=topLimit-cr.top;
+  }
   function relayoutOpenCombo(){
     const results=openComboEl();
     if(!results) return;
@@ -10086,8 +10119,12 @@ finally{ window.__pdfBuilding=false; }
   }
   function keepKbInView(){
     syncKeyboardPad();
-    relayoutOpenCombo();
     const a=document.activeElement;
+    if(openComboEl()){
+      keepComboInView();
+      relayoutOpenCombo();
+      return;
+    }
     if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
   }
   function onNotesFocus(el){
@@ -10123,7 +10160,13 @@ finally{ window.__pdfBuilding=false; }
   });
   document.addEventListener("focusin",e=>{
     const t=e.target;
-    if(t && t.closest && t.closest(".combo-box")) return;
+    if(t && t.closest && t.closest(".combo-box")){
+      requestAnimationFrame(keepKbInView);
+      setTimeout(keepKbInView, 120);
+      setTimeout(keepKbInView, 320);
+      setTimeout(keepKbInView, 560);
+      return;
+    }
     closeOpenCombos();
   }, true);
   document.addEventListener("focusout",()=>{
@@ -10132,6 +10175,8 @@ finally{ window.__pdfBuilding=false; }
       if(a && (a.tagName==="INPUT" || a.tagName==="TEXTAREA" || a.tagName==="SELECT")) return;
       const frame=vis();
       if(window.innerHeight-frame.bottom>80) return;
+      const scroller=main();
+      if(scroller) scroller.style.paddingBottom="";
       document.documentElement.style.setProperty("--sb-kb","0px");
     }, 220);
   }, true);
@@ -10145,15 +10190,15 @@ finally{ window.__pdfBuilding=false; }
   }
   window.addEventListener("resize",()=>{
     const a=document.activeElement;
-    if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
+    if(a && a.closest && a.closest(".combo-box, .parts-box")){
+      keepKbInView();
+      return;
+    }
     closeOpenCombos();
   }, {passive:true});
   if(window.visualViewport){
     window.visualViewport.addEventListener("resize",()=>{
-      syncKeyboardPad();
-      const a=document.activeElement;
-      if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
-      else relayoutOpenCombo();
+      keepKbInView();
     });
   }
 
