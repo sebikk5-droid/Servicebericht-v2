@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.41">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.42">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.41</title>
+  <title>Servicebericht v4.42</title>
 <script>
-window.SB_APP_VERSION="4.41";
+window.SB_APP_VERSION="4.42";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1007,7 +1007,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.41</span>
+      <span id="appCreditVer" class="app-ver">v4.42</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6092,7 +6092,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.41";
+  const APP_VERSION=window.SB_APP_VERSION||"4.42";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10145,17 +10145,48 @@ finally{ window.__pdfBuilding=false; }
     if(el.closest && el.closest(MODAL_ROOT)) return false;
     return true;
   }
-  function onFieldFocus(el){
-    const scroller=main();
-    const keep=scroller ? scroller.scrollTop : 0;
+  function skipsPagePan(el){
+    const type=(el && el.type||"").toLowerCase();
+    return type==="date"||type==="time"||type==="month"||type==="week"||type==="datetime-local"||el.readOnly;
+  }
+  // iPad centruje pole na ekranie i zsuwa cały widok (także „Servicebericht").
+  // Pole chwilowo poza ekranem — Safari nie ma czego centrować. Potem wraca i
+  // przewija się tylko formularz w main.
+  function focusWithoutPagePan(el){
+    if(!el || el.dataset.sbPanning==="1") return;
+    el.dataset.sbPanning="1";
+    const prev=el.style.transform;
+    el.style.transform="translateY(-2000px)";
+    try{ el.focus({preventScroll:true}); }catch(e){ try{ el.focus(); }catch(_e){} }
     requestAnimationFrame(()=>{
-      if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
+      el.style.transform=prev||"";
+      delete el.dataset.sbPanning;
       keepKbInView();
     });
-    setTimeout(keepKbInView, 120);
-    setTimeout(keepKbInView, 320);
-    setTimeout(keepKbInView, 560);
   }
+  function onFieldFocus(el){
+    if(el && el.dataset && el.dataset.sbPanning==="1") return;
+    requestAnimationFrame(()=>keepKbInView());
+    setTimeout(keepKbInView, 320);
+  }
+  document.addEventListener("touchend",e=>{
+    const el=e.target && e.target.closest && e.target.closest("input,textarea");
+    if(!el || !isKbField(el) || skipsPagePan(el)) return;
+    if(document.activeElement===el) return;
+    e.preventDefault();
+    focusWithoutPagePan(el);
+  }, true);
+  document.addEventListener("focusin",e=>{
+    const el=e.target;
+    if(!isKbField(el) || skipsPagePan(el)) return;
+    if(el.dataset && el.dataset.sbPanning==="1") return;
+    const prev=el.style.transform;
+    el.style.transform="translateY(-2000px)";
+    requestAnimationFrame(()=>{
+      el.style.transform=prev||"";
+      keepKbInView();
+    });
+  }, true);
   window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
     const el=document.getElementById(id);
