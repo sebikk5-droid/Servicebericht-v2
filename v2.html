@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.89">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.90">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,16 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.89</title>
+  <title>Servicebericht v4.90</title>
 <script>
-window.SB_APP_VERSION="4.89";
+window.SB_APP_VERSION="4.90";
 /** Kurznotiz beim Start: neue Optionen für den Nutzer (nicht Technik-/Bugfix-Text). */
 window.SB_RELEASE_NOTES=[
-  {v:"4.89", items:[
+  {v:"4.90", items:[
+    "Kundennummer bei der Firma: merken und später mit dem Stift ändern (auch wenn die Firma schon auf der Liste ist).",
+    "Kundendaten ändern: Fenster zum Bearbeiten von Firma, Nr., Adresse, km, Reisezeit und E-Mails.",
+    "km / Reisezeit ändern direkt an der Kundenliste (eine Strecke).",
+    "E-Mail: Stift zum Ändern, Plus für weitere Adresse, Merken – ohne Löschen-Button.",
     "Seitliche Sprungtasten: Anfang, Text (Bemerkungen), Ende und Tag 1 / Tag 2 … (iPad; iPhone nur Querformat).",
     "Feld Stau neben Pause und Reisezeit ändern (Anfahrt und Rückfahrt).",
     "Reisezeit netto steht rechts in derselben Zeile.",
@@ -230,7 +234,7 @@ window.sbReloadHeld=function(){
         show=notesSince("0").filter(function(it){ return it.v===local; });
       }
       if(!show.length) return;
-      openWhatsNew(githubVer||"", show.slice(0, 8));
+      openWhatsNew(githubVer||"", show.slice(0, 14));
     };
     if(!raw){ finish(""); return; }
     fetch(raw+(raw.indexOf("?")>=0?"&":"?")+"t="+Date.now(), {cache:"no-store"})
@@ -1148,7 +1152,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.89</span>
+      <span id="appCreditVer" class="app-ver">v4.90</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6587,7 +6591,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.89";
+  const APP_VERSION=window.SB_APP_VERSION||"4.90";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
