@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.89">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.90">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,17 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.89</title>
+  <title>Servicebericht v3.90</title>
 <script>
-window.SB_APP_VERSION="3.89";
+window.SB_APP_VERSION="3.90";
+window.SB_HOLD_RELOAD_UNTIL=0;
+window.sbHoldReload=function(ms){
+  const until=Date.now()+(ms||120000);
+  if(until>(window.SB_HOLD_RELOAD_UNTIL||0)) window.SB_HOLD_RELOAD_UNTIL=until;
+};
+window.sbReloadHeld=function(){
+  return Date.now()<(window.SB_HOLD_RELOAD_UNTIL||0);
+};
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -25,6 +33,7 @@ window.SB_APP_VERSION="3.89";
   }
   function go(ver){
     if(!ver || ver===window.SB_APP_VERSION) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
     try{
       // Prevent endless replace when SW still serves a stale HTML shell.
       if(sessionStorage.getItem("sb_ver_go")==="1") return;
@@ -69,6 +78,7 @@ window.SB_APP_VERSION="3.89";
       navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
+        if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
         try{
           if(sessionStorage.getItem("sb_sw_reload")) return;
           sessionStorage.setItem("sb_sw_reload","1");
@@ -79,8 +89,16 @@ window.SB_APP_VERSION="3.89";
   }catch(e){}
   window.SB_CHECK_LIVE=checkLive;
   checkLive();
-  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
-  window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
+  window.addEventListener("pageshow", function(ev){
+    if(!ev.persisted) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
   function warmPdfCache(){
@@ -860,7 +878,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.89</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.90</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -901,7 +919,7 @@ select.is-nudge,input.is-nudge{
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 </div>
-<button type="button" id="addressMapsBtn" class="email-copy-btn" disabled aria-label="In Google Maps öffnen" title="In Google Maps öffnen">
+<button type="button" id="addressMapsBtn" class="email-copy-btn" disabled aria-label="Adresse an Google Maps übergeben" title="Adresse an Google Maps übergeben">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
 </button>
 </div>
@@ -2849,6 +2867,12 @@ function currentAddressQuery(){
 function googleMapsSearchUrl(q){
   return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||"");
 }
+function isIosPadApp(){
+  const ua=navigator.userAgent||"";
+  if(/iPad|iPhone|iPod/.test(ua)) return true;
+  if(navigator.standalone===true) return true;
+  return (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+}
 function syncAddressMapsBtn(){
   const btn=$("addressMapsBtn");
   if(!btn) return;
@@ -2873,12 +2897,72 @@ function openUrlSafe(href){
   }catch(e){}
   return false;
 }
-function openAddressInGoogleMaps(){
+function openAppScheme(href){
+  if(!href) return false;
+  try{
+    const a=document.createElement("a");
+    a.href=href;
+    a.rel="noopener";
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+async function shareAddressToMaps(q, webUrl){
+  if(!navigator.share) return false;
+  if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
+  const payloads=[
+    {url:webUrl},
+    {text:q, url:webUrl},
+    {text:q}
+  ];
+  for(let i=0;i<payloads.length;i++){
+    const data=payloads[i];
+    try{
+      if(typeof navigator.canShare==="function"){
+        let ok=true;
+        try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+        if(!ok) continue;
+      }
+      await navigator.share(data);
+      return true;
+    }catch(e){
+      if(e && e.name==="AbortError") throw e;
+    }
+  }
+  return false;
+}
+async function openAddressInGoogleMaps(){
   const q=currentAddressQuery();
   if(!q) return;
-  const href=googleMapsSearchUrl(q);
-  const ok=openUrlSafe(href);
+  const webUrl=googleMapsSearchUrl(q);
+  const encoded=encodeURIComponent(q);
   const s=$("status");
+  if(isIosPadApp()){
+    try{
+      if(await shareAddressToMaps(q, webUrl)){
+        if(s) s.textContent="Google Maps im Teilen-Blatt wählen.";
+        return;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    if(openAppScheme("comgooglemaps://?q="+encoded)){
+      if(s) s.textContent="Google Maps geöffnet.";
+      return;
+    }
+    if(openAppScheme("maps://?q="+encoded)){
+      if(s) s.textContent="Karten geöffnet.";
+      return;
+    }
+    if(s) s.textContent="Google Maps nicht gefunden. Noch einmal tippen.";
+    return;
+  }
+  const ok=openUrlSafe(webUrl);
   if(ok){
     if(s) s.textContent="Google Maps geöffnet.";
   }else if(s){
@@ -5654,7 +5738,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.89";
+  const APP_VERSION=window.SB_APP_VERSION||"3.90";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
