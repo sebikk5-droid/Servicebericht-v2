@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.23">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.24">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.23</title>
+  <title>Servicebericht v4.24</title>
 <script>
-window.SB_APP_VERSION="4.23";
+window.SB_APP_VERSION="4.24";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1006,7 +1006,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.23</span>
+      <span id="appCreditVer" class="app-ver">v4.24</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1085,7 +1085,7 @@ select.is-nudge,input.is-nudge{
   <div class="combo-box" id="customerEmailBox">
     <label for="customerEmail">E-Mail</label>
     <div class="combo-field">
-      <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+      <input id="customerEmail" type="text" inputmode="email" autocomplete="off" placeholder="E-Mail">
       <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -1497,7 +1497,10 @@ function layoutComboResults(results, box){
     results.style.width="100%";
   }
   results.scrollTop=0;
-  if(spaceBelow>=96 || spaceBelow>=spaceAbove){
+  const locked=results.dataset.place;
+  const below=locked==="below" ? true : locked==="above" ? false : (spaceBelow>=96 || spaceBelow>=spaceAbove);
+  results.dataset.place=below?"below":"above";
+  if(below){
     results.style.top="100%";
     results.style.bottom="auto";
     results.style.marginTop=gap+"px";
@@ -1513,6 +1516,8 @@ function layoutComboResults(results, box){
 }
 function openComboResults(results, box){
   if(!results) return;
+  const closed=results.hidden || (results.style.display||"")==="none";
+  if(closed) delete results.dataset.place;
   results.hidden=false;
   results.style.display="block";
   layoutComboResults(results, box);
@@ -6080,7 +6085,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.23";
+  const APP_VERSION=window.SB_APP_VERSION||"4.24";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7800,6 +7805,7 @@ finally{ window.__pdfBuilding=false; }
     function close(){
       results.style.display="none";
       results.innerHTML="";
+      delete results.dataset.place;
       if(box) box.classList.remove("is-open");
     }
     function show(opts){
@@ -10023,6 +10029,7 @@ finally{ window.__pdfBuilding=false; }
       el.style.display="none";
       el.innerHTML="";
       if("hidden" in el) el.hidden=true;
+      delete el.dataset.place;
     });
   }
   function openComboEl(){
@@ -10090,7 +10097,8 @@ finally{ window.__pdfBuilding=false; }
     const results=openComboEl();
     const target=(combo&&results)?combo:a;
     let extra=12;
-    if(results && target && target.getBoundingClientRect){
+    if(results && results.dataset.place==="above") extra=12;
+    else if(results && target && target.getBoundingClientRect){
       const frame=vis();
       const sr=(main()||document.body).getBoundingClientRect();
       const need=Math.min(180, Math.max(96, results.scrollHeight||140));
