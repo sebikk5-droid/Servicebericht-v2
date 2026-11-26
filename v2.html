@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.63">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.64">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.63</title>
+  <title>Servicebericht v4.64</title>
 <script>
-window.SB_APP_VERSION="4.63";
+window.SB_APP_VERSION="4.64";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.63</span>
+      <span id="appCreditVer" class="app-ver">v4.64</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1605,11 +1605,14 @@ function anfahrtPauseMin(d){
   return pauseMinutes(box?.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value||"0");
 }
 function anfahrtClockSpan(d){
-  // Netto-Fahrt + Pause während Fahrt, same as Rückfahrt.
-  return travelMinutesForDay(d,"out")+anfahrtPauseMin(d);
+  const drive=travelMinutesForDay(d,"out");
+  if(!drive) return 0;
+  return drive+anfahrtPauseMin(d);
 }
 function rueckfahrtClockSpan(d){
-  return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
+  const drive=travelMinutesForDay(d,"back");
+  if(!drive) return 0;
+  return drive+rueckfahrtPauseMin(d);
 }
 function setClock(el,t){
   if(!el) return;
@@ -4666,18 +4669,24 @@ function dayRouteGaps(){
     const box=typeof dayBoxEl==="function"?dayBoxEl(d):null;
     if(!box) continue;
     const bits=[];
-    const pair=(off, kmName, startName, endName, override, kmLabel, timeLabel)=>{
+    const driveMin=(dir)=>{
+      const row=dir==="out" ? d*2-1 : d*2;
+      const ov=box.querySelector(`[data-route-override="${dir}"]`);
+      if(ov && String(ov.value||"").trim()!=="") return Math.max(0, parseInt(ov.value,10)||0);
+      const a=box.querySelector(`[data-k="RZstart${row}"]`);
+      const b=box.querySelector(`[data-k="RZende${row}"]`);
+      const pause=box.querySelector(`[data-k="PauseRZ${row}"]`);
+      if(typeof filledTime!=="function" || !filledTime(a?.value) || !filledTime(b?.value)) return 0;
+      return Math.max(0, minutesBetween(a.value, b.value)-pauseMinutes(pause?.value||"0"));
+    };
+    const pair=(off, kmName, dir, kmLabel, timeLabel)=>{
       if(off) return;
       const km=box.querySelector(`[data-k="${kmName}"]`);
-      const a=box.querySelector(`[data-k="${startName}"]`);
-      const b=box.querySelector(`[data-k="${endName}"]`);
-      const ov=box.querySelector(`[data-route-override="${override}"]`);
       if(!String(km?.value??"").trim()) bits.push(kmLabel);
-      const clocks=typeof filledTime==="function" && filledTime(a?.value) && filledTime(b?.value);
-      if(!clocks && !String(ov?.value??"").trim()) bits.push(timeLabel);
+      if(driveMin(dir)<=0) bits.push(timeLabel);
     };
-    pair(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "RZstart"+(d*2-1), "RZende"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
-    pair(typeof rueckfahrtOff==="function" && rueckfahrtOff(box), "Kilometer"+(d*2), "RZstart"+(d*2), "RZende"+(d*2), "back", "km Rückfahrt", "Reisezeit Rückfahrt");
+    pair(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
+    pair(typeof rueckfahrtOff==="function" && rueckfahrtOff(box), "Kilometer"+(d*2), "back", "km Rückfahrt", "Reisezeit Rückfahrt");
     if(bits.length) gaps.push("Tag "+d+": "+bits.join(", "));
   }
   return gaps;
@@ -6173,7 +6182,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.63";
+  const APP_VERSION=window.SB_APP_VERSION||"4.64";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
