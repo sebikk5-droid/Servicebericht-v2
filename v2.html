@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.98">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.99">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.98</title>
+  <title>Servicebericht v3.99</title>
 <script>
-window.SB_APP_VERSION="3.98";
+window.SB_APP_VERSION="3.99";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -809,6 +809,12 @@ select.is-nudge,input.is-nudge{
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
+.firma-email-row{
+  display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;margin:4px 0 10px;
+}
+.firma-col{flex:1 1 180px;min-width:0}
+.firma-col #customerSearchBox{margin:0}
+.firma-email-row .email-save-row{flex:0 1 auto;margin-top:0}
 #customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
 #customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
@@ -950,7 +956,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v3.98</span>
+      <span id="appCreditVer" class="app-ver">v3.99</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -978,13 +984,33 @@ select.is-nudge,input.is-nudge{
   </div>
 </section>
 <section class="card"><h2>Kunde</h2>
-<label for="customerSearch">Firma</label>
-<div id="customerSearchBox" class="combo-box" style="margin:4px 0 10px">
-  <div class="combo-field">
-    <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
-    <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+<div class="firma-email-row">
+  <div class="firma-col">
+    <label for="customerSearch">Firma</label>
+    <div id="customerSearchBox" class="combo-box">
+      <div class="combo-field">
+        <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
+        <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+      </div>
+      <div id="customerSearchResults" class="combo-results"></div>
+    </div>
   </div>
-  <div id="customerSearchResults" class="combo-results"></div>
+  <div class="email-save-row">
+    <div class="combo-box" id="customerEmailBox">
+      <label for="customerEmail">E-Mail</label>
+      <div class="combo-field">
+        <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+        <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
+      </div>
+      <div id="customerEmailResults" class="combo-results"></div>
+    </div>
+    <button type="button" id="emailSave" hidden>E-Mail merken</button>
+    <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
+    <button type="button" id="emailDelete">Löschen</button>
+  </div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
 <div id="customerRouteBar" class="customer-route-bar" hidden>
@@ -1012,22 +1038,6 @@ select.is-nudge,input.is-nudge{
     <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
   </div>
 </div>
-</div>
-<div class="email-save-row">
-  <div class="combo-box" id="customerEmailBox">
-    <label for="customerEmail">E-Mail</label>
-    <div class="combo-field">
-      <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
-      <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
-    </div>
-    <div id="customerEmailResults" class="combo-results"></div>
-  </div>
-  <button type="button" id="emailSave" hidden>E-Mail merken</button>
-  <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
-  <button type="button" id="emailDelete">Löschen</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
@@ -5836,7 +5846,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.98";
+  const APP_VERSION=window.SB_APP_VERSION||"3.99";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
