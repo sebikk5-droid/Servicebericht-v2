@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.19">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.20">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.19</title>
+  <title>Servicebericht v4.20</title>
 <script>
-window.SB_APP_VERSION="4.19";
+window.SB_APP_VERSION="4.20";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
 @media (prefers-reduced-motion:reduce){
   #machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{animation:none}
 }
-#companySave[hidden],#emailSave[hidden],#emailDelete[hidden],#kundennummerSave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden],#emailDelete[hidden],#emailAdd[hidden],#kundennummerSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companyIdentityEdit[hidden]{display:none!important}
 #companyIdentityEdit{
@@ -882,14 +882,14 @@ select.is-nudge,input.is-nudge{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
 }
-#emailDelete{
+#emailDelete,#emailAdd{
   flex:0 0 auto;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;
   border:0;border-radius:8px;background:#163a5c;color:#fff;cursor:pointer;
   display:none;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;
 }
-#emailDelete:not([hidden]){display:inline-flex}
-#emailDelete svg{width:18px;height:18px;display:block}
+#emailDelete:not([hidden]),#emailAdd:not([hidden]){display:inline-flex}
+#emailDelete svg,#emailAdd svg{width:18px;height:18px;display:block}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -1008,7 +1008,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.19</span>
+      <span id="appCreditVer" class="app-ver">v4.20</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1098,6 +1098,9 @@ select.is-nudge,input.is-nudge{
     </div>
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
+  <button type="button" id="emailAdd" hidden aria-label="Neue E-Mail hinzufügen" title="Neue E-Mail">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>
   <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
   <button type="button" id="emailDelete" hidden aria-label="E-Mail löschen" title="E-Mail löschen">
@@ -6081,7 +6084,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.19";
+  const APP_VERSION=window.SB_APP_VERSION||"4.20";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7481,6 +7484,7 @@ finally{ window.__pdfBuilding=false; }
       if(opts && opts.lock){
         delete el.dataset.unlocked;
         delete el.dataset.savedEmail;
+        delete el.dataset.emailMode;
       }
     }
     window.selectedCustomerEmail=String(v||"").trim();
@@ -7601,11 +7605,13 @@ finally{ window.__pdfBuilding=false; }
   function syncEmailSaveButton(){
     const btn=$("emailSave");
     const del=$("emailDelete");
+    const add=$("emailAdd");
     const el=$("customerEmail");
     const edit=$("customerEmailEdit");
     const box=$("customerEmailBox");
     const e=currentEmail();
     const orig=String(el&&el.dataset.savedEmail||"").trim();
+    const mode=String(el&&el.dataset.emailMode||"");
     const editing=!!(el && el.dataset.unlocked==="1");
     const listed=!!customerKey() && validEmail(e) && emailAlreadySaved(e);
     if(el) el.readOnly=listed && !editing;
@@ -7615,14 +7621,15 @@ finally{ window.__pdfBuilding=false; }
       edit.title=editing ? "Änderung abbrechen" : "E-Mail ändern";
       edit.setAttribute("aria-label", edit.title);
     }
-    const dirty=editing && validEmail(e) && e.toLowerCase()!==orig.toLowerCase();
+    const dirty=mode==="edit" && validEmail(e) && e.toLowerCase()!==orig.toLowerCase();
     const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
     if(btn){
       btn.hidden=!show;
       btn.textContent=dirty ? "Geänderte E-Mail speichern?" : "E-Mail merken";
       btn.classList.toggle("is-pulse", show);
     }
-    if(del) del.hidden=!(editing && validEmail(orig));
+    if(del) del.hidden=!(mode==="edit" && validEmail(orig));
+    if(add) add.hidden=!(!!customerKey() && emailsForCustomer().length>0 && !editing);
   }
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
@@ -7758,7 +7765,7 @@ finally{ window.__pdfBuilding=false; }
     $("emailSave")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const prev=String(input.dataset.savedEmail||"").trim();
-      const replacing=input.dataset.unlocked==="1" && validEmail(prev) && prev.toLowerCase()!==e.toLowerCase();
+      const replacing=input.dataset.emailMode==="edit" && validEmail(prev) && prev.toLowerCase()!==e.toLowerCase();
       if(replacing){
         if(!await deleteEmail(prev)){
           const s=$("status");
@@ -7772,8 +7779,20 @@ finally{ window.__pdfBuilding=false; }
       }else{
         delete input.dataset.unlocked;
         delete input.dataset.savedEmail;
+        delete input.dataset.emailMode;
         setEmail(e, {lock:true});
       }
+    });
+    $("emailAdd")?.addEventListener("click",function(){
+      if(!input) return;
+      input.dataset.savedEmail=currentEmail();
+      input.dataset.unlocked="1";
+      input.dataset.emailMode="add";
+      input.readOnly=false;
+      setEmail("");
+      hideEmailSaveOk();
+      syncEmailSaveButton();
+      try{ input.focus(); }catch(e){}
     });
     $("emailDelete")?.addEventListener("click", async ()=>{
       const orig=String(input.dataset.savedEmail||currentEmail()||"").trim();
@@ -7793,6 +7812,7 @@ finally{ window.__pdfBuilding=false; }
       }
       delete input.dataset.unlocked;
       delete input.dataset.savedEmail;
+      delete input.dataset.emailMode;
       const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==orig.toLowerCase());
       setEmail(rest[0]||"", {lock:true});
     });
@@ -7802,12 +7822,14 @@ finally{ window.__pdfBuilding=false; }
         const prev=input.dataset.savedEmail || "";
         delete input.dataset.unlocked;
         delete input.dataset.savedEmail;
+        delete input.dataset.emailMode;
         setEmail(prev, {lock:true});
         syncEmailSaveButton();
         return;
       }
       input.dataset.savedEmail=currentEmail();
       input.dataset.unlocked="1";
+      input.dataset.emailMode="edit";
       input.readOnly=false;
       syncEmailSaveButton();
       try{ input.focus(); input.select(); }catch(e){}
