@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.89">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.90">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.89</title>
+  <title>Servicebericht v3.90</title>
 <script>
-window.SB_APP_VERSION="3.89";
+window.SB_APP_VERSION="3.90";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -858,7 +858,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.89</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.90</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -5375,6 +5375,7 @@ finally{ window.__pdfBuilding=false; }
 
     async function saveCurrentHistory(opts){
       opts=opts||{};
+      try{
       const savedAt=new Date().toISOString();
       const data=collectForm();
       const item={
@@ -5385,8 +5386,12 @@ finally{ window.__pdfBuilding=false; }
       const list=loadHistory();
       const pending=drivePendingList();
       const selected=selectedHistory!=null ? list[Number(selectedHistory)] : null;
-      const flushOnly=historyUsesShareSheet() && !opts.skipFile && pending.length
-        && selected && JSON.stringify(historyItemData(selected)||{})===JSON.stringify(data);
+      let flushOnly=false;
+      try{
+        flushOnly=historyUsesShareSheet() && !opts.skipFile && pending.length
+          && selected && JSON.stringify(historyItemData(selected)||{})===JSON.stringify(data);
+      }catch(e){ flushOnly=false; }
+      let inApp=true;
       if(!flushOnly){
         const idx=selectedHistory;
         if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
@@ -5396,42 +5401,61 @@ finally{ window.__pdfBuilding=false; }
           list.unshift(item);
           setSelectedHistory(0, item);
         }
-        if(historyUsesShareSheet() && !opts.skipFile) enqueueDrivePending(item);
+        // In-app list MUST be on disk before Share. If Share is cancelled or
+        // the iPad-App is closed, the Bericht still stays in Historie.
+        historyMem=list.slice(0,100);
+        inApp=tryPersistHistoryLs(historyMem);
+        persistHistoryIdb(historyMem);
       }
-      // iPad-App: Share (Dateien/Drive) MUST run before any await,
-      // or the Home-screen app drops the tap and Drive never gets the file.
-      let fileOk=false;
-      let fileAbort=false;
-      const waitForNet=historyUsesShareSheet() && !opts.skipFile && navigator.onLine===false;
-      if(historyUsesShareSheet() && !opts.skipFile && !waitForNet){
-        try{
-          fileOk=await shareOldestDrivePending();
-        }catch(e){
-          if(e && e.name==="AbortError") fileAbort=true;
-        }
+      if(!inApp && !flushOnly){
+        alert("Speicher auf diesem Gerät ist voll oder blockiert.");
+        return false;
       }
-
-      const inApp=flushOnly ? true : await saveHistory(list);
       showHistoryActionOk("ok");
       if(opts.skipFile) return inApp;
-      syncDrivePendingUi();
 
-      if(historyUsesShareSheet()){
+      let fileOk=false;
+      let fileAbort=false;
+      const waitForNet=historyUsesShareSheet() && navigator.onLine===false;
+      if(historyUsesShareSheet() && waitForNet){
+        if(!flushOnly) try{ enqueueDrivePending(item); }catch(e){}
+        syncDrivePendingUi();
         const left=drivePendingList().length;
-        if(waitForNet){
-          $("status").textContent=left===1
-            ? "In der Historie gespeichert. Geht nach Drive, sobald Internet da ist – dann Speichern."
-            : "In der Historie gespeichert. "+left+" Dateien warten auf Internet – dann Speichern.";
-        }else if(fileOk){
+        $("status").textContent=left===1
+          ? "In der Historie gespeichert. Geht nach Drive, sobald Internet da ist – dann Speichern."
+          : "In der Historie gespeichert. "+left+" Dateien warten auf Internet – dann Speichern.";
+        return true;
+      }
+      if(historyUsesShareSheet()){
+        try{
+          if(drivePendingList().length){
+            if(!flushOnly) try{ enqueueDrivePending(item); }catch(e){}
+            fileOk=await shareOldestDrivePending();
+          }else{
+            const textFile=reportFileFromItem(item,"text/plain");
+            fileOk=await shareHistoryFile(textFile.file);
+            if(!fileOk){
+              const jsonFile=reportFileFromItem(item,"application/json");
+              fileOk=await shareHistoryFile(jsonFile.file);
+            }
+            if(!fileOk) try{ enqueueDrivePending(item); }catch(e){}
+          }
+        }catch(e){
+          if(e && e.name==="AbortError") fileAbort=true;
+          if(!flushOnly) try{ enqueueDrivePending(item); }catch(e2){}
+        }
+        syncDrivePendingUi();
+        const left=drivePendingList().length;
+        if(fileOk){
           $("status").textContent=left
-            ? "Datei an Drive übergeben. Noch "+left+" – noch einmal Speichern."
+            ? "In der Historie gespeichert. Datei an Drive. Noch "+left+" – noch einmal Speichern."
             : "In der Historie gespeichert. Datei an Dateien/Drive übergeben.";
         }else if(fileAbort){
-          $("status").textContent="In der Historie auf dem iPad. Drive/Dateien nicht gesichert – wartet.";
+          $("status").textContent="In der Historie gespeichert. Drive/Dateien nicht gesichert – wartet.";
         }else{
-          $("status").textContent="In der Historie auf dem iPad. Datei wartet – Speichern noch einmal.";
+          $("status").textContent="In der Historie gespeichert. Datei wartet – Speichern noch einmal.";
         }
-        return inApp||fileOk||waitForNet;
+        return true;
       }
 
       let fileOkDesktop=false;
@@ -5455,6 +5479,11 @@ finally{ window.__pdfBuilding=false; }
       if(inApp || fileOkDesktop) return inApp||fileOkDesktop;
       alert("Speicher auf diesem Gerät ist voll oder blockiert.");
       return false;
+      }catch(e){
+        const s=$("status");
+        if(s) s.textContent="Speichern fehlgeschlagen. Noch einmal tippen.";
+        return false;
+      }
     }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
@@ -5797,7 +5826,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.89";
+  const APP_VERSION=window.SB_APP_VERSION||"3.90";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
