@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.88">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.87</title>
+  <title>Servicebericht v3.88</title>
 <script>
-window.SB_APP_VERSION="3.87";
+window.SB_APP_VERSION="3.88";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -260,6 +260,9 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .email-copy-btn.is-copied{background:#14532d}
 .email-copy-btn.is-copied .email-copy-icon{display:none}
 .email-copy-btn.is-copied .email-copy-ok{display:block}
+.addr-copy-wrap{display:flex;align-items:flex-end;gap:8px}
+.addr-copy-wrap .grid{flex:1 1 auto;min-width:0}
+.addr-copy-wrap .email-copy-btn{margin:0 0 1px}
 .email-pdf-btn{
   flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
@@ -856,7 +859,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.87</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.88</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -893,8 +896,16 @@ select.is-nudge,input.is-nudge{
   <p id="customerRouteLabel">In der Liste: noch ohne km / Reisezeit</p>
   <button type="button" id="companyRouteEdit">km / Reisezeit ändern</button>
 </div>
+<div class="addr-copy-wrap">
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
+</div>
+<button type="button" id="addressCopyBtn" class="email-copy-btn" disabled aria-label="Adresse kopieren" title="Adresse kopieren">
+  <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+  <svg class="email-copy-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+</div>
+<div class="grid">
 <div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
 <div class="blatt-row">
   <div>
@@ -2033,6 +2044,7 @@ function resetOpenForm(){
   if(typeof syncDayChrome==="function") syncDayChrome();
   if(typeof recalcTimes==="function") recalcTimes();
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+  if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
   if(typeof window.finishFormReset==="function") window.finishFormReset();
   const s=$("status");
   if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
@@ -2044,6 +2056,14 @@ $("resetForm")?.addEventListener("click",()=>{
   if(!confirm("Formular wirklich zurücksetzen?\nHistorie bleibt erhalten.")) return;
   resetOpenForm();
 });
+["street","city","customerSearch"].forEach(function(id){
+  const el=$(id);
+  if(!el) return;
+  el.addEventListener("input", syncAddressCopyBtn);
+  el.addEventListener("change", syncAddressCopyBtn);
+});
+$("addressCopyBtn")?.addEventListener("click", copyCurrentAddress);
+syncAddressCopyBtn();
 $("times").addEventListener("change",e=>{
   if(!e.target.classList.contains("daydate")) return;
   const day=Number(e.target.getAttribute("data-day")||0);
@@ -2564,6 +2584,7 @@ function bindCompanySelect(){
       if(typeof window.pullCustomerEmails==="function")
         window.pullCustomerEmails().then(()=>window.refreshCustomerEmails()).catch(()=>{});
     }
+    syncAddressCopyBtn();
   };
 }
 function selectCompanyByName(name){
@@ -2816,6 +2837,64 @@ function companyRecordFromForm(route){
     if(route.minutes!=null) minutes=Number(route.minutes)||0;
   }
   return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
+}
+function currentAddressText(){
+  const firma=typeof firmaName==="function" ? String(firmaName()||"").trim() : String($("customerSearch")?.value||"").trim();
+  const street=String($("street")?.value||"").trim();
+  const city=String($("city")?.value||"").trim();
+  return [firma, street, city].filter(Boolean).join("\n");
+}
+function syncAddressCopyBtn(){
+  const btn=$("addressCopyBtn");
+  if(!btn) return;
+  btn.disabled=!currentAddressText();
+  if(btn.disabled){
+    btn.classList.remove("is-copied");
+    btn.setAttribute("aria-label","Adresse kopieren");
+  }
+}
+async function copyCurrentAddress(){
+  const text=currentAddressText();
+  if(!text) return;
+  const btn=$("addressCopyBtn");
+  try{ btn && btn.focus(); }catch(_e){}
+  try{ window.focus(); }catch(_e){}
+  let ok=false;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      ok=true;
+    }
+  }catch(_e){}
+  if(!ok){
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=text;
+      ta.setAttribute("readonly","");
+      ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      ok=document.execCommand("copy");
+      ta.remove();
+    }catch(_e){ ok=false; }
+  }
+  const s=$("status");
+  if(ok){
+    if(btn){
+      btn.classList.add("is-copied");
+      btn.setAttribute("aria-label","Adresse kopiert");
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer=setTimeout(()=>{
+        btn.classList.remove("is-copied");
+        btn.setAttribute("aria-label","Adresse kopieren");
+      }, 1400);
+    }
+    if(s) s.textContent="Adresse kopiert.";
+  }else if(s){
+    s.textContent="Adresse konnte nicht kopiert werden.";
+  }
 }
 window.applyCompanies=applyCompanies;
 function replaceCompanyIdentity(list, oldKey, rec){
@@ -4715,6 +4794,7 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
     if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
+    if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
   }
@@ -5585,7 +5665,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.87";
+  const APP_VERSION=window.SB_APP_VERSION||"3.88";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6394,6 +6474,7 @@ finally{ window.__pdfBuilding=false; }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
       if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
+      if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
       if(oldKey!==newKey){
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(oldKey);
         if(typeof markCompanyRemoved==="function") markCompanyRemoved(oldKey);
