@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.90">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.91">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.90</title>
+  <title>Servicebericht v3.91</title>
 <script>
-window.SB_APP_VERSION="3.90";
+window.SB_APP_VERSION="3.91";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -878,7 +878,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.90</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.91</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -1717,12 +1717,26 @@ function markExtraDaysKmToCheck(){
     if(d>1) markKmToCheck(box);
   });
 }
+function dayHasRueckfahrtTimes(box){
+  const d=parseInt(box && box.getAttribute("data-daybox"),10);
+  if(!d) return false;
+  if(typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(box,d)) return true;
+  const ov=box.querySelector('[data-route-override="back"]');
+  return !!(ov && String(ov.value||"").trim()!=="");
+}
 function markReturnPauseToCheck(box){
   if(!box) return;
   const d=parseInt(box.getAttribute("data-daybox"),10);
   if(!d) return;
   const el=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
   if(!el) return;
+  if(!dayHasRueckfahrtTimes(box)){
+    if(el.dataset.pauseManual!=="1"){
+      el.value="";
+      el.classList.remove("to-check");
+    }
+    return;
+  }
   if(String(el.value||"").trim()==="") el.value="45";
   el.classList.add("to-check");
   syncReturnPauseFromDay(box);
@@ -1789,6 +1803,12 @@ function syncReturnPauseFromDay(box){
   if(!d) return;
   const back=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
   if(!back || back.dataset.pauseManual==="1") return;
+  if(!dayHasRueckfahrtTimes(box)){
+    back.dataset.syncing="1";
+    back.value="";
+    back.dataset.syncing="";
+    return;
+  }
   const out=pauseMinutes(box.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value);
   const work=pauseMinutes(box.querySelector(`[data-k="PauseAZ${d*2-1}"]`)?.value);
   const next=Math.max(0, RETURN_PAUSE_DEFAULT - out - work);
@@ -1903,7 +1923,7 @@ function dayTemplate(d){
       <div class="field"><label>Rückfahrt bis – Ankunft zuhause</label><select class="quarter-time" data-k="RZende${d*2}"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="45" placeholder="Minuten"></div>
+      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" placeholder="Minuten"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
       <div class="field field-reisezeit-aendern">
         <label>Reisezeit ändern (Minuten)</label>
@@ -2179,6 +2199,7 @@ document.getElementById("times").addEventListener("change",function(e){
   const row=parseInt(m[2],10);
   const d=Math.ceil(row/2);
   const dayBox=dayBoxEl(d);
+  if(el.value && dayBox) markReturnPauseToCheck(dayBox);
   const outRow=d*2-1, backRow=d*2;
   const field=(name,n)=>dayBox?.querySelector(`[data-k="${name}${n}"]`);
   const outMin=anfahrtClockSpan(d);
@@ -3516,6 +3537,7 @@ function bindTimeInputs(){
       const m=key.match(/^(RZstart|RZende|AZstart|AZende)(\d+)$/);
       const row=m?parseInt(m[2],10):0;
       const d=row?Math.ceil(row/2):(Number.isFinite(boxDay)?boxDay:1);
+      if(m && el.value && box) markReturnPauseToCheck(box);
       const outRow=d*2-1,backRow=d*2;
       const field=(name,n)=>box?.querySelector(`[data-k="${name}${n}"]`);
       const outMin=anfahrtClockSpan(d);
@@ -3578,6 +3600,7 @@ function bindTimeInputs(){
             if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
             return;
           }
+          markReturnPauseToCheck(box);
           const b1=field("RZstart",backRow), b2=field("RZende",backRow);
           const elapsed=val+rueckfahrtPauseMin(d);
           if(b1&&b2&&val>0){
@@ -4477,16 +4500,18 @@ for(let d=1;d<=dayBoxes.length;d++){
   const pauseOut=pauseMinutes(q(`PauseRZ${a}`).value||"");
   const pauseWork=pauseMinutes(q(`PauseAZ${a}`).value||"");
   const pauseBack=pauseMinutes(q(`PauseRZ${b}`).value||"");
-  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),7);
-  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
-  if(pauseBack) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
   const kmA=q(`Kilometer${a}`).value, kmB=q(`Kilometer${b}`).value;
   const countOut=hasAnfahrtAnkunft(box,d);
   const countBack=hasRueckfahrtClock(box,d);
-  if(countOut && String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
-  if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const outOv=box.querySelector('[data-route-override="out"]');
   const backOv=box.querySelector('[data-route-override="back"]');
+  const pauseBackEl=box.querySelector(`[data-k="PauseRZ${b}"]`);
+  const pauseBackUse=!!(pauseBack && (countBack || (backOv && String(backOv.value).trim()!=="") || pauseBackEl?.dataset?.pauseManual==="1"));
+  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),7);
+  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
+  if(pauseBackUse) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
+  if(countOut && String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
+  if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const rt=outOv && String(outOv.value).trim()!==""
     ? Math.max(0,parseInt(outOv.value,10)||0)
     : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
@@ -4500,9 +4525,9 @@ for(let d=1;d<=dayBoxes.length;d++){
   km+=countOut ? (parseFloat((kmA||"").replace(",","."))||0) : 0;
   km+=countBack ? (parseFloat((kmB||"").replace(",","."))||0) : 0;
   travel+=rt+rr;work+=wt;
-  pauseRzSum+=pauseOut+pauseBack;
+  pauseRzSum+=pauseOut+(pauseBackUse?pauseBack:0);
   pauseAzSum+=pauseWork;
-  all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
+  all+=rt+pauseOut+wt+pauseWork+rr+(pauseBackUse?pauseBack:0);
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
 if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),9);
@@ -4851,8 +4876,11 @@ finally{ window.__pdfBuilding=false; }
       if(d){
         const pause=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
         if(pause){
-          if(String(pause.value||"").trim()==="") pause.value="45";
-          pause.classList.add("to-check");
+          const hasTimes=typeof dayHasRueckfahrtTimes==="function"
+            ? dayHasRueckfahrtTimes(box)
+            : (typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(box,d));
+          if(String(pause.value||"").trim()==="" && hasTimes) pause.value="45";
+          if(String(pause.value||"").trim()!=="") pause.classList.add("to-check");
         }
       }
       if(typeof markArrivalWorkEndToCheck==="function") markArrivalWorkEndToCheck(box, true);
@@ -5738,7 +5766,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.90";
+  const APP_VERSION=window.SB_APP_VERSION||"3.91";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
