@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.17">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.18">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.17</title>
+  <title>Servicebericht v4.18</title>
 <script>
-window.SB_APP_VERSION="4.17";
+window.SB_APP_VERSION="4.18";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -855,6 +855,8 @@ select.is-nudge,input.is-nudge{
 #customerEmailBox{flex:0 1 auto;width:280px;max-width:100%;min-width:0}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
 #customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
+#customerEmailBox.has-edit #customerEmail{padding-right:40px}
+#customerEmailBox.has-edit.has-more #customerEmail{padding-right:68px}
 #customerEmailBox .combo-results{z-index:70}
 .combo-more{
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
@@ -866,6 +868,11 @@ select.is-nudge,input.is-nudge{
 .combo-more svg{width:18px;height:18px;display:block}
 #customerEmailBox.has-more .combo-more{display:inline-flex}
 #customerEmailBox.has-more.has-value .combo-more{right:36px}
+#customerEmailBox.has-edit .combo-more,
+#customerEmailBox.has-edit.has-more.has-value .combo-more{right:40px}
+#customerEmailBox.has-edit .kunde-nr-edit{display:inline-flex}
+#customerEmailBox.has-edit .combo-clear,
+#customerEmailBox.has-edit.has-value .combo-clear{display:none!important}
 #customerEmailBox.is-open .combo-more svg{transform:rotate(180deg)}
 .email-save-row{
   display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:4px;
@@ -874,10 +881,6 @@ select.is-nudge,input.is-nudge{
 #emailSave{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
-}
-#emailDelete{
-  flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
-  background:#e5e5ea;color:#111;
 }
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
@@ -997,7 +1000,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.17</span>
+      <span id="appCreditVer" class="app-ver">v4.18</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1080,13 +1083,15 @@ select.is-nudge,input.is-nudge{
       <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
+      <button type="button" class="kunde-nr-edit" id="customerEmailEdit" hidden aria-label="E-Mail ändern" title="E-Mail ändern">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      </button>
       <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
     </div>
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
   <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
-  <button type="button" id="emailDelete">Löschen</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
@@ -6065,7 +6070,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.17";
+  const APP_VERSION=window.SB_APP_VERSION||"4.18";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7458,9 +7463,15 @@ finally{ window.__pdfBuilding=false; }
   function currentEmail(){
     return String($("customerEmail")?.value||"").trim();
   }
-  function setEmail(v){
+  function setEmail(v, opts){
     const el=$("customerEmail");
-    if(el) el.value=v||"";
+    if(el){
+      el.value=v||"";
+      if(opts && opts.lock){
+        delete el.dataset.unlocked;
+        delete el.dataset.savedEmail;
+      }
+    }
     window.selectedCustomerEmail=String(v||"").trim();
     const box=$("customerEmailBox");
     if(box) box.classList.toggle("has-value", String(el?.value||"").trim()!=="");
@@ -7503,7 +7514,7 @@ finally{ window.__pdfBuilding=false; }
       pick.addEventListener("click",ev=>{
         ev.preventDefault();
         ev.stopPropagation();
-        setEmail(e);
+        setEmail(e, {lock:true});
         closeEmailCopyList();
       });
       list.appendChild(pick);
@@ -7578,11 +7589,24 @@ finally{ window.__pdfBuilding=false; }
   }
   function syncEmailSaveButton(){
     const btn=$("emailSave");
-    if(!btn) return;
+    const el=$("customerEmail");
+    const edit=$("customerEmailEdit");
+    const box=$("customerEmailBox");
     const e=currentEmail();
+    const saved=!!customerKey() && validEmail(e) && emailAlreadySaved(e);
+    const unlocked=el && el.dataset.unlocked==="1";
+    if(el) el.readOnly=saved && !unlocked;
+    if(box) box.classList.toggle("has-edit", saved);
+    if(edit){
+      edit.hidden=!saved;
+      edit.title=unlocked ? "Änderung abbrechen" : "E-Mail ändern";
+      edit.setAttribute("aria-label", edit.title);
+    }
     const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
-    btn.hidden=!show;
-    btn.classList.toggle("is-pulse", show);
+    if(btn){
+      btn.hidden=!show;
+      btn.classList.toggle("is-pulse", show);
+    }
   }
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
@@ -7671,7 +7695,7 @@ finally{ window.__pdfBuilding=false; }
         pick.textContent=e;
         if(e.toLowerCase()===q) pick.classList.add("is-on");
         pick.addEventListener("click",()=>{
-          setEmail(e);
+          setEmail(e, {lock:true});
           close();
         });
         results.appendChild(pick);
@@ -7681,6 +7705,21 @@ finally{ window.__pdfBuilding=false; }
     }
     input.addEventListener("focus", ()=>{
       pullEmails().then(()=>{ syncEmailListToggle(); }).catch(()=>{});
+    });
+    input.addEventListener("pointerdown",function(e){
+      if(this.readOnly) e.preventDefault();
+    });
+    input.addEventListener("blur",function(){
+      const el=this;
+      setTimeout(function(){
+        if(document.activeElement===el) return;
+        if(el.dataset.unlocked!=="1") return;
+        if(emailAlreadySaved(el.value)){
+          delete el.dataset.unlocked;
+          delete el.dataset.savedEmail;
+          syncEmailSaveButton();
+        }
+      }, 160);
     });
     input.addEventListener("input",()=>{
       setEmail(input.value);
@@ -7718,29 +7757,26 @@ finally{ window.__pdfBuilding=false; }
         const s=$("status");
         if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
       }else{
+        delete input.dataset.unlocked;
+        delete input.dataset.savedEmail;
         setEmail(e);
       }
     });
-    $("emailDelete")?.addEventListener("click", async ()=>{
-      const e=currentEmail();
-      const s=$("status");
-      if(!customerKey()){
-        if(s) s.textContent="Zuerst den Kunden wählen.";
+    $("customerEmailEdit")?.addEventListener("click",function(){
+      if(!input) return;
+      if(input.dataset.unlocked==="1"){
+        const prev=input.dataset.savedEmail || "";
+        delete input.dataset.unlocked;
+        delete input.dataset.savedEmail;
+        setEmail(prev);
+        syncEmailSaveButton();
         return;
       }
-      if(!validEmail(e)){
-        if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
-        return;
-      }
-      if(!confirm("Diese E-Mail beim Kunden löschen?")){
-        return;
-      }
-      if(!await deleteEmail(e)){
-        if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
-        return;
-      }
-      const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==e.toLowerCase());
-      setEmail(rest[0]||"");
+      input.dataset.savedEmail=currentEmail();
+      input.dataset.unlocked="1";
+      input.readOnly=false;
+      syncEmailSaveButton();
+      try{ input.focus(); input.select(); }catch(e){}
     });
     bindEmailCopy();
   }
@@ -7788,8 +7824,8 @@ finally{ window.__pdfBuilding=false; }
     bindEmailUi();
     const emails=emailsForCustomer();
     const cur=currentEmail();
-    if(mode==="replace") setEmail(emails[0]||"");
-    else if(mode==="fill" && !cur && emails[0]) setEmail(emails[0]);
+    if(mode==="replace") setEmail(emails[0]||"", {lock:true});
+    else if(mode==="fill" && !cur && emails[0]) setEmail(emails[0], {lock:true});
     else setEmail(cur);
   };
   window.pickCustomerEmail=function(){
