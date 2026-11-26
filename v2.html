@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.54">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.55">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.54</title>
+  <title>Servicebericht v4.55</title>
 <script>
-window.SB_APP_VERSION="4.54";
+window.SB_APP_VERSION="4.55";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -894,7 +894,8 @@ select.is-nudge,input.is-nudge{
   width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
   padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 24px rgba(0,0,0,.18);
-  max-height:calc(100% - 12px);overflow:auto;-webkit-overflow-scrolling:touch;
+  max-height:calc(100dvh - var(--sb-kb, 0px) - 24px);
+  overflow:auto;-webkit-overflow-scrolling:touch;
 }
 #tokenModal h3{margin:0 0 6px;font-size:18px}
 #tokenModal textarea{min-height:88px;width:100%;margin:8px 0}
@@ -1017,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.54</span>
+      <span id="appCreditVer" class="app-ver">v4.55</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6110,7 +6111,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.54";
+  const APP_VERSION=window.SB_APP_VERSION||"4.55";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10137,12 +10138,17 @@ finally{ window.__pdfBuilding=false; }
       header?header.getBoundingClientRect().bottom+8:0
     );
   }
-  function syncKeyboardPad(){
+  function syncKbVar(){
     const frame=vis();
-    const covered=Math.max(0, window.innerHeight-frame.bottom);
+    const covered=Math.max(0, Math.round(window.innerHeight-frame.bottom));
     document.documentElement.style.setProperty("--sb-kb", covered+"px");
+    return covered;
+  }
+  function syncKeyboardPad(){
+    syncKbVar();
     const scroller=main();
     if(!scroller) return;
+    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
     const combo=openComboEl();
@@ -10298,11 +10304,19 @@ finally{ window.__pdfBuilding=false; }
     closeOpenCombos();
   }, true);
   document.addEventListener("focusin",e=>{
+    if(e.target && e.target.id==="tokenModalInput"){
+      syncKbVar();
+      setTimeout(syncKbVar, 120);
+      setTimeout(syncKbVar, 320);
+      setTimeout(syncKbVar, 560);
+    }
     if(isKbField(e.target)) onFieldFocus(e.target);
   }, true);
   document.addEventListener("focusout",()=>{
     setTimeout(()=>{
-      if(isKbField(document.activeElement)) return;
+      const a=document.activeElement;
+      if(isKbField(a)) return;
+      if(a && a.closest && a.closest("#tokenModal")) return;
       const frame=vis();
       if(window.innerHeight-frame.bottom>80) return;
       const scroller=main();
@@ -10346,9 +10360,13 @@ finally{ window.__pdfBuilding=false; }
   }, {passive:false});
   if(window.visualViewport){
     let lastH=window.visualViewport.height;
-    window.visualViewport.addEventListener("scroll", lockPageScroll);
+    window.visualViewport.addEventListener("scroll",()=>{
+      lockPageScroll();
+      syncKbVar();
+    });
     window.visualViewport.addEventListener("resize",()=>{
       lockPageScroll();
+      syncKbVar();
       const h=window.visualViewport.height;
       if(Math.abs(h-lastH)<24) return;
       lastH=h;
