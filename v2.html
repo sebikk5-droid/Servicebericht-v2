@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.06">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.07">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.06</title>
+  <title>Servicebericht v4.07</title>
 <script>
-window.SB_APP_VERSION="4.06";
+window.SB_APP_VERSION="4.07";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -350,11 +350,21 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .addr-copy-wrap .email-copy-btn{margin:0 0 1px}
 .addr-copy-wrap .email-copy-btn svg{width:22px;height:22px}
 .firma-nr-row{
-  display:grid;grid-template-columns:minmax(0,1fr) minmax(6.6em, 8.8em);
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(7.2em, 10em);
   column-gap:10px;align-items:end;margin:0 0 10px;
 }
 .firma-nr-row #customerSearchBox{margin:0}
 .firma-nr-row #kundennummer{min-width:0}
+#kundennummerSave{
+  width:100%;margin:6px 0 0;padding:6px 8px;min-height:32px;font-size:12px;line-height:1.2;
+  background:#163a5c;color:#fff;
+}
+#kundennummerSaveOk{
+  display:none;margin:6px 0 0;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;background:#16a34a;color:#fff;
+  font-size:18px;font-weight:800;line-height:1;
+}
+#kundennummerSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
 .kunde-align{
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;
   column-gap:10px;align-items:end;
@@ -790,23 +800,23 @@ select.is-nudge,input.is-nudge{
   width:36px;height:36px;border-radius:50%;background:#16a34a;color:#fff;
   font-size:20px;font-weight:800;line-height:1;
 }
-#machineSaveOk.is-on,#emailSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+#machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
 @keyframes saveOkPop{
   0%{transform:scale(.6);opacity:0}
   70%{transform:scale(1.12);opacity:1}
   100%{transform:scale(1);opacity:1}
 }
 @media (prefers-reduced-motion:reduce){
-  #machineSaveOk.is-on,#emailSaveOk.is-on{animation:none}
+  #machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{animation:none}
 }
-#companySave[hidden],#emailSave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden],#kundennummerSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companyIdentityEdit[hidden]{display:none!important}
 #companyIdentityEdit{
   display:block;width:100%;box-sizing:border-box;margin:12px 0 0;padding:12px 14px;
   min-height:48px;font-size:16px;font-weight:700;background:#163a5c;color:#fff;
 }
-#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse{
+#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse,#kundennummerSave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
 @keyframes companySavePulse{
@@ -814,7 +824,7 @@ select.is-nudge,input.is-nudge{
   50%{transform:scale(1.045);box-shadow:0 0 0 12px rgba(22,58,92,0)}
 }
 @media (prefers-reduced-motion:reduce){
-  #companySave,#companyRouteEdit,#emailSave{animation:none}
+  #companySave,#companyRouteEdit,#emailSave,#kundennummerSave{animation:none}
 }
 .customer-route-bar{
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;
@@ -974,7 +984,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.06</span>
+      <span id="appCreditVer" class="app-ver">v4.07</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1014,6 +1024,8 @@ select.is-nudge,input.is-nudge{
   <div>
     <label for="kundennummer">Kundennummer</label>
     <input id="kundennummer" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nr.">
+    <button type="button" id="kundennummerSave" hidden>Merken</button>
+    <span id="kundennummerSaveOk" title="Gespeichert" aria-hidden="true">✓</span>
   </div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
@@ -2238,6 +2250,9 @@ $("resetForm")?.addEventListener("click",()=>{
   el.addEventListener("input", syncAddressMapsBtn);
   el.addEventListener("change", syncAddressMapsBtn);
 });
+$("kundennummer")?.addEventListener("input", syncKundennummerSaveButton);
+$("kundennummer")?.addEventListener("change", syncKundennummerSaveButton);
+$("kundennummerSave")?.addEventListener("click",()=>{ saveKundennummerForListedFirm(); });
 $("addressMapsBtn")?.addEventListener("click", openAddressInGoogleMaps);
 syncAddressMapsBtn();
 $("times").addEventListener("change",e=>{
@@ -2941,6 +2956,7 @@ function syncCompanySaveButton(){
     ident.hidden=!existing;
     ident.disabled=false;
   }
+  syncKundennummerSaveButton();
   const cloud=$("companyCloudStatus");
   if(cloud){
     cloud.hidden=true;
@@ -2951,6 +2967,51 @@ function syncCompanySaveButton(){
   }
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
+function syncKundennummerSaveButton(){
+  const btn=$("kundennummerSave");
+  const ok=$("kundennummerSaveOk");
+  if(!btn) return;
+  const name=String($("customerSearch")?.value||"").trim();
+  const existing=name ? companyRecordByName(name) : null;
+  const typed=String($("kundennummer")?.value||"").trim();
+  const saved=existing ? companyKundennummer(existing) : "";
+  const show=!!existing && !!typed && typed!==saved;
+  btn.hidden=!show;
+  btn.classList.toggle("is-pulse", show);
+  if(!show && ok && !ok.classList.contains("is-on")) ok.classList.remove("is-on");
+}
+window.syncKundennummerSaveButton=syncKundennummerSaveButton;
+function saveKundennummerForListedFirm(){
+  const name=typeof firmaName==="function" ? firmaName() : String($("customerSearch")?.value||"").trim();
+  const existing=name ? companyRecordByName(name) : null;
+  const nr=String($("kundennummer")?.value||"").trim();
+  const s=$("status");
+  if(!existing || !name){
+    if(s) s.textContent="Zuerst eine Firma aus der Liste wählen.";
+    return false;
+  }
+  if(!nr){
+    if(s) s.textContent="Kundennummer eintragen, dann Merken.";
+    return false;
+  }
+  const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], {firma:existing.firma||existing.name||name, kundennummer:nr});
+  if(typeof applyCompanies==="function") applyCompanies(local, existing.firma||name);
+  if(typeof markCompanyPending==="function") markCompanyPending(existing.firma||name);
+  if(typeof flushPendingCompanies==="function") flushPendingCompanies();
+  syncKundennummerSaveButton();
+  const ok=$("kundennummerSaveOk");
+  if(ok){
+    ok.classList.remove("is-on");
+    void ok.offsetWidth;
+    ok.classList.add("is-on");
+    ok.setAttribute("aria-hidden","false");
+    clearTimeout(ok._t);
+    ok._t=setTimeout(()=>ok.classList.remove("is-on"), 2500);
+  }
+  if(s) s.textContent="Kundennummer gespeichert.";
+  return true;
+}
+window.saveKundennummerForListedFirm=saveKundennummerForListedFirm;
 function asCompanyList(data){
   if(Array.isArray(data)) return data;
   if(data && Array.isArray(data.companies)) return data.companies;
@@ -5927,7 +5988,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.06";
+  const APP_VERSION=window.SB_APP_VERSION||"4.07";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
