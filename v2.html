@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.88">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.89">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.88</title>
+  <title>Servicebericht v3.89</title>
 <script>
-window.SB_APP_VERSION="3.88";
+window.SB_APP_VERSION="3.89";
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -263,6 +263,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .addr-copy-wrap{display:flex;align-items:flex-end;gap:8px}
 .addr-copy-wrap .grid{flex:1 1 auto;min-width:0}
 .addr-copy-wrap .email-copy-btn{margin:0 0 1px}
+.addr-copy-wrap .email-copy-btn svg{width:22px;height:22px}
 .email-pdf-btn{
   flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
@@ -859,7 +860,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.88</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.89</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -900,9 +901,8 @@ select.is-nudge,input.is-nudge{
 <div class="grid">
 <div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
 </div>
-<button type="button" id="addressCopyBtn" class="email-copy-btn" disabled aria-label="Adresse kopieren" title="Adresse kopieren">
-  <svg class="email-copy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-  <svg class="email-copy-ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<button type="button" id="addressMapsBtn" class="email-copy-btn" disabled aria-label="In Google Maps öffnen" title="In Google Maps öffnen">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
 </button>
 </div>
 <div class="grid">
@@ -2044,7 +2044,7 @@ function resetOpenForm(){
   if(typeof syncDayChrome==="function") syncDayChrome();
   if(typeof recalcTimes==="function") recalcTimes();
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
-  if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
+  if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
   if(typeof window.finishFormReset==="function") window.finishFormReset();
   const s=$("status");
   if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
@@ -2059,11 +2059,11 @@ $("resetForm")?.addEventListener("click",()=>{
 ["street","city","customerSearch"].forEach(function(id){
   const el=$(id);
   if(!el) return;
-  el.addEventListener("input", syncAddressCopyBtn);
-  el.addEventListener("change", syncAddressCopyBtn);
+  el.addEventListener("input", syncAddressMapsBtn);
+  el.addEventListener("change", syncAddressMapsBtn);
 });
-$("addressCopyBtn")?.addEventListener("click", copyCurrentAddress);
-syncAddressCopyBtn();
+$("addressMapsBtn")?.addEventListener("click", openAddressInGoogleMaps);
+syncAddressMapsBtn();
 $("times").addEventListener("change",e=>{
   if(!e.target.classList.contains("daydate")) return;
   const day=Number(e.target.getAttribute("data-day")||0);
@@ -2584,7 +2584,7 @@ function bindCompanySelect(){
       if(typeof window.pullCustomerEmails==="function")
         window.pullCustomerEmails().then(()=>window.refreshCustomerEmails()).catch(()=>{});
     }
-    syncAddressCopyBtn();
+    syncAddressMapsBtn();
   };
 }
 function selectCompanyByName(name){
@@ -2838,62 +2838,51 @@ function companyRecordFromForm(route){
   }
   return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
 }
-function currentAddressText(){
+function currentAddressQuery(){
   const firma=typeof firmaName==="function" ? String(firmaName()||"").trim() : String($("customerSearch")?.value||"").trim();
   const street=String($("street")?.value||"").trim();
   const city=String($("city")?.value||"").trim();
-  return [firma, street, city].filter(Boolean).join("\n");
+  const loc=[street, city].filter(Boolean).join(", ");
+  if(loc && firma) return firma+", "+loc;
+  return loc || firma;
 }
-function syncAddressCopyBtn(){
-  const btn=$("addressCopyBtn");
+function googleMapsSearchUrl(q){
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||"");
+}
+function syncAddressMapsBtn(){
+  const btn=$("addressMapsBtn");
   if(!btn) return;
-  btn.disabled=!currentAddressText();
-  if(btn.disabled){
-    btn.classList.remove("is-copied");
-    btn.setAttribute("aria-label","Adresse kopieren");
-  }
+  btn.disabled=!currentAddressQuery();
 }
-async function copyCurrentAddress(){
-  const text=currentAddressText();
-  if(!text) return;
-  const btn=$("addressCopyBtn");
-  try{ btn && btn.focus(); }catch(_e){}
-  try{ window.focus(); }catch(_e){}
-  let ok=false;
+function openUrlSafe(href){
+  if(!href) return false;
   try{
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      await navigator.clipboard.writeText(text);
-      ok=true;
-    }
-  }catch(_e){}
-  if(!ok){
-    try{
-      const ta=document.createElement("textarea");
-      ta.value=text;
-      ta.setAttribute("readonly","");
-      ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      ta.setSelectionRange(0, text.length);
-      ok=document.execCommand("copy");
-      ta.remove();
-    }catch(_e){ ok=false; }
-  }
+    const a=document.createElement("a");
+    a.href=href;
+    a.target="_blank";
+    a.rel="noopener noreferrer";
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }catch(e){}
+  try{
+    const w=window.open(href, "_blank", "noopener,noreferrer");
+    if(w) return true;
+  }catch(e){}
+  return false;
+}
+function openAddressInGoogleMaps(){
+  const q=currentAddressQuery();
+  if(!q) return;
+  const href=googleMapsSearchUrl(q);
+  const ok=openUrlSafe(href);
   const s=$("status");
   if(ok){
-    if(btn){
-      btn.classList.add("is-copied");
-      btn.setAttribute("aria-label","Adresse kopiert");
-      clearTimeout(btn._copyTimer);
-      btn._copyTimer=setTimeout(()=>{
-        btn.classList.remove("is-copied");
-        btn.setAttribute("aria-label","Adresse kopieren");
-      }, 1400);
-    }
-    if(s) s.textContent="Adresse kopiert.";
+    if(s) s.textContent="Google Maps geöffnet.";
   }else if(s){
-    s.textContent="Adresse konnte nicht kopiert werden.";
+    s.textContent="Google Maps konnte nicht geöffnet werden.";
   }
 }
 window.applyCompanies=applyCompanies;
@@ -4794,7 +4783,7 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
     if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
-    if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
+    if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
   }
@@ -5665,7 +5654,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.88";
+  const APP_VERSION=window.SB_APP_VERSION||"3.89";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6474,7 +6463,7 @@ finally{ window.__pdfBuilding=false; }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
       if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
-      if(typeof syncAddressCopyBtn==="function") syncAddressCopyBtn();
+      if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
       if(oldKey!==newKey){
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(oldKey);
         if(typeof markCompanyRemoved==="function") markCompanyRemoved(oldKey);
