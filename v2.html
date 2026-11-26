@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.78">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.79">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.78</title>
+  <title>Servicebericht v4.79</title>
 <script>
-window.SB_APP_VERSION="4.78";
+window.SB_APP_VERSION="4.79";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1043,7 +1043,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.78</span>
+      <span id="appCreditVer" class="app-ver">v4.79</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -2283,9 +2283,9 @@ function dayTemplate(d){
     </div>
     <div class="row row-drive">
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
-      <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90"></div>
       <div class="field"><label for="overnightMarkOut${d}">Stau</label><input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="out" value="" placeholder="Stau" maxlength="12" aria-label="Stau Tag ${d} Anfahrt" autocomplete="off" inputmode="text"></div>
+      <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
     </div>
     <div class="row">
       <div class="field"><label>KM Anfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${(d*2)-1}" placeholder="KM Anfahrt"></div>
@@ -2316,9 +2316,9 @@ function dayTemplate(d){
     </div>
     <div class="row row-drive">
       <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" placeholder="Minuten"></div>
-      <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
       <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
       <div class="field"><label for="overnightMarkBack${d}">Stau</label><input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="back" value="" placeholder="Stau" maxlength="12" aria-label="Stau Tag ${d} Rückfahrt" autocomplete="off" inputmode="text"></div>
+      <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
     </div>
     <div class="row">
       <div class="field"><label>KM Rückfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${d*2}" placeholder="KM Rückfahrt"></div>
@@ -6380,7 +6380,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.78";
+  const APP_VERSION=window.SB_APP_VERSION||"4.79";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
