@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.85">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.86">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.85</title>
+  <title>Servicebericht v4.86</title>
 <script>
-window.SB_APP_VERSION="4.85";
+window.SB_APP_VERSION="4.86";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -661,6 +661,10 @@ select.to-check{
   background:#fff3a3;
   border-color:#e0b400;
 }
+.daybox input.pause-rueck-check{
+  background:#ffe066;
+  border-color:#f0b400;
+}
 #historySection{padding:10px 12px}
 #historySection h2{margin:0 0 8px;font-size:15px}
 #historySection .history-bar{
@@ -1040,7 +1044,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.85</span>
+      <span id="appCreditVer" class="app-ver">v4.86</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1376,15 +1380,11 @@ select.is-nudge,input.is-nudge{
       const pause=parseInt((box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value,10)||0;
       return Math.max(0, span-pause);
     }
-    if(box.getAttribute("data-anfahrt-off")!=="1"){
-      const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
-      if(!String((km&&km.value)||"").trim() || drive("out")<=0) return true;
-    }
-    if(box.getAttribute("data-rueckfahrt-off")!=="1"){
-      const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
-      const end=box.querySelector(`[data-k="RZende${d*2}"]`);
-      if(!String((km&&km.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
-    }
+    const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+    if(!String((kmOut&&kmOut.value)||"").trim() || drive("out")<=0) return true;
+    const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+    const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+    if(!String((kmBack&&kmBack.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
     return false;
   }
   function paintDayJumps(){
@@ -1983,6 +1983,8 @@ function clearRueckfahrtKeepRest(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "back");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function restoreRueckfahrtAuto(box){
   if(!box) return;
@@ -2016,6 +2018,8 @@ function refillRueckfahrtAuto(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "back");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function restoreAnfahrtAuto(box){
   if(!box) return;
@@ -2056,6 +2060,22 @@ function clearAnfahrtKeepRest(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "out");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
+}
+function markEmptyTripYellow(box, dir){
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  if(!d) return;
+  const row=dir==="out" ? d*2-1 : d*2;
+  ["RZstart","RZende"].forEach(name=>{
+    const el=box.querySelector(`[data-k="${name}${row}"]`);
+    if(el && !filledTime(el.value)) el.classList.add("to-check");
+  });
+  const km=box.querySelector(`[data-k="Kilometer${row}"]`);
+  if(km && !String(km.value||"").trim()) km.classList.add("km-check");
+  const ov=box.querySelector(`[data-route-override="${dir}"]`);
+  if(ov && !String(ov.value||"").trim()) ov.classList.add("km-check");
 }
 function refillAnfahrtAuto(d){
   const box=dayBoxEl(d);
@@ -2096,6 +2116,8 @@ function refillAnfahrtAuto(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "out");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function syncReturnArrivalFromDeparture(d){
   const box=dayBoxEl(d);
@@ -2197,11 +2219,12 @@ function markReturnPauseToCheck(box){
     if(el.dataset.pauseManual!=="1"){
       el.value="";
       el.classList.remove("to-check");
+      el.classList.remove("pause-rueck-check");
     }
     return;
   }
   if(String(el.value||"").trim()==="") el.value="45";
-  el.classList.add("to-check");
+  el.classList.add("pause-rueck-check");
   syncReturnPauseFromDay(box);
 }
 function markArrivalWorkEndToCheck(box, onlyEmpty){
@@ -2641,22 +2664,29 @@ function updateDayRouteNetto(d){
   const rt=calc(`rt${d}`)||document.querySelector(`[data-calc="rt${d}"]`), rr=calc(`rr${d}`)||document.querySelector(`[data-calc="rr${d}"]`);
   const outOverride=box.querySelector('[data-route-override="out"]');
   const backOverride=box.querySelector('[data-route-override="back"]');
-    if(rt){
-    const v=outOverride && outOverride.value!==""
+    const rtMin=outOverride && outOverride.value!==""
       ? Math.max(0,parseInt(outOverride.value,10)||0)
       : (Number(d)>1
         ? Math.max(0,minutesBetween(a1?.value||"",a2?.value||""))
         : Math.max(0,minutesBetween(a1?.value||"",a2?.value||"")-pauseMinutes(pa?.value||"0")));
-    rt.value=fmtMin(v);
-  }
-  if(rr){
-    const v=backOverride && backOverride.value!==""
+    const rrMin=backOverride && backOverride.value!==""
       ? Math.max(0,parseInt(backOverride.value,10)||0)
       : (Number(d)>1
         ? Math.max(0,minutesBetween(b1?.value||"",b2?.value||""))
         : Math.max(0,minutesBetween(b1?.value||"",b2?.value||"")-pauseMinutes(pb?.value||"0")));
-    rr.value=fmtMin(v);
-  }
+    if(rt) rt.value=fmtMin(rtMin);
+    if(rr) rr.value=fmtMin(rrMin);
+    clearCalculatedTripHighlight(a1, a2, outOverride, rtMin);
+    clearCalculatedTripHighlight(b1, b2, backOverride, rrMin);
+}
+function clearCalculatedTripHighlight(start, end, override, minutes){
+  if(!(minutes>0) || !filledTime(start?.value) || !filledTime(end?.value)) return;
+  [start, end, override].forEach(el=>{
+    if(!el) return;
+    el.classList.remove("to-check");
+    el.classList.remove("km-check");
+    delete el.dataset.overnightCleared;
+  });
 }
 
 document.getElementById("times").addEventListener("input",function(e){
@@ -5538,7 +5568,7 @@ finally{ window.__pdfBuilding=false; }
             ? dayHasRueckfahrtTimes(box)
             : (typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(box,d));
           if(String(pause.value||"").trim()==="" && hasTimes) pause.value="45";
-          if(String(pause.value||"").trim()!=="") pause.classList.add("to-check");
+          if(String(pause.value||"").trim()!=="") pause.classList.add("pause-rueck-check");
         }
       }
       if(typeof markArrivalWorkEndToCheck==="function") markArrivalWorkEndToCheck(box, true);
@@ -6444,7 +6474,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.85";
+  const APP_VERSION=window.SB_APP_VERSION||"4.86";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){

@@ -1,7 +1,7 @@
 {
-  "name": "Servicebericht v4.85",
-  "short_name": "Servicebericht v4.85",
-  "start_url": "./v2.html?v=4.85",
+  "name": "Servicebericht v4.86",
+  "short_name": "Servicebericht v4.86",
+  "start_url": "./v2.html?v=4.86",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f2f2f7",
