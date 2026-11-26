@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.59">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.60">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.59</title>
+  <title>Servicebericht v4.60</title>
 <script>
-window.SB_APP_VERSION="4.59";
+window.SB_APP_VERSION="4.60";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.59</span>
+      <span id="appCreditVer" class="app-ver">v4.60</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1590,11 +1590,9 @@ function isoAddDays(iso,n){
 function dayBoxEl(d){return document.querySelector(`[data-daybox="${d}"]`);}
 function travelMinutesForDay(d,dir){
   const box=dayBoxEl(d);
+  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   const ov=box?.querySelector(`[data-route-override="${dir}"]`);
   if(ov && String(ov.value).trim()!=="") return Math.max(0,parseInt(ov.value,10)||0);
-  // Tag 2+ bleibt leer, bis km und Reisezeit von Hand eingetragen sind.
-  if(Number(d)>1) return 0;
-  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   return r.minutes||0;
 }
 function rueckfahrtPauseMin(d){
@@ -1666,7 +1664,6 @@ function applyListKmIfNeeded(el, km, opts){
   el.dataset.kmManual="0";
 }
 function syncKmFieldsForDay(d, opts){
-  if(Number(d)>1) return;
   const box=dayBoxEl(d);
   if(!box) return;
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
@@ -1707,10 +1704,6 @@ function updateRouteInfo(d){
   }
   if(skipBack){
     info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
-    return;
-  }
-  if(Number(d)>1){
-    info.textContent="km und Reisezeit für diesen Tag manuell eintragen.";
     return;
   }
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
@@ -1876,7 +1869,6 @@ function syncReturnArrivalFromDeparture(d){
   if(!b1||!b2) return;
   if(!b1.value && !b2.value) return;
   const span=rueckfahrtClockSpan(d);
-  if(!span) return;
   if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
   else setClock(b1,addMinutesToTime(b2.value,-span));
 }
@@ -1903,8 +1895,7 @@ function syncWorkEndToReturnStart(d){
   setClock(abreise,t);
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
-  const span=rueckfahrtClockSpan(d);
-  if(ankunft && span && !filledTime(ankunft.value)) setClock(ankunft,addMinutesToTime(t,span));
+  setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -2470,6 +2461,17 @@ document.getElementById("times").addEventListener("change",function(e){
   if(el.value===""){
     el.dataset.manual="0";
     el.removeAttribute("data-manual");
+
+    if(row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
+      if(el===a2 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
+      else if(el===a1 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
+    }
+
+    if(row===backRow && b1 && b2 && backMin && !rueckfahrtOff(dayBox)){
+      if(el===b2 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
+      else if(el===b1 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
+    }
+
     recalcTimes(); updateDayRouteNetto(d);
     return;
   }
@@ -2477,11 +2479,11 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===outRow && el.value) restoreAnfahrtAuto(dayBox);
 
   if(row===outRow && outMin && !anfahrtOff(dayBox)){
-    if(el===a1 && a1.value && !filledTime(a2?.value)) setClock(a2,addMinutesToTime(a1.value,outMin));
-    else if(el===a2 && a2.value && !filledTime(a1?.value)) setClock(a1,addMinutesToTime(a2.value,-outMin));
+    if(el===a1 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
+    else if(el===a2 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
 
     const az=field("AZstart",outRow);
-    if(az && a2 && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
+    if(az && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
   }
 
   if(m[1]==="AZende"){
@@ -2491,8 +2493,8 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===backRow && el.value) restoreRueckfahrtAuto(dayBox);
 
   if(row===backRow && backMin && !rueckfahrtOff(dayBox)){
-    if(el===b1 && b1.value && !filledTime(b2?.value)) setClock(b2,addMinutesToTime(b1.value,backSpan));
-    else if(el===b2 && b2.value && !filledTime(b1?.value)) setClock(b1,addMinutesToTime(b2.value,-backSpan));
+    if(el===b1 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
+    else if(el===b2 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
 
     const azEnd=field("AZende",outRow);
     if(azEnd && b1.value && azEnd.dataset.manual!=="1") setClock(azEnd,b1.value);
@@ -3395,11 +3397,6 @@ function applyCustomerRouteDay1(opts){
   applyCustomerRouteDay(1, opts);
 }
 function applyCustomerRouteDay(d, opts){
-  if(Number(d)>1){
-    if(typeof updateRouteInfo==="function") updateRouteInfo(d);
-    if(typeof recalcTimes==="function") recalcTimes({skipKmSync:true});
-    return;
-  }
   const r=customerRoute();
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
@@ -3970,17 +3967,15 @@ function bindTimeInputs(){
         const a1=field("RZstart",outRow),a2=field("RZende",outRow);
         const b1=field("RZstart",backRow),b2=field("RZende",backRow);
         if(row===outRow && a1&&a2&&el.value){
-          if(el===a1 && !filledTime(a2.value)) setClock(a2,addMinutesToTime(el.value,outMin));
-          else if(el===a2 && !filledTime(a1.value)) setClock(a1,addMinutesToTime(el.value,-outMin));
+          if(el===a1) setClock(a2,addMinutesToTime(el.value,outMin));
+          else setClock(a1,addMinutesToTime(el.value,-outMin));
           const az=field("AZstart",outRow);
           if(az&&a2.value&&az.dataset.manual!=="1") setClock(az,a2.value);
         }
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          if(duration){
-            if(el===b1 && !filledTime(b2.value)) setClock(b2,addMinutesToTime(el.value,duration));
-            else if(el===b2 && !filledTime(b1.value)) setClock(b1,addMinutesToTime(el.value,-duration));
-          }
+          if(el===b1) setClock(b2,addMinutesToTime(el.value,duration));
+          else setClock(b1,addMinutesToTime(el.value,-duration));
         }
       }
 
@@ -3996,9 +3991,8 @@ function bindTimeInputs(){
         syncWorkEndToReturnStart(d);
       }
       if(key===`RZstart${backRow}`&&el.value){
-        const span=rueckfahrtClockSpan(d);
         const ankunft=field("RZende",backRow);
-        if(span>0 && ankunft && !filledTime(ankunft.value)) setClock(ankunft,addMinutesToTime(el.value,span));
+        setClock(ankunft,addMinutesToTime(el.value,rueckfahrtClockSpan(d)));
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
@@ -6165,7 +6159,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.59";
+  const APP_VERSION=window.SB_APP_VERSION||"4.60";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10284,65 +10278,10 @@ finally{ window.__pdfBuilding=false; }
     if(el.closest && el.closest(MODAL_ROOT)) return false;
     return true;
   }
-  function skipsPagePan(el){
-    const type=(el && el.type||"").toLowerCase();
-    return type==="date"||type==="time"||type==="month"||type==="week"||type==="datetime-local"||el.readOnly;
-  }
-  // iPad centruje pole na ekranie i zsuwa cały widok (także „Servicebericht").
-  // Pole chwilowo poza ekranem — Safari nie ma czego centrować. Potem wraca i
-  // przewija się tylko formularz w main.
-  function focusWithoutPagePan(el){
-    if(!el || el.dataset.sbPanning==="1") return;
-    el.dataset.sbPanning="1";
-    const prev=el.style.transform;
-    el.style.transform="translateY(-2000px)";
-    try{ el.focus({preventScroll:true}); }catch(e){ try{ el.focus(); }catch(_e){} }
-    requestAnimationFrame(()=>{
-      el.style.transform=prev||"";
-      delete el.dataset.sbPanning;
-      keepKbInView();
-    });
-  }
   function onFieldFocus(el){
-    if(el && el.dataset && el.dataset.sbPanning==="1") return;
     requestAnimationFrame(()=>keepKbInView());
     setTimeout(keepKbInView, 320);
   }
-  let fieldTouch=null;
-  document.addEventListener("touchstart",e=>{
-    const el=e.target && e.target.closest && e.target.closest("input,textarea");
-    const t=e.touches && e.touches[0];
-    if(!el || !t || !isKbField(el) || skipsPagePan(el)){ fieldTouch=null; return; }
-    fieldTouch={el, x:t.clientX, y:t.clientY, moved:false};
-  }, true);
-  document.addEventListener("touchmove",e=>{
-    if(!fieldTouch) return;
-    const t=e.touches && e.touches[0];
-    if(!t) return;
-    if(Math.abs(t.clientX-fieldTouch.x)>10 || Math.abs(t.clientY-fieldTouch.y)>10) fieldTouch.moved=true;
-  }, {passive:true, capture:true});
-  document.addEventListener("touchend",e=>{
-    const start=fieldTouch;
-    fieldTouch=null;
-    if(!start || start.moved) return;
-    const el=e.target && e.target.closest && e.target.closest("input,textarea");
-    if(!el || el!==start.el || !isKbField(el) || skipsPagePan(el)) return;
-    if(document.activeElement===el) return;
-    e.preventDefault();
-    focusWithoutPagePan(el);
-  }, true);
-  document.addEventListener("touchcancel",()=>{ fieldTouch=null; }, true);
-  document.addEventListener("focusin",e=>{
-    const el=e.target;
-    if(!isKbField(el) || skipsPagePan(el)) return;
-    if(el.dataset && el.dataset.sbPanning==="1") return;
-    const prev=el.style.transform;
-    el.style.transform="translateY(-2000px)";
-    requestAnimationFrame(()=>{
-      el.style.transform=prev||"";
-      keepKbInView();
-    });
-  }, true);
   window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
     const el=document.getElementById(id);
