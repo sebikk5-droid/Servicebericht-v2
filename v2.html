@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.79">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.80">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.79</title>
+  <title>Servicebericht v4.80</title>
 <script>
-window.SB_APP_VERSION="4.79";
+window.SB_APP_VERSION="4.80";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -456,6 +456,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   -webkit-tap-highlight-color:transparent;
 }
 .page-jumps button svg{width:16px;height:16px;display:block}
+.page-jumps button span{white-space:nowrap}
 .page-jumps button:active{background:#0f2840}
 @media (orientation:portrait){
   html.is-iphone .page-jumps{display:none}
@@ -1043,7 +1044,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.79</span>
+      <span id="appCreditVer" class="app-ver">v4.80</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1298,7 +1299,7 @@ select.is-nudge,input.is-nudge{
     <div class="email-copy-list" id="emailCopyList"></div>
   </div>
 </div>
-<nav class="page-jumps" aria-label="Seitenanfang, Bemerkungen und Seitenende">
+<nav class="page-jumps" aria-label="Seitenanfang, Bemerkungen, Tag 1 und Seitenende">
   <button type="button" id="jumpPageTop" aria-label="Zum Anfang">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Anfang</span>
@@ -1306,6 +1307,10 @@ select.is-nudge,input.is-nudge{
   <button type="button" id="jumpPageText" aria-label="Zu den Bemerkungen">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
     <span>Text</span>
+  </button>
+  <button type="button" id="jumpPageDay" aria-label="Zu Tag 1">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M17 4v3M5 9h14M6 5h12a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Tag 1</span>
   </button>
   <button type="button" id="jumpPageEnd" aria-label="Zum Ende">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1322,8 +1327,10 @@ select.is-nudge,input.is-nudge{
   let raf=0;
   function targetY(id){
     if(id==="jumpPageEnd") return main.scrollHeight;
-    if(id==="jumpPageText"){
-      const card=document.getElementById("remarksCard")||document.getElementById("remarks");
+    if(id==="jumpPageText" || id==="jumpPageDay"){
+      const card=id==="jumpPageDay"
+        ? document.querySelector('[data-daybox="1"]')
+        : (document.getElementById("remarksCard")||document.getElementById("remarks"));
       if(!card) return 0;
       const y=card.getBoundingClientRect().top-main.getBoundingClientRect().top+main.scrollTop;
       return Math.max(0, y-8);
@@ -1365,7 +1372,7 @@ select.is-nudge,input.is-nudge{
     raf=0;
   }, {passive:true});
   function buttonFrom(ev){
-    return ev.target&&ev.target.closest?ev.target.closest("#jumpPageTop,#jumpPageText,#jumpPageEnd"):null;
+    return ev.target&&ev.target.closest?ev.target.closest("#jumpPageTop,#jumpPageText,#jumpPageDay,#jumpPageEnd"):null;
   }
   function fromEvent(ev){
     const el=buttonFrom(ev);
@@ -6380,7 +6387,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.79";
+  const APP_VERSION=window.SB_APP_VERSION||"4.80";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
