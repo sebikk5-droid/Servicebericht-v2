@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.20">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.21">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.20</title>
+  <title>Servicebericht v4.21</title>
 <script>
-window.SB_APP_VERSION="4.20";
+window.SB_APP_VERSION="4.21";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1008,7 +1008,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.20</span>
+      <span id="appCreditVer" class="app-ver">v4.21</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6084,7 +6084,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.20";
+  const APP_VERSION=window.SB_APP_VERSION||"4.21";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7685,6 +7685,23 @@ finally{ window.__pdfBuilding=false; }
       results.innerHTML="";
       if(box) box.classList.remove("is-open");
     }
+    function endEmailSession(restore){
+      const prev=String(input.dataset.savedEmail||"").trim();
+      delete input.dataset.unlocked;
+      delete input.dataset.savedEmail;
+      delete input.dataset.emailMode;
+      if(restore){
+        const next=prev || (emailsForCustomer()[0]||"");
+        setEmail(next, {lock:true});
+      }
+      close();
+    }
+    function abortEmptyAdd(){
+      if(input.dataset.emailMode!=="add") return;
+      const typed=currentEmail();
+      if(validEmail(typed) && !emailAlreadySaved(typed)) return;
+      endEmailSession(true);
+    }
     function show(opts){
       const emails=emailsForCustomer();
       const q=currentEmail().toLowerCase();
@@ -7732,6 +7749,14 @@ finally{ window.__pdfBuilding=false; }
     input.addEventListener("pointerdown",function(e){
       if(this.readOnly) e.preventDefault();
     });
+    input.addEventListener("blur",function(){
+      setTimeout(function(){
+        const a=document.activeElement;
+        const row=input.closest(".email-save-row");
+        if(a && row && row.contains(a)) return;
+        abortEmptyAdd();
+      }, 180);
+    });
     input.addEventListener("input",()=>{
       setEmail(input.value);
       show();
@@ -7762,6 +7787,12 @@ finally{ window.__pdfBuilding=false; }
     document.addEventListener("click",e=>{
       if(box && !box.contains(e.target)) close();
     });
+    document.addEventListener("pointerdown",function(e){
+      if(input.dataset.emailMode!=="add") return;
+      const row=input.closest(".email-save-row");
+      if(row && row.contains(e.target)) return;
+      abortEmptyAdd();
+    }, true);
     $("emailSave")?.addEventListener("click", async ()=>{
       const e=currentEmail();
       const prev=String(input.dataset.savedEmail||"").trim();
@@ -7792,6 +7823,7 @@ finally{ window.__pdfBuilding=false; }
       setEmail("");
       hideEmailSaveOk();
       syncEmailSaveButton();
+      show({all:true});
       try{ input.focus(); }catch(e){}
     });
     $("emailDelete")?.addEventListener("click", async ()=>{
@@ -7819,12 +7851,7 @@ finally{ window.__pdfBuilding=false; }
     $("customerEmailEdit")?.addEventListener("click",function(){
       if(!input) return;
       if(input.dataset.unlocked==="1"){
-        const prev=input.dataset.savedEmail || "";
-        delete input.dataset.unlocked;
-        delete input.dataset.savedEmail;
-        delete input.dataset.emailMode;
-        setEmail(prev, {lock:true});
-        syncEmailSaveButton();
+        endEmailSession(true);
         return;
       }
       input.dataset.savedEmail=currentEmail();
