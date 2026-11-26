@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.91">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,17 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.87</title>
+  <title>Servicebericht v3.91</title>
 <script>
-window.SB_APP_VERSION="3.87";
+window.SB_APP_VERSION="3.91";
+window.SB_HOLD_RELOAD_UNTIL=0;
+window.sbHoldReload=function(ms){
+  const until=Date.now()+(ms||120000);
+  if(until>(window.SB_HOLD_RELOAD_UNTIL||0)) window.SB_HOLD_RELOAD_UNTIL=until;
+};
+window.sbReloadHeld=function(){
+  return Date.now()<(window.SB_HOLD_RELOAD_UNTIL||0);
+};
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -25,6 +33,7 @@ window.SB_APP_VERSION="3.87";
   }
   function go(ver){
     if(!ver || ver===window.SB_APP_VERSION) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
     try{
       // Prevent endless replace when SW still serves a stale HTML shell.
       if(sessionStorage.getItem("sb_ver_go")==="1") return;
@@ -69,6 +78,7 @@ window.SB_APP_VERSION="3.87";
       navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
+        if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
         try{
           if(sessionStorage.getItem("sb_sw_reload")) return;
           sessionStorage.setItem("sb_sw_reload","1");
@@ -79,8 +89,16 @@ window.SB_APP_VERSION="3.87";
   }catch(e){}
   window.SB_CHECK_LIVE=checkLive;
   checkLive();
-  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
-  window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
+  window.addEventListener("pageshow", function(ev){
+    if(!ev.persisted) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
   function warmPdfCache(){
@@ -448,6 +466,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   height:28px;min-height:28px;margin:0;line-height:1;white-space:nowrap;
 }
 #historySave.history-file-btn{background:#163a5c;color:#fff}
+#historyDriveWait{margin:8px 2px 0;font-size:13px;line-height:1.35;font-weight:650;color:#163a5c}
+#historyDriveWait[hidden]{display:none!important}
 #historyFolder.history-file-btn.is-on{background:#163a5c;color:#fff}
 #historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
 #historyActionOk{
@@ -856,7 +876,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.87</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.91</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -877,6 +897,7 @@ select.is-nudge,input.is-nudge{
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
       <span id="historyActionOk" class="history-action-ok" aria-hidden="true"></span>
     </div>
+    <p id="historyDriveWait" hidden></p>
   </div>
 </section>
 <section class="card"><h2>Kunde</h2>
@@ -4520,7 +4541,10 @@ finally{ window.__pdfBuilding=false; }
     const next=Array.isArray(list) ? list.slice(0,100) : [];
     historyMem=next;
     const ls=tryPersistHistoryLs(next);
-    if(opts && opts.deferIdb) return ls;
+    if(opts && opts.deferIdb){
+      persistHistoryIdb(next);
+      return ls;
+    }
     const idb=await persistHistoryIdb(next);
     return ls || idb;
   }
@@ -4856,7 +4880,20 @@ finally{ window.__pdfBuilding=false; }
 
   function isIosDevice(){
     const ua=navigator.userAgent||"";
-    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+    if(/iPad|iPhone|iPod/.test(ua)) return true;
+    if(navigator.standalone===true) return true;
+    return (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  }
+  // Home-screen app on iPad: no folder picker. Speichern must open Share (Dateien/Drive).
+  function historyUsesShareSheet(){
+    if(isIosDevice()) return true;
+    if(navigator.standalone===true) return true;
+    try{
+      if(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches
+        && !window.showDirectoryPicker && navigator.share)
+        return true;
+    }catch(e){}
+    return !window.showDirectoryPicker && !!navigator.share && (navigator.maxTouchPoints||0)>1;
   }
   function reportPayload(item){
     const datePart=(historyDate(item)||formatDeDate(new Date().toISOString())||"Bericht").replace(/[\\/:*?"<>|]/g,"_");
@@ -4878,9 +4915,30 @@ finally{ window.__pdfBuilding=false; }
     },null,2);
     return {filename, json};
   }
+  function driveSafeFilename(item){
+    const d=new Date(item && item.savedAt ? item.savedAt : Date.now());
+    const pad=function(n){ return String(n).padStart(2,"0"); };
+    const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+    let co="";
+    try{ co=historyClient(item); }catch(e){ co=""; }
+    co=String(co||"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,24);
+    return "SB_"+stamp+(co?"_"+co:"")+".json";
+  }
+  function driveShareFilesFromJson(json, filename){
+    const name=String(filename||"SB.json").replace(/[\\/:*?"<>|]/g,"_");
+    const body=typeof json==="string" ? json : "";
+    const stem=name.replace(/\.json$/i,"");
+    return [
+      new File([body], name, {type:"application/octet-stream"}),
+      new File([body], stem+".txt", {type:"text/plain"}),
+      new File([body], name, {type:"application/json"})
+    ];
+  }
   function reportFileFromItem(item, mime){
     const {filename, json}=reportPayload(item);
-    return {filename, file:new File([json],filename,{type:mime||"application/json"})};
+    let name=filename;
+    if(mime==="text/plain" && /\.json$/i.test(name)) name=name.replace(/\.json$/i,".txt");
+    return {filename:name, file:new File([json],name,{type:mime||"application/json"})};
   }
   function downloadReportFile(file, filename){
     const url=URL.createObjectURL(file);
@@ -4901,14 +4959,19 @@ finally{ window.__pdfBuilding=false; }
   const HISTORY_DIR_NAME_KEY="servicebericht_history_dir_name";
   const HISTORY_LIST_STORE="list";
   const HISTORY_LIST_KEY="items";
+  const DRIVE_PENDING_STORE="drivePending";
+  const DRIVE_PENDING_KEY="items";
+  const DRIVE_PENDING_LS="servicebericht_drive_pending_v1";
   let historyDirHandle=null;
+  let drivePendingMem=null;
   function historyDirDb(){
     return new Promise(function(resolve, reject){
-      const req=indexedDB.open(HISTORY_DIR_DB, 2);
+      const req=indexedDB.open(HISTORY_DIR_DB, 3);
       req.onupgradeneeded=function(){
         const db=req.result;
         if(!db.objectStoreNames.contains(HISTORY_DIR_STORE)) db.createObjectStore(HISTORY_DIR_STORE);
         if(!db.objectStoreNames.contains(HISTORY_LIST_STORE)) db.createObjectStore(HISTORY_LIST_STORE);
+        if(!db.objectStoreNames.contains(DRIVE_PENDING_STORE)) db.createObjectStore(DRIVE_PENDING_STORE);
       };
       req.onsuccess=function(){ resolve(req.result); };
       req.onerror=function(){ reject(req.error); };
@@ -4941,15 +5004,152 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
   }
+  function historyItemKey(item){
+    return String((item&&item.savedAt)||"")+"\0"+String((item&&item.name)||"");
+  }
+  function mergeHistoryLists(){
+    const out=[];
+    const seen=Object.create(null);
+    Array.prototype.slice.call(arguments).forEach(function(list){
+      (list||[]).forEach(function(item){
+        if(!item || typeof item!=="object") return;
+        const k=historyItemKey(item);
+        if(seen[k]) return;
+        seen[k]=1;
+        out.push(item);
+      });
+    });
+    out.sort(function(a,b){
+      return String(b.savedAt||"").localeCompare(String(a.savedAt||""));
+    });
+    return out.slice(0,100);
+  }
   async function hydrateHistory(){
+    const fromLs=loadHistoryFromLs();
     const fromIdb=await loadHistoryIdb();
-    if(Array.isArray(fromIdb)){
-      historyMem=fromIdb;
+    const mem=Array.isArray(historyMem)?historyMem:[];
+    const merged=mergeHistoryLists(mem, fromLs, Array.isArray(fromIdb)?fromIdb:[]);
+    historyMem=merged;
+    if(merged.length){
+      tryPersistHistoryLs(merged);
+      await persistHistoryIdb(merged);
+    }
+  }
+  function loadDrivePendingLs(){
+    try{
+      const x=JSON.parse(localStorage.getItem(DRIVE_PENDING_LS)||"[]");
+      return Array.isArray(x)?x:[];
+    }catch(e){ return []; }
+  }
+  function drivePendingList(){
+    if(!Array.isArray(drivePendingMem)) drivePendingMem=loadDrivePendingLs();
+    return drivePendingMem;
+  }
+  async function persistDrivePendingIdb(list){
+    try{
+      const db=await historyDirDb();
+      await new Promise(function(resolve, reject){
+        const tx=db.transaction(DRIVE_PENDING_STORE, "readwrite");
+        tx.objectStore(DRIVE_PENDING_STORE).put(Array.isArray(list)?list:[], DRIVE_PENDING_KEY);
+        tx.oncomplete=function(){ resolve(); };
+        tx.onerror=function(){ reject(tx.error); };
+      });
+    }catch(e){}
+  }
+  function persistDrivePendingSync(list){
+    drivePendingMem=(list||[]).slice(-40);
+    try{ localStorage.setItem(DRIVE_PENDING_LS, JSON.stringify(drivePendingMem)); }
+    catch(e){
+      while(drivePendingMem.length>1){
+        drivePendingMem=drivePendingMem.slice(1);
+        try{ localStorage.setItem(DRIVE_PENDING_LS, JSON.stringify(drivePendingMem)); break; }
+        catch(e2){}
+      }
+    }
+    persistDrivePendingIdb(drivePendingMem);
+  }
+  async function hydrateDrivePending(){
+    const fromLs=loadDrivePendingLs();
+    let fromIdb=[];
+    try{
+      const db=await historyDirDb();
+      fromIdb=await new Promise(function(resolve, reject){
+        const tx=db.transaction(DRIVE_PENDING_STORE, "readonly");
+        const r=tx.objectStore(DRIVE_PENDING_STORE).get(DRIVE_PENDING_KEY);
+        r.onsuccess=function(){ resolve(Array.isArray(r.result)?r.result:[]); };
+        r.onerror=function(){ reject(r.error); };
+      });
+    }catch(e){ fromIdb=[]; }
+    const seen=Object.create(null);
+    const merged=[];
+    fromLs.concat(fromIdb).forEach(function(p){
+      if(!p || !p.json) return;
+      const k=String(p.savedAt||"")+"\0"+String(p.filename||"");
+      if(seen[k]) return;
+      seen[k]=1;
+      merged.push(p);
+    });
+    persistDrivePendingSync(merged);
+    syncDrivePendingUi();
+  }
+  function enqueueDrivePending(item){
+    if(!item) return;
+    const {json}=reportPayload(item);
+    const rec={
+      filename:driveSafeFilename(item),
+      json,
+      savedAt:item.savedAt,
+      name:item.name
+    };
+    const list=drivePendingList().filter(function(p){
+      return !(p && p.savedAt===rec.savedAt && p.name===rec.name);
+    });
+    list.push(rec);
+    persistDrivePendingSync(list);
+    syncDrivePendingUi();
+  }
+  function dequeueDrivePending(rec){
+    persistDrivePendingSync(drivePendingList().filter(function(p){
+      return !(p && rec && p.savedAt===rec.savedAt && p.filename===rec.filename);
+    }));
+    syncDrivePendingUi();
+  }
+  function syncDrivePendingUi(){
+    const el=$("historyDriveWait");
+    const n=drivePendingList().length;
+    if(!el) return;
+    if(!n || !historyUsesShareSheet()){
+      el.hidden=true;
+      el.textContent="";
       return;
     }
-    const fromLs=loadHistoryFromLs();
-    historyMem=fromLs;
-    if(fromLs.length) await persistHistoryIdb(fromLs);
+    el.hidden=false;
+    if(navigator.onLine===false){
+      el.textContent=n===1
+        ? "1 Bericht wartet auf Internet. Dann Speichern – geht nach Drive."
+        : n+" Berichte warten auf Internet. Dann Speichern – gehen nach Drive.";
+    }else{
+      el.textContent=n===1
+        ? "Internet ist da. Speichern tippen – Datei geht nach Drive."
+        : "Internet ist da. Speichern tippen – noch "+n+" Dateien nach Drive.";
+    }
+  }
+  async function shareOldestDrivePending(){
+    const list=drivePendingList();
+    if(!list.length) return false;
+    const rec=list[0];
+    const files=driveShareFilesFromJson(rec.json, rec.filename||driveSafeFilename({savedAt:rec.savedAt, name:rec.name}));
+    let ok=false;
+    for(let i=0;i<files.length;i++){
+      try{
+        ok=await shareHistoryFile(files[i]);
+        if(ok) break;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
+      }
+    }
+    if(ok) dequeueDrivePending(rec);
+    return ok;
   }
   async function loadHistoryDirHandle(){
     if(historyDirHandle) return historyDirHandle;
@@ -4993,7 +5193,7 @@ finally{ window.__pdfBuilding=false; }
     const btn=$("historyFolder");
     if(!btn) return;
     // iPad/Safari cannot remember a folder. Hide Ordner; Speichern opens Dateien.
-    if(isIosDevice() || !window.showDirectoryPicker){
+    if(historyUsesShareSheet() || !window.showDirectoryPicker){
       btn.hidden=true;
       return;
     }
@@ -5027,31 +5227,41 @@ finally{ window.__pdfBuilding=false; }
   }
   async function shareHistoryFile(file){
     if(!navigator.share || !file) return false;
-    const data={files:[file]};
-    try{
-      if(typeof navigator.canShare==="function"){
-        let ok=true;
-        try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
-        if(!ok) return false;
+    if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
+    // iOS Drive drops the file when title/text is attached. Files-only first.
+    const payloads=isIosDevice()
+      ? [{files:[file]}, {files:[file], title:file.name||"Servicebericht"}]
+      : [{files:[file], title:file.name||"Servicebericht"}, {files:[file]}];
+    for(let i=0;i<payloads.length;i++){
+      const data=payloads[i];
+      try{
+        if(typeof navigator.canShare==="function"){
+          let ok=true;
+          try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+          if(!ok) continue;
+        }
+        await navigator.share(data);
+        return true;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
       }
-      await navigator.share(data);
-      return true;
-    }catch(e){
-      if(e && e.name==="AbortError") throw e;
-      return false;
     }
+    return false;
   }
   async function exportReportFile(item){
     const {filename, json}=reportPayload(item);
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
 
-    // iPad: no remembered folder. Share immediately so Dateien can pick a folder.
-    if(isIosDevice()){
-      const shared=await shareHistoryFile(textFile.file)
-        || await shareHistoryFile(jsonFile.file);
+    // iPad app: no remembered folder. Share immediately so Dateien/Drive can pick a folder.
+    if(historyUsesShareSheet()){
+      const files=driveShareFilesFromJson(json, driveSafeFilename(item));
+      let shared=false;
+      for(let i=0;i<files.length && !shared;i++){
+        shared=await shareHistoryFile(files[i]);
+      }
       if(shared){
-        $("status").textContent="In der App gespeichert. In Dateien den Ordner wählen.";
+        $("status").textContent="In der Historie auf diesem Gerät gespeichert. In Dateien den Ordner wählen.";
         return;
       }
     }else if(window.showDirectoryPicker){
@@ -5085,6 +5295,19 @@ finally{ window.__pdfBuilding=false; }
     historyMem=loadHistoryFromLs();
     refresh("");
     hydrateHistory().then(function(){ refresh(""); }).catch(function(){});
+    drivePendingMem=loadDrivePendingLs();
+    syncDrivePendingUi();
+    hydrateDrivePending().catch(function(){});
+    window.addEventListener("online", function(){
+      syncDrivePendingUi();
+      const n=drivePendingList().length;
+      if(!n) return;
+      const s=$("status");
+      if(s) s.textContent=n===1
+        ? "Internet ist da. Speichern tippen – Datei geht nach Drive."
+        : "Internet ist da. Speichern tippen – noch "+n+" Dateien nach Drive.";
+    });
+    window.addEventListener("offline", syncDrivePendingUi);
     const save=document.getElementById("historySave");
     const saveBottom=document.getElementById("historySaveBottom");
     const fileInput=document.getElementById("historyFileInput");
@@ -5200,6 +5423,7 @@ finally{ window.__pdfBuilding=false; }
 
     async function saveCurrentHistory(opts){
       opts=opts||{};
+      try{
       const savedAt=new Date().toISOString();
       const data=collectForm();
       const item={
@@ -5208,41 +5432,107 @@ finally{ window.__pdfBuilding=false; }
         data
       };
       const list=loadHistory();
-      const idx=selectedHistory;
-      if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
-        list[Number(idx)]=item;
-        setSelectedHistory(Number(idx), item);
-      }else{
-        list.unshift(item);
-        setSelectedHistory(0, item);
+      const pending=drivePendingList();
+      const selected=selectedHistory!=null ? list[Number(selectedHistory)] : null;
+      let flushOnly=false;
+      try{
+        flushOnly=historyUsesShareSheet() && !opts.skipFile && pending.length
+          && selected && JSON.stringify(historyItemData(selected)||{})===JSON.stringify(data);
+      }catch(e){ flushOnly=false; }
+      let inApp=true;
+      if(!flushOnly){
+        const idx=selectedHistory;
+        if(idx!=null && !Number.isNaN(Number(idx)) && list[Number(idx)]){
+          list[Number(idx)]=item;
+          setSelectedHistory(Number(idx), item);
+        }else{
+          list.unshift(item);
+          setSelectedHistory(0, item);
+        }
+        // In-app list MUST be on disk before Share. If Share is cancelled or
+        // the iPad-App is closed, the Bericht still stays in Historie.
+        historyMem=list.slice(0,100);
+        inApp=tryPersistHistoryLs(historyMem);
+        persistHistoryIdb(historyMem);
       }
-      const shareNow=isIosDevice() && !opts.skipFile;
-      const inApp=await saveHistory(list, {deferIdb:shareNow});
+      if(!inApp && !flushOnly){
+        alert("Speicher auf diesem Gerät ist voll oder blockiert.");
+        return false;
+      }
       showHistoryActionOk("ok");
       if(opts.skipFile) return inApp;
+
       let fileOk=false;
+      let fileAbort=false;
+      const waitForNet=historyUsesShareSheet() && navigator.onLine===false;
+      if(historyUsesShareSheet() && waitForNet){
+        if(!flushOnly) try{ enqueueDrivePending(item); }catch(e){}
+        syncDrivePendingUi();
+        const left=drivePendingList().length;
+        $("status").textContent=left===1
+          ? "In der Historie gespeichert. Geht nach Drive, sobald Internet da ist – dann Speichern."
+          : "In der Historie gespeichert. "+left+" Dateien warten auf Internet – dann Speichern.";
+        return true;
+      }
+      if(historyUsesShareSheet()){
+        if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
+        try{
+          if(drivePendingList().length){
+            if(!flushOnly) try{ enqueueDrivePending(item); }catch(e){}
+            fileOk=await shareOldestDrivePending();
+          }else{
+            const {json}=reportPayload(item);
+            const files=driveShareFilesFromJson(json, driveSafeFilename(item));
+            for(let i=0;i<files.length;i++){
+              fileOk=await shareHistoryFile(files[i]);
+              if(fileOk) break;
+            }
+            if(!fileOk) try{ enqueueDrivePending(item); }catch(e){}
+          }
+        }catch(e){
+          if(e && e.name==="AbortError") fileAbort=true;
+          if(!flushOnly) try{ enqueueDrivePending(item); }catch(e2){}
+        }
+        syncDrivePendingUi();
+        const left=drivePendingList().length;
+        if(fileOk){
+          $("status").textContent=left
+            ? "In der Historie gespeichert. Datei an Drive. Noch "+left+" – noch einmal Speichern."
+            : "In der Historie gespeichert. Datei an Dateien/Drive übergeben.";
+        }else if(fileAbort){
+          $("status").textContent="In der Historie gespeichert. Drive/Dateien nicht gesichert – wartet.";
+        }else{
+          $("status").textContent="In der Historie gespeichert. Datei wartet – Speichern noch einmal.";
+        }
+        return true;
+      }
+
+      let fileOkDesktop=false;
       try{
         await exportReportFile(item);
-        fileOk=true;
+        fileOkDesktop=true;
       }catch(e){
         if(e?.name==="AbortError"){
-          if(shareNow) await persistHistoryIdb(historyMem);
-          $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
+          $("status").textContent="In der Historie auf diesem Gerät. Datei nicht gesichert.";
           return inApp;
         }
         try{
           const {filename, file}=reportFileFromItem(item);
           downloadReportFile(file, filename);
-          fileOk=true;
+          fileOkDesktop=true;
         }catch(_e){
-          if(inApp) $("status").textContent="In der App gespeichert. Datei fehlgeschlagen.";
+          if(inApp) $("status").textContent="In der Historie auf diesem Gerät gespeichert. Datei fehlgeschlagen.";
           else alert("Speicher auf diesem Gerät ist voll oder blockiert.");
         }
       }
-      if(shareNow) await persistHistoryIdb(historyMem);
-      if(inApp || fileOk) return inApp||fileOk;
+      if(inApp || fileOkDesktop) return inApp||fileOkDesktop;
       alert("Speicher auf diesem Gerät ist voll oder blockiert.");
       return false;
+      }catch(e){
+        const s=$("status");
+        if(s) s.textContent="Speichern fehlgeschlagen. Noch einmal tippen.";
+        return false;
+      }
     }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
@@ -5318,6 +5608,9 @@ finally{ window.__pdfBuilding=false; }
         localStorage.setItem(LIVE_KEY, payload);
         sessionStorage.setItem(LIVE_KEY, payload);
       }catch(e){}
+      try{
+        sessionStorage.setItem("sb_scroll", String(window.scrollY||document.documentElement.scrollTop||0));
+      }catch(e){}
     }
     function readLiveDraft(){
       try{
@@ -5347,6 +5640,10 @@ finally{ window.__pdfBuilding=false; }
       if(liveDraftApplied) return false;
       liveDraftApplied=true;
       applyForm(data);
+      try{
+        const y=Number(sessionStorage.getItem("sb_scroll")||0);
+        if(y>80) setTimeout(function(){ window.scrollTo(0, y); }, 50);
+      }catch(e){}
       // Keep Einsatzdatum / Tag dates from the saved draft. Do not jump to today.
       return true;
     }
@@ -5374,7 +5671,13 @@ finally{ window.__pdfBuilding=false; }
     window.addEventListener("pagehide", saveLiveDraft);
     document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveLiveDraft(); });
     window.addEventListener("pageshow",ev=>{
-      if(ev.persisted) return;
+      if(ev.persisted){
+        try{
+          const y=Number(sessionStorage.getItem("sb_scroll")||0);
+          if(y>80) window.scrollTo(0, y);
+        }catch(e){}
+        return;
+      }
       restoreLiveDraft(false);
     });
     restoreLiveDraft(false);
@@ -5585,7 +5888,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.87";
+  const APP_VERSION=window.SB_APP_VERSION||"3.91";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
