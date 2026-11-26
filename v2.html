@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.04">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.05">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.04</title>
+  <title>Servicebericht v4.05</title>
 <script>
-window.SB_APP_VERSION="4.04";
+window.SB_APP_VERSION="4.05";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -195,7 +195,7 @@ header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;b
 .btn-app-reload:active{background:#0f2840}
 .credit.is-stale .btn-app-reload:active{background:#b91c1c}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;width:100%;max-width:none;margin:0;padding:12px max(14px, calc((100% - 760px) / 2)) 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;width:100%;max-width:none;margin:0;padding:12px max(14px, calc((100% - 760px) / 2)) 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012;overflow:visible}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d0d0d6;border-radius:11px;background:#e8e8ed;color:#111}
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
@@ -968,7 +968,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.04</span>
+      <span id="appCreditVer" class="app-ver">v4.05</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1405,33 +1405,46 @@ function layoutComboResults(results, box){
   const parts=results.id==="partsResults";
   const boxEl=parts?($("partsBox")||box):box;
   const plusEl=parts?$("partsPlus"):null;
-  const r=boxEl.getBoundingClientRect();
-  const v=(plusEl||boxEl).getBoundingClientRect();
-  const gap=parts?2:4;
+  const anchor=plusEl||boxEl;
+  const br=boxEl.getBoundingClientRect();
+  const ar=anchor.getBoundingClientRect();
   const vis=visFrame();
-  const kbPad=12;
-  const spaceBelow=vis.bottom-v.bottom-gap-kbPad;
-  const spaceAbove=v.top-vis.top-gap;
+  const header=document.querySelector("header");
+  const mainEl=document.querySelector("main");
+  const safeTop=Math.max(
+    vis.top+8,
+    header?header.getBoundingClientRect().bottom+4:0,
+    mainEl?mainEl.getBoundingClientRect().top+4:0
+  );
+  const safeBottom=vis.bottom-12;
+  const gap=parts?2:4;
   const maxH=parts?190:260;
-  results.style.position="fixed";
-  if(parts){
-    const w=Math.min(r.width, 268);
-    results.style.width=w+"px";
-    results.style.left=Math.max(8, r.right-w)+"px";
-  }else{
-    results.style.left=Math.max(8, r.left)+"px";
-    results.style.width=Math.max(80, r.width)+"px";
-  }
-  results.style.right="auto";
+  const minH=parts?72:96;
+  const spaceBelow=safeBottom-(ar.bottom+gap);
+  const spaceAbove=ar.top-gap-safeTop;
+  results.style.position="absolute";
   results.style.zIndex="80";
-  if(spaceBelow>=120 || spaceBelow>=spaceAbove){
-    results.style.top=(v.bottom+gap)+"px";
-    results.style.bottom="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceBelow))+"px";
+  results.style.right=parts?"0":"auto";
+  if(parts){
+    results.style.width=Math.min(br.width, 268)+"px";
+    results.style.left="auto";
   }else{
-    results.style.bottom=(window.innerHeight-v.top+gap)+"px";
+    results.style.left="0";
+    results.style.width="100%";
+  }
+  results.scrollTop=0;
+  if(spaceBelow>=96 || spaceBelow>=spaceAbove){
+    results.style.top="100%";
+    results.style.bottom="auto";
+    results.style.marginTop=gap+"px";
+    results.style.marginBottom="0";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceBelow))+"px";
+  }else{
     results.style.top="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceAbove))+"px";
+    results.style.bottom="100%";
+    results.style.marginTop="0";
+    results.style.marginBottom=gap+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceAbove))+"px";
   }
 }
 function openComboResults(results, box){
@@ -5863,7 +5876,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.04";
+  const APP_VERSION=window.SB_APP_VERSION||"4.05";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9570,6 +9583,14 @@ finally{ window.__pdfBuilding=false; }
       top:0, bottom:window.innerHeight, height:window.innerHeight
     };
   }
+  function safeTop(frame, sr){
+    const header=document.querySelector("header");
+    return Math.max(
+      sr.top+8,
+      frame.top+8,
+      header?header.getBoundingClientRect().bottom+8:0
+    );
+  }
   function syncKeyboardPad(){
     const frame=vis();
     const covered=Math.max(0, window.innerHeight-frame.bottom);
@@ -9579,8 +9600,8 @@ finally{ window.__pdfBuilding=false; }
     const sr=scroller.getBoundingClientRect();
     const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
     const combo=openComboEl();
-    const extra=combo ? Math.min(220, Math.max(120, combo.scrollHeight||160)) : 16;
-    const pad=overlap ? overlap+extra : extra>16 ? extra : 0;
+    const extra=combo ? Math.min(180, Math.max(80, combo.scrollHeight||120)) : 0;
+    const pad=overlap+extra;
     scroller.style.paddingBottom=pad ? pad+"px" : "";
   }
   function keepFieldInView(el, extraBelow){
@@ -9589,10 +9610,11 @@ finally{ window.__pdfBuilding=false; }
     const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const er=el.getBoundingClientRect();
-    const topLimit=Math.max(sr.top+8, frame.top+8);
-    const bottomLimit=Math.min(sr.bottom-8, frame.bottom-8)-(extraBelow||0);
-    if(bottomLimit<=topLimit+24){
-      if(er.top<topLimit) scroller.scrollTop-=topLimit-er.top;
+    const topLimit=safeTop(frame, sr);
+    const extra=Math.max(0, extraBelow||0);
+    const bottomLimit=Math.min(sr.bottom-8, frame.bottom-12)-extra;
+    if(bottomLimit<topLimit+er.height+8){
+      scroller.scrollTop+=er.top-topLimit;
       return;
     }
     if(er.bottom>bottomLimit)
@@ -9612,8 +9634,15 @@ finally{ window.__pdfBuilding=false; }
     }
     const combo=a.closest && a.closest(".combo-box, .parts-box");
     const results=openComboEl();
-    const extra=results ? Math.min(200, Math.max(96, results.getBoundingClientRect().height||160)) : 12;
     const target=(combo&&results)?combo:a;
+    let extra=12;
+    if(results && target && target.getBoundingClientRect){
+      const frame=vis();
+      const sr=(main()||document.body).getBoundingClientRect();
+      const need=Math.min(180, Math.max(96, results.scrollHeight||140));
+      const avail=Math.max(0, Math.min(sr.bottom, frame.bottom)-12-safeTop(frame, sr)-target.getBoundingClientRect().height);
+      extra=Math.min(need, avail);
+    }
     if(target && target.getBoundingClientRect) keepFieldInView(target, extra);
     relayoutOpenCombo();
   }
