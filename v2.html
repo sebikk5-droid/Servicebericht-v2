@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.45">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.46">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.45</title>
+  <title>Servicebericht v4.46</title>
 <script>
-window.SB_APP_VERSION="4.45";
+window.SB_APP_VERSION="4.46";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -175,11 +175,7 @@ body{position:fixed;inset:0;display:flex;flex-direction:column;background:#f2f2f
 header{
   background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;
   position:relative;z-index:4;flex:0 0 auto;touch-action:none;
-  max-height:220px;overflow:hidden;
-  transition:max-height .28s ease, opacity .22s ease, padding .28s ease, border-color .28s ease;
-}
-html.kb-open header{
-  max-height:0;opacity:0;padding-top:0;padding-bottom:0;border-bottom-color:transparent;pointer-events:none;
+  overflow:hidden;
 }
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
@@ -1015,7 +1011,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.45</span>
+      <span id="appCreditVer" class="app-ver">v4.46</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6100,7 +6096,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.45";
+  const APP_VERSION=window.SB_APP_VERSION||"4.46";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10227,8 +10223,32 @@ finally{ window.__pdfBuilding=false; }
   document.addEventListener("focusin",e=>{
     if(isKbField(e.target)) onFieldFocus(e.target);
   }, true);
+  let headerPinned=false;
+  let headerFullPx=0;
+  function headerFull(){
+    const header=document.querySelector("header");
+    if(!header) return 0;
+    if(!headerFullPx){
+      header.style.maxHeight="";
+      header.style.opacity="";
+      headerFullPx=header.offsetHeight||0;
+    }
+    return headerFullPx;
+  }
+  function paintHeader(gone){
+    const header=document.querySelector("header");
+    const full=headerFull();
+    if(!header||!full) return;
+    const hide=Math.max(0, Math.min(full, gone||0));
+    const left=full-hide;
+    header.style.maxHeight=left+"px";
+    header.style.opacity=String(left/full);
+    header.style.pointerEvents=left<8?"none":"";
+  }
   document.addEventListener("focusin",e=>{
-    if(isKbField(e.target)) document.documentElement.classList.add("kb-open");
+    if(!isKbField(e.target)) return;
+    headerPinned=true;
+    paintHeader(headerFull());
   }, true);
   document.addEventListener("focusout",()=>{
     setTimeout(()=>{
@@ -10242,13 +10262,10 @@ finally{ window.__pdfBuilding=false; }
   }, true);
   const scroller=main();
   if(scroller){
-    let lastMainTop=scroller.scrollTop;
     scroller.addEventListener("scroll",()=>{
       const top=scroller.scrollTop;
-      const root=document.documentElement;
-      if(top<=2) root.classList.remove("kb-open");
-      else if(top>lastMainTop+6) root.classList.add("kb-open");
-      lastMainTop=top;
+      if(top<=1) headerPinned=false;
+      paintHeader(headerPinned ? headerFull() : top);
       const a=document.activeElement;
       if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
       closeOpenCombos();
