@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.47">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.48">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.47</title>
+  <title>Servicebericht v4.48</title>
 <script>
-window.SB_APP_VERSION="4.47";
+window.SB_APP_VERSION="4.48";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -172,11 +172,7 @@ window.sbReloadHeld=function(){
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;width:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none}
 body{position:fixed;inset:0;display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0;touch-action:none}
-header{
-  background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;
-  position:relative;z-index:4;flex:0 0 auto;touch-action:none;
-  will-change:transform;
-}
+header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto;touch-action:none}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
 .header-top h1{flex:none;min-width:0}
@@ -1000,6 +996,7 @@ select.is-nudge,input.is-nudge{
 </style>
 </head>
 <body>
+<main>
 <header>
   <div class="header-top">
     <div class="header-titles">
@@ -1011,14 +1008,13 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.47</span>
+      <span id="appCreditVer" class="app-ver">v4.48</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
     </button>
   </div>
 </header>
-<main>
 <section id="historySection" class="card">
   <h2>Historie</h2>
   <div class="history-bar">
@@ -6096,7 +6092,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.47";
+  const APP_VERSION=window.SB_APP_VERSION||"4.48";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10223,32 +10219,6 @@ finally{ window.__pdfBuilding=false; }
   document.addEventListener("focusin",e=>{
     if(isKbField(e.target)) onFieldFocus(e.target);
   }, true);
-  let headerPinned=false;
-  let headerFullPx=0;
-  let headerHide=0;
-  let headerDragY=0;
-  let headerDragging=false;
-  function headerFull(){
-    const header=document.querySelector("header");
-    if(!header) return 0;
-    if(!headerFullPx) headerFullPx=header.offsetHeight||0;
-    return headerFullPx;
-  }
-  function paintHeader(gone){
-    const header=document.querySelector("header");
-    const full=headerFull();
-    if(!header||!full) return;
-    const hide=Math.max(0, Math.min(full, gone||0));
-    headerHide=hide;
-    header.style.transform="translate3d(0,"+(-hide)+"px,0)";
-    header.style.marginBottom=(-hide)+"px";
-    header.style.pointerEvents=hide>full-8?"none":"";
-  }
-  document.addEventListener("focusin",e=>{
-    if(!isKbField(e.target)) return;
-    headerPinned=true;
-    paintHeader(headerFull());
-  }, true);
   document.addEventListener("focusout",()=>{
     setTimeout(()=>{
       if(isKbField(document.activeElement)) return;
@@ -10261,32 +10231,7 @@ finally{ window.__pdfBuilding=false; }
   }, true);
   const scroller=main();
   if(scroller){
-    scroller.addEventListener("touchstart",e=>{
-      if(e.touches&&e.touches[0]) headerDragY=e.touches[0].clientY;
-      headerDragging=true;
-    }, {passive:true});
-    scroller.addEventListener("touchmove",e=>{
-      if(!e.touches||!e.touches[0]) return;
-      const y=e.touches[0].clientY;
-      const dy=headerDragY-y;
-      headerDragY=y;
-      const full=headerFull();
-      if(scroller.scrollTop<=1){
-        headerPinned=false;
-        paintHeader(headerHide+dy);
-      }else{
-        paintHeader(full);
-      }
-    }, {passive:true});
-    scroller.addEventListener("touchend",()=>{ headerDragging=false; }, {passive:true});
-    scroller.addEventListener("touchcancel",()=>{ headerDragging=false; }, {passive:true});
     scroller.addEventListener("scroll",()=>{
-      if(!headerDragging){
-        if(scroller.scrollTop<=1){
-          headerPinned=false;
-          paintHeader(0);
-        }else paintHeader(headerFull());
-      }
       const a=document.activeElement;
       if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
       closeOpenCombos();
