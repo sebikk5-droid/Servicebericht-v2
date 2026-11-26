@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.01">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.02">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.01</title>
+  <title>Servicebericht v4.02</title>
 <script>
-window.SB_APP_VERSION="4.01";
+window.SB_APP_VERSION="4.02";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -358,7 +358,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .kunde-align .kunde-icon-btn svg{width:22px;height:22px}
 .kunde-align .kunde-icon-slot{width:46px;height:46px}
-.kunde-align #date{min-height:46px;height:46px;width:100%;min-width:0;box-sizing:border-box}
+.kunde-align #date{width:auto;max-width:11.5em;min-height:40px;height:auto}
 .kunde-align .blatt-row{grid-column:1 / span 2;margin-top:0}
 .email-pdf-btn{
   flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
@@ -961,7 +961,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.01</span>
+      <span id="appCreditVer" class="app-ver">v4.02</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -5846,7 +5846,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.01";
+  const APP_VERSION=window.SB_APP_VERSION||"4.02";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
