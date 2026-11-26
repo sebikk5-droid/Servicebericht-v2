@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.70">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.71">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.70</title>
+  <title>Servicebericht v4.71</title>
 <script>
-window.SB_APP_VERSION="4.70";
+window.SB_APP_VERSION="4.71";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1043,7 +1043,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.70</span>
+      <span id="appCreditVer" class="app-ver">v4.71</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1720,11 +1720,13 @@ function anfahrtPauseMin(d){
 function anfahrtClockSpan(d){
   const drive=travelMinutesForDay(d,"out");
   if(!drive) return 0;
+  if(Number(d)>1) return drive;
   return drive+anfahrtPauseMin(d);
 }
 function rueckfahrtClockSpan(d){
   const drive=travelMinutesForDay(d,"back");
   if(!drive) return 0;
+  if(Number(d)>1) return drive;
   return drive+rueckfahrtPauseMin(d);
 }
 function setClock(el,t){
@@ -4048,7 +4050,7 @@ function bindTimeInputs(){
             return;
           }
           const a1=field("RZstart",outRow), a2=field("RZende",outRow);
-          const elapsed=val+anfahrtPauseMin(d);
+          const elapsed=Number(d)>1 ? val : val+anfahrtPauseMin(d);
           if(a1&&a2&&val>0){
             if(a2.value) setClock(a1,addMinutesToTime(a2.value,-elapsed));
             else if(a1.value) setClock(a2,addMinutesToTime(a1.value,elapsed));
@@ -4074,7 +4076,7 @@ function bindTimeInputs(){
           }
           markReturnPauseToCheck(box);
           const b1=field("RZstart",backRow), b2=field("RZende",backRow);
-          const elapsed=val+rueckfahrtPauseMin(d);
+          const elapsed=Number(d)>1 ? val : val+rueckfahrtPauseMin(d);
           if(b1&&b2&&val>0){
             if(b1.value) setClock(b2,addMinutesToTime(b1.value,elapsed));
             else if(b2.value) setClock(b1,addMinutesToTime(b2.value,-elapsed));
@@ -4808,7 +4810,9 @@ function dayRouteGaps(){
       const b=box.querySelector(`[data-k="RZende${row}"]`);
       const pause=box.querySelector(`[data-k="PauseRZ${row}"]`);
       if(typeof filledTime!=="function" || !filledTime(a?.value) || !filledTime(b?.value)) return 0;
-      return Math.max(0, minutesBetween(a.value, b.value)-pauseMinutes(pause?.value||"0"));
+      const span=Math.max(0, minutesBetween(a.value, b.value));
+      if(Number(d)>1) return span;
+      return Math.max(0, span-pauseMinutes(pause?.value||"0"));
     };
     const need=(off, kmName, dir, kmLabel, timeLabel)=>{
       if(off) return;
@@ -4822,7 +4826,7 @@ function dayRouteGaps(){
       const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
       const end=box.querySelector(`[data-k="RZende${d*2}"]`);
       if(!String(km?.value??"").trim()) bits.push("km Rückfahrt");
-      // Pause alone is not a return trip. Need a real driving time, or both clocks with time left after the pause.
+      // Pause alone is not a return trip. Day 2 counts the clock difference; day 1 subtracts the pause because the clocks include it.
       if(!filledTime(end?.value) || driveMin("back")<=0) bits.push("Reisezeit Rückfahrt");
     }
     if(bits.length) gaps.push("Tag "+d+": "+bits.join(", "));
@@ -6324,7 +6328,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.70";
+  const APP_VERSION=window.SB_APP_VERSION||"4.71";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
