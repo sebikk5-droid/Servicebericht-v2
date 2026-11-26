@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.86">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.87">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.86</title>
+  <title>Servicebericht v4.87</title>
 <script>
-window.SB_APP_VERSION="4.86";
+window.SB_APP_VERSION="4.87";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1044,7 +1044,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.86</span>
+      <span id="appCreditVer" class="app-ver">v4.87</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1375,10 +1375,8 @@ select.is-nudge,input.is-nudge{
       const a=box.querySelector(`[data-k="RZstart${row}"]`);
       const b=box.querySelector(`[data-k="RZende${row}"]`);
       if(!clockFilled(a&&a.value) || !clockFilled(b&&b.value)) return 0;
-      const span=clockMinutes(a.value, b.value);
-      if(d>1) return span;
-      const pause=parseInt((box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value,10)||0;
-      return Math.max(0, span-pause);
+      const pause=(box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value;
+      return Math.max(0, clockMinutes(a.value, b.value) - (parseInt(pause,10)||0));
     }
     const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
     if(!String((kmOut&&kmOut.value)||"").trim() || drive("out")<=0) return true;
@@ -2666,14 +2664,10 @@ function updateDayRouteNetto(d){
   const backOverride=box.querySelector('[data-route-override="back"]');
     const rtMin=outOverride && outOverride.value!==""
       ? Math.max(0,parseInt(outOverride.value,10)||0)
-      : (Number(d)>1
-        ? Math.max(0,minutesBetween(a1?.value||"",a2?.value||""))
-        : Math.max(0,minutesBetween(a1?.value||"",a2?.value||"")-pauseMinutes(pa?.value||"0")));
+      : driveNettoFromClocks(a1?.value, a2?.value, pa?.value);
     const rrMin=backOverride && backOverride.value!==""
       ? Math.max(0,parseInt(backOverride.value,10)||0)
-      : (Number(d)>1
-        ? Math.max(0,minutesBetween(b1?.value||"",b2?.value||""))
-        : Math.max(0,minutesBetween(b1?.value||"",b2?.value||"")-pauseMinutes(pb?.value||"0")));
+      : driveNettoFromClocks(b1?.value, b2?.value, pb?.value);
     if(rt) rt.value=fmtMin(rtMin);
     if(rr) rr.value=fmtMin(rrMin);
     clearCalculatedTripHighlight(a1, a2, outOverride, rtMin);
@@ -4015,6 +4009,10 @@ function pauseMinutes(v){
   const x=parseFloat(raw.replace(",","."));
   return Number.isFinite(x)?Math.max(0,Math.round(x)):0;
 }
+/** Netto-Reisezeit: Uhrspanne minus Pause – gleich für Tag 1 und Folgetage. */
+function driveNettoFromClocks(startVal, endVal, pauseVal){
+  return Math.max(0, minutesBetween(startVal||"", endVal||"") - pauseMinutes(pauseVal||"0"));
+}
 function fmtMin(m){m=Math.max(0,Math.round(m));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
 function fmtMinPdf(m){
   m=Math.max(0,Math.round(m));
@@ -4057,19 +4055,15 @@ function recalcTimes(opts){
     let rt;
     if(outOverride && String(outOverride.value).trim()!==""){
       rt=Math.max(0,parseInt(outOverride.value,10)||0);
-    }else if(Number(d)>1){
-      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value));
     }else{
-      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
+      rt=driveNettoFromClocks(q(`RZstart${a}`).value, q(`RZende${a}`).value, pauseOut);
     }
 
     let rr;
     if(backOverride && String(backOverride.value).trim()!==""){
       rr=Math.max(0,parseInt(backOverride.value,10)||0);
-    }else if(Number(d)>1){
-      rr=Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value));
     }else{
-      rr=Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack);
+      rr=driveNettoFromClocks(q(`RZstart${b}`).value, q(`RZende${b}`).value, pauseBack);
     }
 
     const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
@@ -4176,7 +4170,12 @@ function bindTimeInputs(){
 
       if(el.dataset.routeOverride==="out" || el.dataset.routeOverride==="back"){
         const isEmpty=String(el.value??"").trim()==="";
-        const val=isEmpty ? (el.dataset.routeOverride==="out"?outDrive:backMin) : Math.max(0,parseInt(el.value,10)||0);
+        const typed=isEmpty ? 0 : Math.max(0,parseInt(el.value,10)||0);
+        // Liste (ohne Override) – Override-Feld ist beim Leeren schon leer.
+        const listMin=el.dataset.routeOverride==="out" ? outDrive : backMin;
+        const prevKeep=Math.max(0,parseInt(el.dataset.prevOverride||"0",10)||0);
+        // Leeren: Liste zurück, sonst letzte Override-Minuten (Uhrspanne inkl. Pause).
+        const val=isEmpty ? (listMin>0 ? listMin : prevKeep) : typed;
 
         if(el.dataset.routeOverride==="out"){
           if(!isEmpty) restoreAnfahrtAuto(box);
@@ -4185,6 +4184,7 @@ function bindTimeInputs(){
               el.dataset.manual="0";
               el.removeAttribute("data-manual");
               el.value="";
+              delete el.dataset.prevOverride;
             }
             recalcTimes();
             if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -4200,8 +4200,10 @@ function bindTimeInputs(){
             el.dataset.manual="0";
             el.removeAttribute("data-manual");
             el.value="";
+            delete el.dataset.prevOverride;
           }else{
             el.dataset.manual="1";
+            el.dataset.prevOverride=String(typed);
           }
         }else{
           if(!isEmpty) restoreRueckfahrtAuto(box);
@@ -4210,6 +4212,7 @@ function bindTimeInputs(){
               el.dataset.manual="0";
               el.removeAttribute("data-manual");
               el.value="";
+              delete el.dataset.prevOverride;
             }
             recalcTimes();
             if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -4226,8 +4229,10 @@ function bindTimeInputs(){
             el.dataset.manual="0";
             el.removeAttribute("data-manual");
             el.value="";
+            delete el.dataset.prevOverride;
           }else{
             el.dataset.manual="1";
+            el.dataset.prevOverride=String(typed);
           }
         }
 
@@ -4956,9 +4961,7 @@ function dayRouteGaps(){
       const b=box.querySelector(`[data-k="RZende${row}"]`);
       const pause=box.querySelector(`[data-k="PauseRZ${row}"]`);
       if(typeof filledTime!=="function" || !filledTime(a?.value) || !filledTime(b?.value)) return 0;
-      const span=Math.max(0, minutesBetween(a.value, b.value));
-      if(Number(d)>1) return span;
-      return Math.max(0, span-pauseMinutes(pause?.value||"0"));
+      return driveNettoFromClocks(a.value, b.value, pause?.value);
     };
     const need=(off, kmName, dir, kmLabel, timeLabel)=>{
       if(off) return;
@@ -5198,15 +5201,11 @@ for(let d=1;d<=dayBoxes.length;d++){
   if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const rt=outOv && String(outOv.value).trim()!==""
     ? Math.max(0,parseInt(outOv.value,10)||0)
-    : (d>1
-      ? Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value))
-      : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut));
+    : driveNettoFromClocks(q(`RZstart${a}`).value, q(`RZende${a}`).value, pauseOut);
   const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
   const rr=backOv && String(backOv.value).trim()!==""
     ? Math.max(0,parseInt(backOv.value,10)||0)
-    : (d>1
-      ? Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value))
-      : Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack));
+    : driveNettoFromClocks(q(`RZstart${b}`).value, q(`RZende${b}`).value, pauseBack);
   if(rt) setFit(form,`RZ${a}`,fmtMinPdf(rt),8);
   if(wt) setFit(form,`AZ${a}`,fmtMinPdf(wt),8);
   if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),8);
@@ -6474,7 +6473,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.86";
+  const APP_VERSION=window.SB_APP_VERSION||"4.87";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
