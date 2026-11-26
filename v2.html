@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.83">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.84">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.83</title>
+  <title>Servicebericht v4.84</title>
 <script>
-window.SB_APP_VERSION="4.83";
+window.SB_APP_VERSION="4.84";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -458,6 +458,8 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .page-jumps button svg{width:16px;height:16px;display:block}
 .page-jumps button span{white-space:nowrap}
 .page-jumps button:active{background:#0f2840}
+.page-jumps button.is-missing{background:#dc2626}
+.page-jumps button.is-missing:active{background:#b91c1c}
 @media (orientation:portrait){
   html.is-iphone .page-jumps{display:none}
   html.is-iphone main{padding-right:max(14px, calc((100% - 760px) / 2))}
@@ -1038,7 +1040,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.83</span>
+      <span id="appCreditVer" class="app-ver">v4.84</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1349,6 +1351,47 @@ select.is-nudge,input.is-nudge{
       }
       end.before(btn);
     });
+    paintDayJumps();
+  }
+  function clockFilled(v){ return /^\d{1,2}:\d{2}$/.test(String(v||"").trim()); }
+  function clockMinutes(a,b){
+    const p=function(s){ const m=String(s||"").split(":"); return (parseInt(m[0],10)||0)*60+(parseInt(m[1],10)||0); };
+    let n=p(b)-p(a);
+    if(n<0) n+=1440;
+    return n;
+  }
+  function dayJumpMissing(box){
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    if(!d) return false;
+    if(d>1 && box.getAttribute("data-day-active")!=="1") return false;
+    function drive(dir){
+      const row=dir==="out" ? d*2-1 : d*2;
+      const ov=box.querySelector(`[data-route-override="${dir}"]`);
+      if(ov && String(ov.value||"").trim()!=="") return Math.max(0, parseInt(ov.value,10)||0);
+      const a=box.querySelector(`[data-k="RZstart${row}"]`);
+      const b=box.querySelector(`[data-k="RZende${row}"]`);
+      if(!clockFilled(a&&a.value) || !clockFilled(b&&b.value)) return 0;
+      const span=clockMinutes(a.value, b.value);
+      if(d>1) return span;
+      const pause=parseInt((box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value,10)||0;
+      return Math.max(0, span-pause);
+    }
+    if(box.getAttribute("data-anfahrt-off")!=="1"){
+      const km=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+      if(!String((km&&km.value)||"").trim() || drive("out")<=0) return true;
+    }
+    if(box.getAttribute("data-rueckfahrt-off")!=="1"){
+      const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+      const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+      if(!String((km&&km.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
+    }
+    return false;
+  }
+  function paintDayJumps(){
+    nav.querySelectorAll("[data-jump-day]").forEach(btn=>{
+      const box=document.querySelector(`[data-daybox="${btn.getAttribute("data-jump-day")}"]`);
+      btn.classList.toggle("is-missing", !!(box && dayJumpMissing(box)));
+    });
   }
   window.syncDayJumps=syncDayJumps;
   function jump(id){
@@ -1391,8 +1434,10 @@ select.is-nudge,input.is-nudge{
   }
   syncDayJumps();
   const times=document.getElementById("times");
-  if(times && window.MutationObserver){
-    new MutationObserver(syncDayJumps).observe(times,{childList:true});
+  if(times){
+    times.addEventListener("input", paintDayJumps);
+    times.addEventListener("change", paintDayJumps);
+    if(window.MutationObserver) new MutationObserver(syncDayJumps).observe(times,{childList:true});
   }
   function fromEvent(ev){
     const el=buttonFrom(ev);
@@ -6397,7 +6442,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.83";
+  const APP_VERSION=window.SB_APP_VERSION||"4.84";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
