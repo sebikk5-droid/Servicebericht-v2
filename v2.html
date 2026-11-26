@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.53">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.54">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.53</title>
+  <title>Servicebericht v4.54</title>
 <script>
-window.SB_APP_VERSION="4.53";
+window.SB_APP_VERSION="4.54";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1017,7 +1017,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.53</span>
+      <span id="appCreditVer" class="app-ver">v4.54</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1365,7 +1365,7 @@ select.is-nudge,input.is-nudge{
 <div id="companyEditModal" aria-hidden="true">
   <div class="token-sheet">
     <h3 id="companyEditTitle">Kundendaten</h3>
-    <p class="muted" id="companyEditHint">Alle Daten der Kundenliste ändern. Neue Firma, Nr. und E-Mail weiter im Formular merken.</p>
+    <p class="muted" id="companyEditHint">Alle Daten der Kundenliste ändern, auch Kilometer und Reisezeit. Neue Firma, Nr. und E-Mail weiter im Formular merken.</p>
     <div class="route-grid">
       <div>
         <label for="companyEditName">Firma</label>
@@ -1384,6 +1384,16 @@ select.is-nudge,input.is-nudge{
       <div>
         <label for="companyEditCity">PLZ, Ort</label>
         <input id="companyEditCity" autocomplete="off" autocapitalize="words" spellcheck="false">
+      </div>
+    </div>
+    <div class="route-grid">
+      <div>
+        <label for="companyEditKm">Kilometer</label>
+        <input id="companyEditKm" inputmode="decimal" placeholder="z. B. 0 oder 85" autocomplete="off">
+      </div>
+      <div>
+        <label for="companyEditTime">Reisezeit</label>
+        <input id="companyEditTime" inputmode="decimal" placeholder="90 Min / 1:15 / 1,25 Std" autocomplete="off">
       </div>
     </div>
     <label>E-Mail</label>
@@ -3003,7 +3013,6 @@ function syncCompanySaveButton(){
   const label=$("customerRouteLabel");
   const name=String($("customerSearch")?.value||"").trim();
   const existing=name ? companyRecordByName(name) : null;
-  const incomplete=!!existing && companyRouteIncomplete(existing);
   // "Zur Kundenliste hinzufügen" only when the firm is not on the list at all.
   // E-Mail add/delete must not bring it back (firm may already exist as stub).
   if(btn){
@@ -3023,10 +3032,9 @@ function syncCompanySaveButton(){
       bar.hidden=false;
       if(label) label.textContent=formatListedRoute(existing);
       if(edit){
-        edit.hidden=false;
+        edit.hidden=true;
         edit.disabled=false;
-        edit.textContent=incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern";
-        edit.classList.toggle("is-pulse", incomplete);
+        edit.classList.remove("is-pulse");
       }
     }else{
       bar.hidden=true;
@@ -3322,6 +3330,7 @@ function replaceCompanyIdentity(list, oldKey, rec){
     kundennummer:rec&&rec.kundennummer!=null ? String(rec.kundennummer) : companyKundennummer(base),
     email:rec&&rec.email!=null ? String(rec.email) : String(base.email||"")
   });
+  if(rec && rec.notatki!=null) next.notatki=String(rec.notatki);
   if(oldIdx>=0 && oldK!==newK) arr.splice(oldIdx, 1);
   const exist=arr.findIndex(c=>companyNameKey(c)===newK);
   if(exist>=0) arr[exist]=Object.assign({}, arr[exist], next);
@@ -6101,7 +6110,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.53";
+  const APP_VERSION=window.SB_APP_VERSION||"4.54";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6947,6 +6956,12 @@ finally{ window.__pdfBuilding=false; }
     const formCity=String($("city")?.value||"").trim();
     streetEl.value=formStreet||parsed[0]||"";
     cityEl.value=formCity||parsed[1]||"";
+    const listR=typeof parseRoute==="function" ? parseRoute(rec) : {km:0, minutes:0};
+    const hasRoute=typeof companyHasListedRoute==="function" && companyHasListedRoute(rec);
+    const kmEdit=$("companyEditKm");
+    const timeEdit=$("companyEditTime");
+    if(kmEdit) kmEdit.value=hasRoute ? String(listR.km).replace(".",",") : "";
+    if(timeEdit) timeEdit.value=hasRoute ? String(Math.max(0, Math.round(Number(listR.minutes)||0))) : "";
     const fromFn=typeof window.getCustomerEmailList==="function" ? window.getCustomerEmailList() : [];
     companyEditEmails=uniqueEditEmails([].concat(fromFn, splitEditEmails(rec.email)));
     const addEl=$("companyEditEmailAdd");
@@ -6991,6 +7006,27 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
     const emails=uniqueEditEmails(fromRows);
+    const kmRaw=String($("companyEditKm")?.value||"").trim();
+    const timeRaw=String($("companyEditTime")?.value||"").trim();
+    let route=null;
+    if(kmRaw || timeRaw){
+      if(!kmRaw || !timeRaw){
+        if(err) err.textContent="Kilometer und Reisezeit eintragen (auch 0 km möglich).";
+        return null;
+      }
+      const km=parseFloat(kmRaw.replace(",","."));
+      const validTime=/^\d{1,2}:\d{2}$/.test(timeRaw) || Number.isFinite(parseFloat(timeRaw.replace(",",".")));
+      const minutes=typeof parseTravelToMinutes==="function" ? parseTravelToMinutes(timeRaw) : 0;
+      if(!Number.isFinite(km) || km<0){
+        if(err) err.textContent="Kilometer prüfen (0 km ist erlaubt).";
+        return null;
+      }
+      if(!validTime || minutes<0){
+        if(err) err.textContent="Reisezeit: 90 (Minuten), 1:15 oder 1,25 Stunden.";
+        return null;
+      }
+      route={km, minutes};
+    }
     return {
       firma:name,
       kundennummer:kundennummer,
@@ -6998,7 +7034,8 @@ finally{ window.__pdfBuilding=false; }
       city:city,
       adres:[street, city].filter(Boolean).join(", "),
       emails:emails,
-      email:emails.join("; ")
+      email:emails.join("; "),
+      route:route
     };
   }
   async function saveCompanyIdentity(){
@@ -7023,13 +7060,31 @@ finally{ window.__pdfBuilding=false; }
       const oldKey=companyEditOldKey;
       const newKey=edited.firma.toLowerCase();
       if(typeof replaceCompanyIdentity==="function"){
-        const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, {
+        const patch={
           firma:edited.firma,
           adres:edited.adres,
           kundennummer:edited.kundennummer,
           email:edited.email
-        });
+        };
+        if(edited.route && typeof formatRouteNote==="function")
+          patch.notatki=formatRouteNote(edited.route.km, edited.route.minutes);
+        const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, patch);
         if(typeof applyCompanies==="function") applyCompanies(local, edited.firma);
+      }
+      if(edited.route){
+        const day1=document.querySelector('[data-daybox="1"]');
+        const km1=document.querySelector('[data-k="Kilometer1"]');
+        const km2=document.querySelector('[data-k="Kilometer2"]');
+        if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
+          km1.value=edited.route.km; km1.dataset.kmManual="0";
+        }
+        if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
+          km2.value=edited.route.km; km2.dataset.kmManual="0";
+        }
+        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+        }
       }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
@@ -7070,7 +7125,7 @@ finally{ window.__pdfBuilding=false; }
     if(!edited) return;
     closeCompanyEdit(edited);
   });
-  ["companyEditName","companyEditNr","companyEditStreet","companyEditCity"].forEach(function(id){
+  ["companyEditName","companyEditNr","companyEditStreet","companyEditCity","companyEditKm","companyEditTime"].forEach(function(id){
     $(id)?.addEventListener("keydown",function(e){
       if(e.key!=="Enter") return;
       e.preventDefault();
