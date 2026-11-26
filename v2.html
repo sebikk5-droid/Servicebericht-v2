@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.08">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.09">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.08</title>
+  <title>Servicebericht v4.09</title>
 <script>
-window.SB_APP_VERSION="4.08";
+window.SB_APP_VERSION="4.09";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -850,8 +850,8 @@ select.is-nudge,input.is-nudge{
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
-#customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
-#customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
+#customerEmail{padding-right:36px;font-size:16px;min-height:42px;padding-top:11px;padding-bottom:11px}
+#customerEmailBox{flex:1 1 16em;min-width:min(100%, 16em);max-width:none}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
 #customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
 #customerEmailBox .combo-results{z-index:70}
@@ -996,7 +996,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.08</span>
+      <span id="appCreditVer" class="app-ver">v4.09</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6059,7 +6059,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.08";
+  const APP_VERSION=window.SB_APP_VERSION||"4.09";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
