@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.00">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.01">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.00</title>
+  <title>Servicebericht v4.01</title>
 <script>
-window.SB_APP_VERSION="4.00";
+window.SB_APP_VERSION="4.01";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -349,6 +349,17 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .addr-copy-wrap .grid{flex:1 1 auto;min-width:0}
 .addr-copy-wrap .email-copy-btn{margin:0 0 1px}
 .addr-copy-wrap .email-copy-btn svg{width:22px;height:22px}
+.kunde-align{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;
+  column-gap:10px;align-items:end;
+}
+.kunde-align .kunde-icon-btn{
+  width:46px;min-width:46px;height:46px;margin:0;border-radius:11px;
+}
+.kunde-align .kunde-icon-btn svg{width:22px;height:22px}
+.kunde-align .kunde-icon-slot{width:46px;height:46px}
+.kunde-align #date{min-height:46px;height:46px;width:100%;min-width:0;box-sizing:border-box}
+.kunde-align .blatt-row{grid-column:1 / span 2;margin-top:0}
 .email-pdf-btn{
   flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
@@ -950,7 +961,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.00</span>
+      <span id="appCreditVer" class="app-ver">v4.01</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -991,27 +1002,26 @@ select.is-nudge,input.is-nudge{
   <p id="customerRouteLabel">In der Liste: noch ohne km / Reisezeit</p>
   <button type="button" id="companyRouteEdit">km / Reisezeit ändern</button>
 </div>
-<div class="addr-copy-wrap">
-<div class="grid">
-<div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
-</div>
-<button type="button" id="addressMapsBtn" class="email-copy-btn" disabled aria-label="Adresse an Google Maps übergeben" title="Adresse an Google Maps übergeben">
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-</button>
-</div>
-<div class="grid">
-<div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
-<div class="blatt-row">
-  <div>
-    <label for="blattNr">Blatt</label>
-    <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+<div class="kunde-align">
+  <div><label>Straße</label><input id="street"></div>
+  <div><label>PLZ, Ort</label><input id="city"></div>
+  <button type="button" id="addressMapsBtn" class="email-copy-btn kunde-icon-btn" disabled aria-label="Adresse an Google Maps übergeben" title="Adresse an Google Maps übergeben">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+  </button>
+  <div><label>Ansprechpartner</label><input id="contact"></div>
+  <div><label>Einsatzdatum</label><input id="date" type="date"></div>
+  <span class="kunde-icon-slot" aria-hidden="true"></span>
+  <div class="blatt-row">
+    <div>
+      <label for="blattNr">Blatt</label>
+      <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+    </div>
+    <span class="blatt-von-word">von</span>
+    <div>
+      <label for="blattVon">Blättern</label>
+      <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+    </div>
   </div>
-  <span class="blatt-von-word">von</span>
-  <div>
-    <label for="blattVon">Blättern</label>
-    <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
-  </div>
-</div>
 </div>
 <div class="email-save-row">
   <div class="combo-box" id="customerEmailBox">
@@ -5836,7 +5846,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.00";
+  const APP_VERSION=window.SB_APP_VERSION||"4.01";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
