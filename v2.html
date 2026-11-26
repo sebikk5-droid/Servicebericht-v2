@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.84">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.85">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.84</title>
+  <title>Servicebericht v4.85</title>
 <script>
-window.SB_APP_VERSION="4.84";
+window.SB_APP_VERSION="4.85";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1040,7 +1040,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.84</span>
+      <span id="appCreditVer" class="app-ver">v4.85</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1791,13 +1791,13 @@ function clearListRouteForOvernight(d){
     el.dataset.overnightCleared="1";
     el.dataset.linked="0";
     if(k.startsWith("Kilometer")) el.dataset.kmManual="1";
-    el.classList.remove("km-check");
+    el.classList.add(el.tagName==="SELECT" ? "to-check" : "km-check");
   });
   box.querySelectorAll("[data-route-override]").forEach(el=>{
     el.value="";
     el.dataset.overnightCleared="1";
     el.dataset.manual="0";
-    el.classList.remove("km-check");
+    el.classList.add("km-check");
   });
   if(typeof recalcTimes==="function") recalcTimes();
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -1808,6 +1808,8 @@ function restoreListRouteAfterOvernight(d){
   if(!box || Number(d)<2) return;
   box.querySelectorAll("[data-overnight-cleared='1']").forEach(el=>{
     if(String(el.dataset.k||"").startsWith("Kilometer")) el.dataset.kmManual="0";
+    el.classList.remove("km-check");
+    el.classList.remove("to-check");
     delete el.dataset.overnightCleared;
   });
   if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d,{forceKm:true});
@@ -6442,7 +6444,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.84";
+  const APP_VERSION=window.SB_APP_VERSION||"4.85";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
