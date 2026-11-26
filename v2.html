@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.75">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.76">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.75</title>
+  <title>Servicebericht v4.76</title>
 <script>
-window.SB_APP_VERSION="4.75";
+window.SB_APP_VERSION="4.76";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1048,7 +1048,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.75</span>
+      <span id="appCreditVer" class="app-ver">v4.76</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1706,11 +1706,56 @@ function isoAddDays(iso,n){
   return isoDateLocal(d);
 }
 function dayBoxEl(d){return document.querySelector(`[data-daybox="${d}"]`);}
+function overnightOn(d){
+  const cb=document.querySelector(`[data-daybox="${d}"] [data-overnight-day]`);
+  return !!(cb && cb.checked);
+}
+function dayDropsListRoute(d){
+  return Number(d)>1 && overnightOn(Number(d)-1);
+}
+function clearListRouteForOvernight(d){
+  const box=dayBoxEl(d);
+  if(!box || Number(d)<2) return;
+  [`Kilometer${d*2-1}`,`Kilometer${d*2}`,`RZstart${d*2-1}`,`RZende${d*2-1}`,`RZstart${d*2}`,`RZende${d*2}`].forEach(k=>{
+    const el=box.querySelector(`[data-k="${k}"]`);
+    if(!el) return;
+    if(el.tagName==="SELECT") setClock(el,"");
+    else el.value="";
+    el.dataset.overnightCleared="1";
+    el.dataset.linked="0";
+    if(k.startsWith("Kilometer")) el.dataset.kmManual="1";
+    el.classList.remove("km-check");
+  });
+  box.querySelectorAll("[data-route-override]").forEach(el=>{
+    el.value="";
+    el.dataset.overnightCleared="1";
+    el.dataset.manual="0";
+    el.classList.remove("km-check");
+  });
+  if(typeof recalcTimes==="function") recalcTimes();
+  if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+}
+function restoreListRouteAfterOvernight(d){
+  const box=dayBoxEl(d);
+  if(!box || Number(d)<2) return;
+  box.querySelectorAll("[data-overnight-cleared='1']").forEach(el=>{
+    if(String(el.dataset.k||"").startsWith("Kilometer")) el.dataset.kmManual="0";
+    delete el.dataset.overnightCleared;
+  });
+  if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d,{forceKm:true});
+}
+function syncNextDayRoute(d){
+  const next=Number(d)+1;
+  if(!dayBoxEl(next)) return;
+  if(overnightOn(d)) clearListRouteForOvernight(next);
+  else restoreListRouteAfterOvernight(next);
+}
 function travelMinutesForDay(d,dir){
   const box=dayBoxEl(d);
   const ov=box?.querySelector(`[data-route-override="${dir}"]`);
   if(ov && String(ov.value).trim()!=="") return Math.max(0,parseInt(ov.value,10)||0);
-  if(Number(d)>1) return 0;
+  if(dayDropsListRoute(d)) return 0;
   const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   return r.minutes||0;
 }
@@ -1786,21 +1831,21 @@ function applyListKmIfNeeded(el, km, opts){
   el.dataset.kmManual="0";
 }
 function syncKmFieldsForDay(d, opts){
-  if(Number(d)>1) return;
   const box=dayBoxEl(d);
   if(!box) return;
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
   const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
+  const keepListKm=Number(d)>1 && !dayDropsListRoute(d);
   if(km1 && document.activeElement!==km1){
-    if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km, opts);
+    if(hasAnfahrtAnkunft(box,d) || keepListKm) applyListKmIfNeeded(km1, r.km, opts);
     else if(!kmFieldManual(km1)){
       km1.value="";
       km1.classList.remove("km-check");
     }
   }
   if(km2 && document.activeElement!==km2){
-    if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km, opts);
+    if(hasRueckfahrtClock(box,d) || keepListKm) applyListKmIfNeeded(km2, r.km, opts);
     else if(!kmFieldManual(km2)){
       km2.value="";
       km2.classList.remove("km-check");
@@ -2055,10 +2100,8 @@ function initQuarterTimeSelects(root=document){
 }
 function markKmToCheck(box){
   if(!box) return;
-  box.querySelectorAll('input[data-k^="Kilometer"]').forEach(el=>{
-    el.classList.add("km-check");
-  });
-  box.querySelectorAll("input[data-route-override]").forEach(el=>{
+  box.querySelectorAll('input[data-k^="Kilometer"], input[data-route-override]').forEach(el=>{
+    if(String(el.value||"").trim()!=="") return;
     el.classList.add("km-check");
   });
 }
@@ -2145,6 +2188,7 @@ function answerOvernightAsk(d, yes){
   if(!wrap || !wrap.classList.contains("is-ask")) return;
   wrap.classList.remove("is-ask");
   if(cb) cb.checked=!!yes;
+  syncNextDayRoute(d);
   if(yes) nudgeAfternoonReisezeit(d);
 }
 const RETURN_PAUSE_DEFAULT=45;
@@ -2607,7 +2651,7 @@ document.getElementById("times").addEventListener("change",function(e){
   const a1=field("RZstart",outRow), a2=field("RZende",outRow);
   const b1=field("RZstart",backRow), b2=field("RZende",backRow);
   const backSpan=rueckfahrtClockSpan(d);
-  const free=Number(d)>1;
+  const free=dayDropsListRoute(d);
 
   if(el.value===""){
     el.dataset.manual="0";
@@ -2697,10 +2741,14 @@ document.getElementById("times").addEventListener("click",function(e){
 document.getElementById("times").addEventListener("change",function(e){
   const cb=e.target.closest("[data-overnight-day]");
   if(!cb || cb!==e.target) return;
-  const wrap=cb.closest(".overnight-end");
-  if(!wrap || !wrap.classList.contains("is-ask") || !cb.checked) return;
   const d=parseInt(cb.getAttribute("data-overnight-day"),10);
-  if(d) answerOvernightAsk(d, true);
+  if(!d) return;
+  const wrap=cb.closest(".overnight-end");
+  if(wrap && wrap.classList.contains("is-ask")){
+    if(cb.checked) answerOvernightAsk(d, true);
+    return;
+  }
+  syncNextDayRoute(d);
 });
 document.getElementById("times").addEventListener("focusin",function(e){
   const mark=e.target.closest("[data-overnight-mark]");
@@ -3545,8 +3593,8 @@ function applyCustomerRouteDay1(opts){
   applyCustomerRouteDay(1, opts);
 }
 function applyCustomerRouteDay(d, opts){
-  if(Number(d)>1){
-    if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+  if(dayDropsListRoute(d)){
+    clearListRouteForOvernight(d);
     return;
   }
   const r=customerRoute();
@@ -4124,7 +4172,7 @@ function bindTimeInputs(){
         const a1=field("RZstart",outRow),a2=field("RZende",outRow);
         const b1=field("RZstart",backRow),b2=field("RZende",backRow);
         if(row===outRow && a1&&a2&&el.value){
-          const free=Number(d)>1;
+          const free=dayDropsListRoute(d);
           if(el===a1 && (!free || !filledTime(a2.value))) setClock(a2,addMinutesToTime(el.value,outMin));
           else if(el===a2 && (!free || !filledTime(a1.value))) setClock(a1,addMinutesToTime(el.value,-outMin));
           const az=field("AZstart",outRow);
@@ -4132,7 +4180,7 @@ function bindTimeInputs(){
         }
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          const free=Number(d)>1;
+          const free=dayDropsListRoute(d);
           if(duration && el===b1 && (!free || !filledTime(b2.value) || b2.dataset.linked==="1")){
             setClock(b2,addMinutesToTime(el.value,duration));
             if(free) b2.dataset.linked="1";
@@ -6345,7 +6393,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.75";
+  const APP_VERSION=window.SB_APP_VERSION||"4.76";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
