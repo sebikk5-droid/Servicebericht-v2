@@ -4859,7 +4859,20 @@ finally{ window.__pdfBuilding=false; }
 
   function isIosDevice(){
     const ua=navigator.userAgent||"";
-    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+    if(/iPad|iPhone|iPod/.test(ua)) return true;
+    if(navigator.standalone===true) return true;
+    return (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  }
+  // Home-screen app on iPad: no folder picker. Speichern must open Share (Dateien/Drive).
+  function historyUsesShareSheet(){
+    if(isIosDevice()) return true;
+    if(navigator.standalone===true) return true;
+    try{
+      if(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches
+        && !window.showDirectoryPicker && navigator.share)
+        return true;
+    }catch(e){}
+    return !window.showDirectoryPicker && !!navigator.share && (navigator.maxTouchPoints||0)>1;
   }
   function reportPayload(item){
     const datePart=(historyDate(item)||formatDeDate(new Date().toISOString())||"Bericht").replace(/[\\/:*?"<>|]/g,"_");
@@ -5019,7 +5032,7 @@ finally{ window.__pdfBuilding=false; }
     const btn=$("historyFolder");
     if(!btn) return;
     // iPad/Safari cannot remember a folder. Hide Ordner; Speichern opens Dateien.
-    if(isIosDevice() || !window.showDirectoryPicker){
+    if(historyUsesShareSheet() || !window.showDirectoryPicker){
       btn.hidden=true;
       return;
     }
@@ -5078,8 +5091,8 @@ finally{ window.__pdfBuilding=false; }
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
 
-    // iPad: no remembered folder. Share immediately so Dateien can pick a folder.
-    if(isIosDevice()){
+    // iPad app: no remembered folder. Share immediately so Dateien/Drive can pick a folder.
+    if(historyUsesShareSheet()){
       const shared=await shareHistoryFile(textFile.file)
         || await shareHistoryFile(jsonFile.file);
       if(shared){
@@ -5248,16 +5261,18 @@ finally{ window.__pdfBuilding=false; }
         list.unshift(item);
         setSelectedHistory(0, item);
       }
-      // iPhone/iPad: Share (Dateien/Drive) MUST run before any await,
-      // or Safari drops the tap and Drive never gets the file.
+      // iPad-App: Share (Dateien/Drive) MUST run before any await,
+      // or the Home-screen app drops the tap and Drive never gets the file.
       let fileOk=false;
       let fileAbort=false;
-      if(isIosDevice() && !opts.skipFile){
+      if(historyUsesShareSheet() && !opts.skipFile){
         try{
           const textFile=reportFileFromItem(item,"text/plain");
-          const jsonFile=reportFileFromItem(item,"application/json");
-          fileOk=await shareHistoryFile(textFile.file)
-            || await shareHistoryFile(jsonFile.file);
+          fileOk=await shareHistoryFile(textFile.file);
+          if(!fileOk){
+            const jsonFile=reportFileFromItem(item,"application/json");
+            fileOk=await shareHistoryFile(jsonFile.file);
+          }
         }catch(e){
           if(e && e.name==="AbortError") fileAbort=true;
         }
@@ -5267,15 +5282,15 @@ finally{ window.__pdfBuilding=false; }
       showHistoryActionOk("ok");
       if(opts.skipFile) return inApp;
 
-      if(isIosDevice()){
+      if(historyUsesShareSheet()){
         if(fileOk){
           $("status").textContent=navigator.onLine===false
-            ? "In der Historie gespeichert. Drive braucht Internet – in Dateien lokal sichern."
+            ? "In der Historie gespeichert. Drive braucht Internet – in Dateien „Auf meinem iPad“."
             : "In der Historie gespeichert. Datei an Dateien/Drive übergeben.";
         }else if(fileAbort){
-          $("status").textContent="In der Historie auf diesem Gerät. Drive/Dateien nicht gesichert.";
+          $("status").textContent="In der Historie auf dem iPad. Drive/Dateien nicht gesichert.";
         }else{
-          $("status").textContent="In der Historie auf diesem Gerät. Datei nicht in Drive – Speichern noch einmal.";
+          $("status").textContent="In der Historie auf dem iPad. Datei nicht in Drive – Speichern noch einmal.";
         }
         return inApp||fileOk;
       }
