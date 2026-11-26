@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.55">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.56">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.55</title>
+  <title>Servicebericht v4.56</title>
 <script>
-window.SB_APP_VERSION="4.55";
+window.SB_APP_VERSION="4.56";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.55</span>
+      <span id="appCreditVer" class="app-ver">v4.56</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1310,7 +1310,7 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="pdfMissingModal" aria-hidden="true">
   <div class="token-sheet">
-    <h3>Auswahl fehlt</h3>
+    <h3 id="pdfMissingTitle">Auswahl fehlt</h3>
     <p class="muted" id="pdfMissingHint">Betriebsbereitschaft und Techniker sind nicht gewählt. Trotzdem PDF erstellen?</p>
     <div class="email-actions">
       <button type="button" class="clear" id="pdfMissingNo">Nein</button>
@@ -1590,9 +1590,11 @@ function isoAddDays(iso,n){
 function dayBoxEl(d){return document.querySelector(`[data-daybox="${d}"]`);}
 function travelMinutesForDay(d,dir){
   const box=dayBoxEl(d);
-  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   const ov=box?.querySelector(`[data-route-override="${dir}"]`);
   if(ov && String(ov.value).trim()!=="") return Math.max(0,parseInt(ov.value,10)||0);
+  // Tag 2+ bleibt leer, bis km und Reisezeit von Hand eingetragen sind.
+  if(Number(d)>1) return 0;
+  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   return r.minutes||0;
 }
 function rueckfahrtPauseMin(d){
@@ -1664,6 +1666,7 @@ function applyListKmIfNeeded(el, km, opts){
   el.dataset.kmManual="0";
 }
 function syncKmFieldsForDay(d, opts){
+  if(Number(d)>1) return;
   const box=dayBoxEl(d);
   if(!box) return;
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
@@ -1704,6 +1707,10 @@ function updateRouteInfo(d){
   }
   if(skipBack){
     info.textContent="Rückfahrt auf 0. Anfahrt und Arbeitszeit bleiben.";
+    return;
+  }
+  if(Number(d)>1){
+    info.textContent="km und Reisezeit für diesen Tag manuell eintragen.";
     return;
   }
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
@@ -3397,6 +3404,11 @@ function applyCustomerRouteDay1(opts){
   applyCustomerRouteDay(1, opts);
 }
 function applyCustomerRouteDay(d, opts){
+  if(Number(d)>1){
+    if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+    if(typeof recalcTimes==="function") recalcTimes({skipKmSync:true});
+    return;
+  }
   const r=customerRoute();
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
@@ -4645,6 +4657,29 @@ function openPdfKindSheet(){
   go.click();
 }
 
+function dayRouteGaps(){
+  const gaps=[];
+  const days=Math.max(1, Number(visibleDays)||1);
+  for(let d=1;d<=days;d++){
+    const box=typeof dayBoxEl==="function"?dayBoxEl(d):null;
+    if(!box) continue;
+    const bits=[];
+    const pair=(off, kmName, startName, endName, override, kmLabel, timeLabel)=>{
+      if(off) return;
+      const km=box.querySelector(`[data-k="${kmName}"]`);
+      const a=box.querySelector(`[data-k="${startName}"]`);
+      const b=box.querySelector(`[data-k="${endName}"]`);
+      const ov=box.querySelector(`[data-route-override="${override}"]`);
+      if(!String(km?.value??"").trim()) bits.push(kmLabel);
+      const clocks=typeof filledTime==="function" && filledTime(a?.value) && filledTime(b?.value);
+      if(!clocks && !String(ov?.value??"").trim()) bits.push(timeLabel);
+    };
+    pair(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "RZstart"+(d*2-1), "RZende"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
+    pair(typeof rueckfahrtOff==="function" && rueckfahrtOff(box), "Kilometer"+(d*2), "RZstart"+(d*2), "RZende"+(d*2), "back", "km Rückfahrt", "Reisezeit Rückfahrt");
+    if(bits.length) gaps.push("Tag "+d+": "+bits.join(", "));
+  }
+  return gaps;
+}
 function pdfMissingChoices(){
   const miss=[];
   if(!document.querySelector('#choices input[name="betriebs"]:checked'))
@@ -4675,6 +4710,8 @@ function confirmPdfMissingChoices(){
   const miss=pdfMissingChoices();
   if(!miss.length) return Promise.resolve(true);
   const hint=$("pdfMissingHint");
+  const title=$("pdfMissingTitle");
+  if(title) title.textContent="Auswahl fehlt";
   if(hint) hint.textContent=pdfMissingConfirmText(miss);
   const modal=$("pdfMissingModal");
   if(!modal){
@@ -4687,6 +4724,23 @@ function confirmPdfMissingChoices(){
   return new Promise(resolve=>{ pdfMissingWait=resolve; });
 }
 window.confirmPdfMissingChoices=confirmPdfMissingChoices;
+function confirmEmailRouteGaps(){
+  const gaps=dayRouteGaps();
+  if(!gaps.length) return Promise.resolve(true);
+  const hint=$("pdfMissingHint");
+  const title=$("pdfMissingTitle");
+  if(title) title.textContent="km / Reisezeit fehlt";
+  const text=gaps.join(". ")+". Trotzdem E-Mail senden?";
+  if(hint) hint.textContent=text;
+  const modal=$("pdfMissingModal");
+  if(!modal) return Promise.resolve(window.confirm(text));
+  if(pdfMissingWait)
+    return new Promise(r=>{ const p=pdfMissingWait; pdfMissingWait=ok=>{ p(ok); r(ok); }; });
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden","false");
+  return new Promise(resolve=>{ pdfMissingWait=resolve; });
+}
+window.confirmEmailRouteGaps=confirmEmailRouteGaps;
 $("pdfMissingNo")?.addEventListener("click",()=>closePdfMissingSheet(false));
 $("pdfMissingYes")?.addEventListener("click",()=>closePdfMissingSheet(true));
 $("pdfMissingModal")?.addEventListener("click",e=>{
@@ -6111,7 +6165,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.55";
+  const APP_VERSION=window.SB_APP_VERSION||"4.56";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8850,18 +8904,24 @@ finally{ window.__pdfBuilding=false; }
   }
   function bindPdfEmailUi(){
     $("emailPdfBtn")?.addEventListener("click",()=>{
-      const email=customerPdfEmail();
-      if(email) copyTextNow(email);
-      setStatus(email
-        ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
-        : "PDF wird erstellt…");
-      window.ensurePdfForCurrentForm().then(ok=>{
-        if(!ok){
-          setStatus("PDF konnte nicht erstellt werden.");
-          return;
-        }
+      const ask=typeof window.confirmEmailRouteGaps==="function"
+        ? window.confirmEmailRouteGaps()
+        : Promise.resolve(true);
+      ask.then(function(ok){
+        if(!ok) return;
+        const email=customerPdfEmail();
         if(email) copyTextNow(email);
-        offerHistorySaveBeforeEmail();
+        setStatus(email
+          ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
+          : "PDF wird erstellt…");
+        window.ensurePdfForCurrentForm().then(ready=>{
+          if(!ready){
+            setStatus("PDF konnte nicht erstellt werden.");
+            return;
+          }
+          if(email) copyTextNow(email);
+          offerHistorySaveBeforeEmail();
+        });
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
