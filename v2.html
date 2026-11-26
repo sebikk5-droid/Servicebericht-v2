@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.88">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.89">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,18 +14,19 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.88</title>
+  <title>Servicebericht v4.89</title>
 <script>
-window.SB_APP_VERSION="4.88";
-/** Kurznotiz beim Start: was sich gegenüber der vorherigen Arbeitsversion / GitHub geändert hat. */
+window.SB_APP_VERSION="4.89";
+/** Kurznotiz beim Start: neue Optionen für den Nutzer (nicht Technik-/Bugfix-Text). */
 window.SB_RELEASE_NOTES=[
-  {v:"4.88", items:[
-    "Beim Start: Hinweis, was sich gegenüber GitHub (main) geändert hat.",
-    "Tag 2: Reisezeit netto wie Tag 1 – Pause wird abgezogen (PDF nicht mehr 2:15 statt 1:30).",
-    "Reisezeit ändern leeren stellt die Listenzeit wieder her (kein Rest wie ~6 Min)."
-  ]},
-  {v:"4.86", items:[
-    "Pause Rückfahrt hat eigenes Gelb; × stellt gelbe Felder und roten Tag-Sprung wieder her."
+  {v:"4.89", items:[
+    "Seitliche Sprungtasten: Anfang, Text (Bemerkungen), Ende und Tag 1 / Tag 2 … (iPad; iPhone nur Querformat).",
+    "Feld Stau neben Pause und Reisezeit ändern (Anfahrt und Rückfahrt).",
+    "Reisezeit netto steht rechts in derselben Zeile.",
+    "Gelbe Markierung bei leeren km/Zeiten (z. B. nach Übernachtung oder nach ×).",
+    "Pause Rückfahrt hat eine eigene gelbe Markierung.",
+    "Roter Tag-Sprung, wenn am Tag noch km oder Reisezeit fehlen.",
+    "Nächster Tag behält km/Zeit aus der Kundenliste – bei Übernachtungskosten werden sie geleert."
   ]}
 ];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -204,12 +205,12 @@ window.sbReloadHeld=function(){
     if(!modal||!meta||!list||!items.length) return;
     const local=window.SB_APP_VERSION||"";
     meta.textContent=githubVer
-      ? ("Arbeitsversion v"+local+" · auf GitHub (main): v"+githubVer)
-      : ("Arbeitsversion v"+local+" · GitHub-Version nicht geladen");
+      ? ("Diese Arbeitsversion v"+local+" · auf GitHub (main) aktuell: v"+githubVer)
+      : ("Diese Arbeitsversion v"+local+" · GitHub-Version nicht geladen");
     list.innerHTML="";
     items.forEach(function(it){
       const li=document.createElement("li");
-      li.textContent=(it.v?"v"+it.v+": ":"")+it.text;
+      li.textContent=it.text;
       list.appendChild(li);
     });
     modal.classList.add("is-open");
@@ -1147,7 +1148,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.88</span>
+      <span id="appCreditVer" class="app-ver">v4.89</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1606,7 +1607,7 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="whatsNewModal" aria-hidden="true">
   <div class="token-sheet" role="dialog" aria-labelledby="whatsNewTitle" aria-describedby="whatsNewMeta">
-    <h3 id="whatsNewTitle">Was hat sich geändert?</h3>
+    <h3 id="whatsNewTitle">Neue Optionen</h3>
     <p class="whats-new-meta" id="whatsNewMeta"></p>
     <ul class="whats-new-list" id="whatsNewList"></ul>
     <div class="email-actions">
@@ -6586,7 +6587,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.88";
+  const APP_VERSION=window.SB_APP_VERSION||"4.89";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
