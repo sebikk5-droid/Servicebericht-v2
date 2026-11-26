@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.60">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.61">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.60</title>
+  <title>Servicebericht v4.61</title>
 <script>
-window.SB_APP_VERSION="4.60";
+window.SB_APP_VERSION="4.61";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.60</span>
+      <span id="appCreditVer" class="app-ver">v4.61</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6159,7 +6159,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.60";
+  const APP_VERSION=window.SB_APP_VERSION||"4.61";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7148,6 +7148,8 @@ finally{ window.__pdfBuilding=false; }
         if(typeof markCompanyRemoved==="function") markCompanyRemoved(oldKey);
         if(typeof window.renameCustomerEmailKey==="function")
           window.renameCustomerEmailKey(oldKey, edited.firma);
+        if(typeof window.renameCustomerMachines==="function")
+          window.renameCustomerMachines(oldKey, edited.firma);
       }
       if(typeof window.replaceCustomerEmailList==="function")
         window.replaceCustomerEmailList(edited.firma, edited.emails);
@@ -9087,7 +9089,8 @@ finally{ window.__pdfBuilding=false; }
     try{
       const o=JSON.parse(localStorage.getItem(KEY)||"{}");
       const map=o&&typeof o==="object"&&!Array.isArray(o)?o:{};
-      machinesCache=collapseMachineMap(applyMachineTombs(map));
+      const renamed=applyMachineRenames(map);
+      machinesCache=collapseMachineMap(applyMachineTombs(renamed));
       try{ localStorage.setItem(KEY, JSON.stringify(machinesCache)); }catch(e){}
       return machinesCache;
     }
@@ -9105,7 +9108,76 @@ finally{ window.__pdfBuilding=false; }
   function customerKey(){
     return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
   }
+  const MACHINE_RENAME_KEY="servicebericht_customer_machines_renames_v1";
+  function readMachineRenames(){
+    try{
+      const x=JSON.parse(localStorage.getItem(MACHINE_RENAME_KEY)||"[]");
+      if(!Array.isArray(x)) return [];
+      return x.map(r=>({
+        from:String(r&&r.from||"").trim().toLowerCase(),
+        to:String(r&&r.to||"").trim().toLowerCase()
+      })).filter(r=>r.from && r.to && r.from!==r.to);
+    }catch(e){ return []; }
+  }
+  function writeMachineRenames(list){
+    const uniq=[];
+    (list||[]).forEach(r=>{
+      if(!r || !r.from || !r.to || r.from===r.to) return;
+      if(!uniq.some(x=>x.from===r.from)) uniq.push({from:r.from, to:r.to});
+    });
+    try{
+      if(!uniq.length) localStorage.removeItem(MACHINE_RENAME_KEY);
+      else localStorage.setItem(MACHINE_RENAME_KEY, JSON.stringify(uniq));
+    }catch(e){}
+  }
+  function markMachineRename(oldName, newName){
+    const from=String(oldName||"").trim().toLowerCase();
+    const to=String(newName||"").trim().toLowerCase();
+    if(!from || !to || from===to) return;
+    let list=readMachineRenames().filter(r=>r.from!==from);
+    list=list.map(r=>r.to===from ? {from:r.from, to:to} : r).filter(r=>r.from!==r.to);
+    if(!list.some(r=>r.from===from)) list.push({from:from, to:to});
+    writeMachineRenames(list);
+  }
+  function applyMachineRenames(map){
+    const out=Object.assign({}, map||{});
+    readMachineRenames().forEach(r=>{
+      if(!Array.isArray(out[r.from]) || !out[r.from].length) return;
+      out[r.to]=collapseList([].concat(out[r.to]||[], out[r.from]));
+      delete out[r.from];
+    });
+    return out;
+  }
+  function renameCustomerMachines(oldName, newName){
+    const from=String(oldName||"").trim().toLowerCase();
+    const to=String(newName||"").trim().toLowerCase();
+    if(!from || !to || from===to) return false;
+    markMachineRename(from, to);
+    const all=loadAll();
+    const moved=applyMachineRenames(all);
+    const changed=JSON.stringify(moved)!==JSON.stringify(all);
+    if(changed) saveAll(moved);
+    saveTombs(loadTombs().map(t=>t&&t.k===from?Object.assign({}, t, {k:to}):t));
+    if(changed || (Array.isArray(loadAll()[to]) && loadAll()[to].length))
+      pushMachines("Firma umbenannt").catch(function(){});
+    return changed;
+  }
+  function maybeAdoptRenamedMachines(){
+    const to=customerKey();
+    if(!to) return false;
+    const all=loadAll();
+    if(Array.isArray(all[to]) && all[to].length) return false;
+    const removed=typeof readCompaniesRemoved==="function" ? readCompaniesRemoved() : [];
+    const names=new Set(Array.isArray(companies)
+      ? companies.map(c=>typeof companyNameKey==="function"?companyNameKey(c):"")
+      : []);
+    const orphans=removed.filter(k=>k && k!==to && !names.has(k) && Array.isArray(all[k]) && all[k].length);
+    if(orphans.length!==1) return false;
+    return renameCustomerMachines(orphans[0], to);
+  }
+  window.renameCustomerMachines=renameCustomerMachines;
   function listForCustomer(){
+    maybeAdoptRenamedMachines();
     const k=customerKey();
     if(!k) return [];
     const all=loadAll();
@@ -9526,7 +9598,7 @@ finally{ window.__pdfBuilding=false; }
         const got=await window.sbLists.pullFile("machines");
         remote=window.sbLists.asMap(got.data);
       }
-      const merged=applyMachineTombs(mergeMachineMaps(loadAll(), remote));
+      const merged=applyMachineRenames(applyMachineTombs(mergeMachineMaps(loadAll(), remote)));
       saveAll(merged);
       return loadAll();
     }catch(e){
@@ -9537,7 +9609,7 @@ finally{ window.__pdfBuilding=false; }
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote){
       const localNow=loadAll();
-      const next=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), localNow));
+      const next=applyMachineRenames(applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), localNow)));
       if(removeMatch && removeMatch.k && Array.isArray(next[removeMatch.k])){
         const keep=Array.isArray(localNow[removeMatch.k])?localNow[removeMatch.k]:[];
         next[removeMatch.k]=next[removeMatch.k].filter(function(m){
@@ -9836,6 +9908,7 @@ finally{ window.__pdfBuilding=false; }
   }
   window.refreshCustomerMachines=async function(){
     await pullMachines();
+    maybeAdoptRenamedMachines();
     syncComboClears();
     syncMachineSaveUi();
   };
