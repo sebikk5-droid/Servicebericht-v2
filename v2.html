@@ -4883,7 +4883,9 @@ finally{ window.__pdfBuilding=false; }
   }
   function reportFileFromItem(item, mime){
     const {filename, json}=reportPayload(item);
-    return {filename, file:new File([json],filename,{type:mime||"application/json"})};
+    let name=filename;
+    if(mime==="text/plain" && /\.json$/i.test(name)) name=name.replace(/\.json$/i,".txt");
+    return {filename:name, file:new File([json],name,{type:mime||"application/json"})};
   }
   function downloadReportFile(file, filename){
     const url=URL.createObjectURL(file);
@@ -5051,19 +5053,25 @@ finally{ window.__pdfBuilding=false; }
   }
   async function shareHistoryFile(file){
     if(!navigator.share || !file) return false;
-    const data={files:[file]};
-    try{
-      if(typeof navigator.canShare==="function"){
-        let ok=true;
-        try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
-        if(!ok) return false;
+    const payloads=[
+      {files:[file], title:file.name||"Servicebericht"},
+      {files:[file]}
+    ];
+    for(let i=0;i<payloads.length;i++){
+      const data=payloads[i];
+      try{
+        if(typeof navigator.canShare==="function"){
+          let ok=true;
+          try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+          if(!ok) continue;
+        }
+        await navigator.share(data);
+        return true;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
       }
-      await navigator.share(data);
-      return true;
-    }catch(e){
-      if(e && e.name==="AbortError") throw e;
-      return false;
     }
+    return false;
   }
   async function exportReportFile(item){
     const {filename, json}=reportPayload(item);
@@ -5240,31 +5248,57 @@ finally{ window.__pdfBuilding=false; }
         list.unshift(item);
         setSelectedHistory(0, item);
       }
-      const shareNow=isIosDevice() && !opts.skipFile;
-      const inApp=await saveHistory(list, {deferIdb:shareNow});
+      // iPhone/iPad: Share (Dateien/Drive) MUST run before any await,
+      // or Safari drops the tap and Drive never gets the file.
+      let fileOk=false;
+      let fileAbort=false;
+      if(isIosDevice() && !opts.skipFile){
+        try{
+          const textFile=reportFileFromItem(item,"text/plain");
+          const jsonFile=reportFileFromItem(item,"application/json");
+          fileOk=await shareHistoryFile(textFile.file)
+            || await shareHistoryFile(jsonFile.file);
+        }catch(e){
+          if(e && e.name==="AbortError") fileAbort=true;
+        }
+      }
+
+      const inApp=await saveHistory(list);
       showHistoryActionOk("ok");
       if(opts.skipFile) return inApp;
-      let fileOk=false;
+
+      if(isIosDevice()){
+        if(fileOk){
+          $("status").textContent=navigator.onLine===false
+            ? "In der Historie gespeichert. Drive braucht Internet – in Dateien lokal sichern."
+            : "In der Historie gespeichert. Datei an Dateien/Drive übergeben.";
+        }else if(fileAbort){
+          $("status").textContent="In der Historie auf diesem Gerät. Drive/Dateien nicht gesichert.";
+        }else{
+          $("status").textContent="In der Historie auf diesem Gerät. Datei nicht in Drive – Speichern noch einmal.";
+        }
+        return inApp||fileOk;
+      }
+
+      let fileOkDesktop=false;
       try{
         await exportReportFile(item);
-        fileOk=true;
+        fileOkDesktop=true;
       }catch(e){
         if(e?.name==="AbortError"){
-          if(shareNow) await persistHistoryIdb(historyMem);
-          $("status").textContent="In der Historie auf diesem Gerät gespeichert (ohne Internet). Datei nicht gesichert.";
+          $("status").textContent="In der Historie auf diesem Gerät. Datei nicht gesichert.";
           return inApp;
         }
         try{
           const {filename, file}=reportFileFromItem(item);
           downloadReportFile(file, filename);
-          fileOk=true;
+          fileOkDesktop=true;
         }catch(_e){
           if(inApp) $("status").textContent="In der Historie auf diesem Gerät gespeichert. Datei fehlgeschlagen.";
           else alert("Speicher auf diesem Gerät ist voll oder blockiert.");
         }
       }
-      if(shareNow) await persistHistoryIdb(historyMem);
-      if(inApp || fileOk) return inApp||fileOk;
+      if(inApp || fileOkDesktop) return inApp||fileOkDesktop;
       alert("Speicher auf diesem Gerät ist voll oder blockiert.");
       return false;
     }
