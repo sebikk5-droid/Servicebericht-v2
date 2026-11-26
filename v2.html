@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.67">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.68">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.67</title>
+  <title>Servicebericht v4.68</title>
 <script>
-window.SB_APP_VERSION="4.67";
+window.SB_APP_VERSION="4.68";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1031,7 +1031,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.67</span>
+      <span id="appCreditVer" class="app-ver">v4.68</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1170,7 +1170,7 @@ select.is-nudge,input.is-nudge{
 <p id="machineSaveHint" hidden>Ohne Nr. nicht möglich. Zuerst die Maschinennummer eintragen.</p>
 </section>
 
-<section class="card"><h2>Bemerkungen</h2>
+<section class="card" id="remarksCard"><h2>Bemerkungen</h2>
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
@@ -1286,10 +1286,14 @@ select.is-nudge,input.is-nudge{
     <div class="email-copy-list" id="emailCopyList"></div>
   </div>
 </div>
-<nav class="page-jumps" aria-label="Seitenanfang und Seitenende">
+<nav class="page-jumps" aria-label="Seitenanfang, Bemerkungen und Seitenende">
   <button type="button" id="jumpPageTop" aria-label="Zum Anfang">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Anfang</span>
+  </button>
+  <button type="button" id="jumpPageText" aria-label="Zu den Bemerkungen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <span>Text</span>
   </button>
   <button type="button" id="jumpPageEnd" aria-label="Zum Ende">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1299,16 +1303,55 @@ select.is-nudge,input.is-nudge{
 <script>
 (function(){
   const main=document.querySelector("main");
-  const topBtn=document.getElementById("jumpPageTop");
-  const endBtn=document.getElementById("jumpPageEnd");
-  if(!main||!topBtn||!endBtn) return;
-  function jump(toEnd){
-    const y=toEnd?main.scrollHeight:0;
+  const nav=document.querySelector(".page-jumps");
+  if(!main||!nav) return;
+  let lock=0;
+  function targetY(id){
+    if(id==="jumpPageEnd") return main.scrollHeight;
+    if(id==="jumpPageText"){
+      const card=document.getElementById("remarksCard")||document.getElementById("remarks");
+      if(!card) return 0;
+      const y=card.getBoundingClientRect().top-main.getBoundingClientRect().top+main.scrollTop;
+      return Math.max(0, y-8);
+    }
+    return 0;
+  }
+  function jump(id){
+    const now=Date.now();
+    if(now-lock<400) return;
+    lock=now;
+    const y=targetY(id);
+    const prev=main.style.overflowY;
+    main.style.overflowY="hidden";
+    main.scrollTop=y;
+    main.style.overflowY=prev;
     try{ main.scrollTo(0, y); }catch(e){}
     main.scrollTop=y;
+    requestAnimationFrame(function(){
+      try{ main.scrollTo(0, y); }catch(e){}
+      main.scrollTop=y;
+    });
   }
-  topBtn.addEventListener("click", function(ev){ ev.preventDefault(); jump(false); });
-  endBtn.addEventListener("click", function(ev){ ev.preventDefault(); jump(true); });
+  function buttonFrom(ev){
+    return ev.target&&ev.target.closest?ev.target.closest("#jumpPageTop,#jumpPageText,#jumpPageEnd"):null;
+  }
+  function fromEvent(ev){
+    const el=buttonFrom(ev);
+    if(!el) return;
+    if(ev.cancelable) ev.preventDefault();
+    jump(el.id);
+  }
+  window.addEventListener("touchstart", fromEvent, {capture:true, passive:false});
+  window.addEventListener("pointerdown", function(ev){
+    if(ev.pointerType==="touch") return;
+    fromEvent(ev);
+  }, true);
+  nav.addEventListener("click", function(ev){
+    const el=buttonFrom(ev);
+    if(!el) return;
+    ev.preventDefault();
+    jump(el.id);
+  });
 })();
 </script>
 <div id="pdfEmailModal" aria-hidden="true">
@@ -6249,7 +6292,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.67";
+  const APP_VERSION=window.SB_APP_VERSION||"4.68";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
