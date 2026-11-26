@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.21">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.22">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.21</title>
+  <title>Servicebericht v4.22</title>
 <script>
-window.SB_APP_VERSION="4.21";
+window.SB_APP_VERSION="4.22";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
 @media (prefers-reduced-motion:reduce){
   #machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{animation:none}
 }
-#companySave[hidden],#emailSave[hidden],#emailDelete[hidden],#emailAdd[hidden],#kundennummerSave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden],#kundennummerSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companyIdentityEdit[hidden]{display:none!important}
 #companyIdentityEdit{
@@ -855,8 +855,6 @@ select.is-nudge,input.is-nudge{
 #customerEmailBox{flex:0 1 auto;width:280px;max-width:100%;min-width:0}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
 #customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
-#customerEmailBox.has-edit #customerEmail{padding-right:40px}
-#customerEmailBox.has-edit.has-more #customerEmail{padding-right:68px}
 #customerEmailBox .combo-results{z-index:70}
 .combo-more{
   position:absolute;right:8px;top:50%;transform:translateY(-50%);
@@ -868,11 +866,6 @@ select.is-nudge,input.is-nudge{
 .combo-more svg{width:18px;height:18px;display:block}
 #customerEmailBox.has-more .combo-more{display:inline-flex}
 #customerEmailBox.has-more.has-value .combo-more{right:36px}
-#customerEmailBox.has-edit .combo-more,
-#customerEmailBox.has-edit.has-more.has-value .combo-more{right:40px}
-#customerEmailBox.has-edit .kunde-nr-edit{display:inline-flex}
-#customerEmailBox.has-edit .combo-clear,
-#customerEmailBox.has-edit.has-value .combo-clear{display:none!important}
 #customerEmailBox.is-open .combo-more svg{transform:rotate(180deg)}
 .email-save-row{
   display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:4px;
@@ -882,14 +875,6 @@ select.is-nudge,input.is-nudge{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
 }
-#emailDelete,#emailAdd{
-  flex:0 0 auto;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;
-  border:0;border-radius:8px;background:#163a5c;color:#fff;cursor:pointer;
-  display:none;align-items:center;justify-content:center;
-  -webkit-tap-highlight-color:transparent;
-}
-#emailDelete:not([hidden]),#emailAdd:not([hidden]){display:inline-flex}
-#emailDelete svg,#emailAdd svg{width:18px;height:18px;display:block}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -925,13 +910,26 @@ select.is-nudge,input.is-nudge{
   padding-bottom:var(--sb-kb,0px);
 }
 #companyEditModal.is-open{display:flex}
-#companyEditModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#companyEditModal .token-sheet{width:100%;max-width:520px;max-height:min(92vh, 760px);overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #companyEditModal h3{margin:0 0 6px;font-size:18px}
 #companyEditModal label{margin:8px 0 4px}
 #companyEditModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0}
 #companyEditModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #companyEditModal .email-actions button{flex:1 1 30%;min-width:90px}
 #companyEditErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+.company-edit-emails{display:flex;flex-direction:column;gap:8px;margin:10px 0 0;max-height:28vh;overflow-y:auto}
+.company-edit-email-row{display:flex;gap:8px;align-items:center}
+.company-edit-email-row input{flex:1 1 auto;min-width:0;margin:0}
+.company-edit-email-row button{
+  flex:0 0 36px;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;
+  border:0;border-radius:8px;background:#163a5c;color:#fff;font-size:20px;line-height:1;cursor:pointer;
+}
+.company-edit-email-add{display:flex;gap:8px;margin-top:8px;align-items:center}
+.company-edit-email-add input{flex:1 1 auto;min-width:0;margin:0}
+.company-edit-email-add button{
+  flex:0 0 auto;padding:8px 12px;min-height:36px;border:0;border-radius:8px;
+  background:#163a5c;color:#fff;font-size:13px;cursor:pointer;
+}
 .company-cloud-status{margin:8px 0 0;font-size:14px;line-height:1.35;font-weight:650;overflow-wrap:anywhere}
 .company-cloud-status[hidden]{display:none!important}
 .company-cloud-status.is-wait{color:#163a5c}
@@ -1008,7 +1006,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.21</span>
+      <span id="appCreditVer" class="app-ver">v4.22</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1091,27 +1089,18 @@ select.is-nudge,input.is-nudge{
       <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <button type="button" class="kunde-nr-edit" id="customerEmailEdit" hidden aria-label="E-Mail ändern" title="E-Mail ändern">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      </button>
       <button type="button" class="combo-clear" id="customerEmailClear" aria-label="E-Mail löschen">×</button>
     </div>
     <div id="customerEmailResults" class="combo-results"></div>
   </div>
-  <button type="button" id="emailAdd" hidden aria-label="Neue E-Mail hinzufügen" title="Neue E-Mail">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-  </button>
   <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
-  <button type="button" id="emailDelete" hidden aria-label="E-Mail löschen" title="E-Mail löschen">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7M10 11v6M14 11v6M8 7l.7 12.2A1.8 1.8 0 0 0 10.5 21h3a1.8 1.8 0 0 0 1.8-1.8L16 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
 </div>
 <p id="companyCloudStatus" class="company-cloud-status" role="status" hidden></p>
-<button type="button" id="companyIdentityEdit" hidden>Firma / Adresse ändern</button>
+<button type="button" id="companyIdentityEdit" hidden>Kundendaten ändern</button>
 </section>
 
 <section class="card"><h2>Maschine</h2>
@@ -1365,8 +1354,8 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="companyEditModal" aria-hidden="true">
   <div class="token-sheet">
-    <h3 id="companyEditTitle">Firma und Adresse</h3>
-    <p class="muted" id="companyEditHint">Name, Kundennummer und Adresse in der Kundenliste ändern.</p>
+    <h3 id="companyEditTitle">Kundendaten</h3>
+    <p class="muted" id="companyEditHint">Alle Daten der Kundenliste ändern. Neue Firma, Nr. und E-Mail weiter im Formular merken.</p>
     <div class="route-grid">
       <div>
         <label for="companyEditName">Firma</label>
@@ -1386,6 +1375,12 @@ select.is-nudge,input.is-nudge{
         <label for="companyEditCity">PLZ, Ort</label>
         <input id="companyEditCity" autocomplete="off" autocapitalize="words" spellcheck="false">
       </div>
+    </div>
+    <label>E-Mail</label>
+    <div id="companyEditEmails" class="company-edit-emails"></div>
+    <div class="company-edit-email-add">
+      <input id="companyEditEmailAdd" type="email" inputmode="email" autocomplete="off" placeholder="Weitere E-Mail">
+      <button type="button" id="companyEditEmailAddBtn">Hinzufügen</button>
     </div>
     <p id="companyEditErr"></p>
     <div class="email-actions">
@@ -3306,7 +3301,8 @@ function replaceCompanyIdentity(list, oldKey, rec){
   const next=Object.assign({}, base, {
     firma:name,
     adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||""),
-    kundennummer:rec&&rec.kundennummer!=null ? String(rec.kundennummer) : companyKundennummer(base)
+    kundennummer:rec&&rec.kundennummer!=null ? String(rec.kundennummer) : companyKundennummer(base),
+    email:rec&&rec.email!=null ? String(rec.email) : String(base.email||"")
   });
   if(oldIdx>=0 && oldK!==newK) arr.splice(oldIdx, 1);
   const exist=arr.findIndex(c=>companyNameKey(c)===newK);
@@ -6084,7 +6080,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.21";
+  const APP_VERSION=window.SB_APP_VERSION||"4.22";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6824,6 +6820,69 @@ finally{ window.__pdfBuilding=false; }
   $("companyRouteEdit")?.addEventListener("click",()=>{ saveCompanyRoute(); });
   let companyEditWait=null;
   let companyEditOldKey="";
+  let companyEditEmails=[];
+  function splitEditEmails(s){
+    return String(s||"").split(/[;,]/).map(function(x){ return x.trim(); }).filter(function(x){ return x && x.indexOf("@")>0; });
+  }
+  function uniqueEditEmails(list){
+    const out=[];
+    const seen={};
+    (list||[]).forEach(function(e){
+      const v=String(e||"").trim();
+      const k=v.toLowerCase();
+      if(!v || seen[k]) return;
+      seen[k]=1;
+      out.push(v);
+    });
+    return out;
+  }
+  function renderCompanyEditEmails(){
+    const wrap=$("companyEditEmails");
+    if(!wrap) return;
+    wrap.innerHTML="";
+    companyEditEmails.forEach(function(e, i){
+      const row=document.createElement("div");
+      row.className="company-edit-email-row";
+      const inp=document.createElement("input");
+      inp.type="email";
+      inp.inputMode="email";
+      inp.autocomplete="off";
+      inp.value=e;
+      inp.addEventListener("input", function(){ companyEditEmails[i]=String(inp.value||"").trim(); });
+      const del=document.createElement("button");
+      del.type="button";
+      del.setAttribute("aria-label","E-Mail löschen");
+      del.textContent="×";
+      del.addEventListener("click", function(){
+        companyEditEmails.splice(i, 1);
+        renderCompanyEditEmails();
+      });
+      row.appendChild(inp);
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+  function addCompanyEditEmail(){
+    const el=$("companyEditEmailAdd");
+    const err=$("companyEditErr");
+    const v=String(el&&el.value||"").trim();
+    if(!v){
+      if(err) err.textContent="E-Mail eintragen, dann Hinzufügen.";
+      return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){
+      if(err) err.textContent="Bitte eine gültige E-Mail eintragen.";
+      return;
+    }
+    if(companyEditEmails.some(function(e){ return String(e||"").toLowerCase()===v.toLowerCase(); })){
+      if(err) err.textContent="Diese E-Mail steht schon in der Liste.";
+      return;
+    }
+    if(err) err.textContent="";
+    companyEditEmails.push(v);
+    if(el) el.value="";
+    renderCompanyEditEmails();
+  }
   function closeCompanyEdit(value){
     const modal=$("companyEditModal");
     if(modal){
@@ -6853,6 +6912,11 @@ finally{ window.__pdfBuilding=false; }
     const formCity=String($("city")?.value||"").trim();
     streetEl.value=formStreet||parsed[0]||"";
     cityEl.value=formCity||parsed[1]||"";
+    const fromFn=typeof window.getCustomerEmailList==="function" ? window.getCustomerEmailList() : [];
+    companyEditEmails=uniqueEditEmails([].concat(fromFn, splitEditEmails(rec.email)));
+    const addEl=$("companyEditEmailAdd");
+    if(addEl) addEl.value="";
+    renderCompanyEditEmails();
     const err=$("companyEditErr");
     if(err) err.textContent="";
     const saveBtn=$("companyEditSave");
@@ -6880,7 +6944,27 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
     if(err) err.textContent="";
-    return {firma:name, kundennummer:kundennummer, street:street, city:city, adres:[street, city].filter(Boolean).join(", ")};
+    const fromRows=[];
+    document.querySelectorAll("#companyEditEmails input").forEach(function(inp){
+      fromRows.push(String(inp.value||"").trim());
+    });
+    const extra=String($("companyEditEmailAdd")?.value||"").trim();
+    if(extra) fromRows.push(extra);
+    const bad=fromRows.filter(function(v){ return v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); });
+    if(bad.length){
+      if(err) err.textContent="Bitte gültige E-Mails eintragen.";
+      return null;
+    }
+    const emails=uniqueEditEmails(fromRows);
+    return {
+      firma:name,
+      kundennummer:kundennummer,
+      street:street,
+      city:city,
+      adres:[street, city].filter(Boolean).join(", "),
+      emails:emails,
+      email:emails.join("; ")
+    };
   }
   async function saveCompanyIdentity(){
     const prev=saveLock;
@@ -6907,7 +6991,8 @@ finally{ window.__pdfBuilding=false; }
         const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, {
           firma:edited.firma,
           adres:edited.adres,
-          kundennummer:edited.kundennummer
+          kundennummer:edited.kundennummer,
+          email:edited.email
         });
         if(typeof applyCompanies==="function") applyCompanies(local, edited.firma);
       }
@@ -6925,6 +7010,10 @@ finally{ window.__pdfBuilding=false; }
         if(typeof window.renameCustomerEmailKey==="function")
           window.renameCustomerEmailKey(oldKey, edited.firma);
       }
+      if(typeof window.replaceCustomerEmailList==="function")
+        window.replaceCustomerEmailList(edited.firma, edited.emails);
+      if(typeof window.refreshCustomerEmails==="function")
+        window.refreshCustomerEmails("replace");
       if(typeof unmarkCompanyRemoved==="function") unmarkCompanyRemoved(edited.firma);
       if(typeof markCompanyPending==="function") markCompanyPending(edited.firma);
       if(typeof markAddressForce==="function") markAddressForce(edited.firma);
@@ -6955,6 +7044,12 @@ finally{ window.__pdfBuilding=false; }
     });
   });
   $("companyIdentityEdit")?.addEventListener("click",()=>{ saveCompanyIdentity(); });
+  $("companyEditEmailAddBtn")?.addEventListener("click",()=>{ addCompanyEditEmail(); });
+  $("companyEditEmailAdd")?.addEventListener("keydown",function(e){
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    addCompanyEditEmail();
+  });
 })();
 </script>
 <script>
@@ -7604,33 +7699,55 @@ finally{ window.__pdfBuilding=false; }
   }
   function syncEmailSaveButton(){
     const btn=$("emailSave");
-    const del=$("emailDelete");
-    const add=$("emailAdd");
     const el=$("customerEmail");
-    const edit=$("customerEmailEdit");
     const box=$("customerEmailBox");
+    if(el){
+      el.readOnly=false;
+      delete el.dataset.unlocked;
+      delete el.dataset.savedEmail;
+      delete el.dataset.emailMode;
+    }
+    if(box) box.classList.remove("has-edit");
+    if(!btn) return;
     const e=currentEmail();
-    const orig=String(el&&el.dataset.savedEmail||"").trim();
-    const mode=String(el&&el.dataset.emailMode||"");
-    const editing=!!(el && el.dataset.unlocked==="1");
-    const listed=!!customerKey() && validEmail(e) && emailAlreadySaved(e);
-    if(el) el.readOnly=listed && !editing;
-    if(box) box.classList.toggle("has-edit", editing || listed);
-    if(edit){
-      edit.hidden=!(editing || listed);
-      edit.title=editing ? "Änderung abbrechen" : "E-Mail ändern";
-      edit.setAttribute("aria-label", edit.title);
-    }
-    const dirty=mode==="edit" && validEmail(e) && e.toLowerCase()!==orig.toLowerCase();
     const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
-    if(btn){
-      btn.hidden=!show;
-      btn.textContent=dirty ? "Geänderte E-Mail speichern?" : "E-Mail merken";
-      btn.classList.toggle("is-pulse", show);
-    }
-    if(del) del.hidden=!(mode==="edit" && validEmail(orig));
-    if(add) add.hidden=!(!!customerKey() && emailsForCustomer().length>0 && !editing);
+    btn.hidden=!show;
+    btn.textContent="E-Mail merken";
+    btn.classList.toggle("is-pulse", show);
   }
+  window.getCustomerEmailList=function(){ return emailsForCustomer(); };
+  window.replaceCustomerEmailList=function(firma, emails){
+    const display=String(firma||"").trim();
+    const k=display.toLowerCase();
+    if(!k) return;
+    const list=dedupeEmailList((emails||[]).map(function(x){ return String(x||"").trim(); }).filter(validEmail));
+    const map=loadMap();
+    if(list.length) map[k]=list;
+    else delete map[k];
+    saveMap(map);
+    list.forEach(function(e){ markEmailPending(display, e); });
+    if(window.sbLists){
+      window.sbLists.pushMerged(
+        "emails",
+        loadMap(),
+        "E-Mails: "+display,
+        function(remote, local){
+          const merged=applyPendingEmails(window.sbLists.asMap(remote), local||{});
+          if(list.length) merged[k]=list.slice();
+          else delete merged[k];
+          return merged;
+        },
+        {forcePut:true, quiet:true, attempts:2}
+      ).then(function(out){
+        if(out && out.result && out.result.ok && out.merged){
+          const saved=normalizeEmailMap(out.merged);
+          saveMap(saved);
+          clearPendingFoundIn(saved);
+        }
+      }).catch(function(){});
+    }
+    syncEmailCopyRow();
+  };
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
     const email=currentEmail();
@@ -7685,23 +7802,6 @@ finally{ window.__pdfBuilding=false; }
       results.innerHTML="";
       if(box) box.classList.remove("is-open");
     }
-    function endEmailSession(restore){
-      const prev=String(input.dataset.savedEmail||"").trim();
-      delete input.dataset.unlocked;
-      delete input.dataset.savedEmail;
-      delete input.dataset.emailMode;
-      if(restore){
-        const next=prev || (emailsForCustomer()[0]||"");
-        setEmail(next, {lock:true});
-      }
-      close();
-    }
-    function abortEmptyAdd(){
-      if(input.dataset.emailMode!=="add") return;
-      const typed=currentEmail();
-      if(validEmail(typed) && !emailAlreadySaved(typed)) return;
-      endEmailSession(true);
-    }
     function show(opts){
       const emails=emailsForCustomer();
       const q=currentEmail().toLowerCase();
@@ -7746,17 +7846,6 @@ finally{ window.__pdfBuilding=false; }
     input.addEventListener("focus", ()=>{
       pullEmails().then(()=>{ syncEmailListToggle(); }).catch(()=>{});
     });
-    input.addEventListener("pointerdown",function(e){
-      if(this.readOnly) e.preventDefault();
-    });
-    input.addEventListener("blur",function(){
-      setTimeout(function(){
-        const a=document.activeElement;
-        const row=input.closest(".email-save-row");
-        if(a && row && row.contains(a)) return;
-        abortEmptyAdd();
-      }, 180);
-    });
     input.addEventListener("input",()=>{
       setEmail(input.value);
       show();
@@ -7787,79 +7876,14 @@ finally{ window.__pdfBuilding=false; }
     document.addEventListener("click",e=>{
       if(box && !box.contains(e.target)) close();
     });
-    document.addEventListener("pointerdown",function(e){
-      if(input.dataset.emailMode!=="add") return;
-      const row=input.closest(".email-save-row");
-      if(row && row.contains(e.target)) return;
-      abortEmptyAdd();
-    }, true);
     $("emailSave")?.addEventListener("click", async ()=>{
       const e=currentEmail();
-      const prev=String(input.dataset.savedEmail||"").trim();
-      const replacing=input.dataset.emailMode==="edit" && validEmail(prev) && prev.toLowerCase()!==e.toLowerCase();
-      if(replacing){
-        if(!await deleteEmail(prev)){
-          const s=$("status");
-          if(s) s.textContent="Alte E-Mail konnte nicht ersetzt werden.";
-          return;
-        }
-      }
       if(!await addEmail(e, {showOk:true})){
         const s=$("status");
         if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
       }else{
-        delete input.dataset.unlocked;
-        delete input.dataset.savedEmail;
-        delete input.dataset.emailMode;
-        setEmail(e, {lock:true});
+        setEmail(e);
       }
-    });
-    $("emailAdd")?.addEventListener("click",function(){
-      if(!input) return;
-      input.dataset.savedEmail=currentEmail();
-      input.dataset.unlocked="1";
-      input.dataset.emailMode="add";
-      input.readOnly=false;
-      setEmail("");
-      hideEmailSaveOk();
-      syncEmailSaveButton();
-      show({all:true});
-      try{ input.focus(); }catch(e){}
-    });
-    $("emailDelete")?.addEventListener("click", async ()=>{
-      const orig=String(input.dataset.savedEmail||currentEmail()||"").trim();
-      const s=$("status");
-      if(!customerKey()){
-        if(s) s.textContent="Zuerst den Kunden wählen.";
-        return;
-      }
-      if(!validEmail(orig)){
-        if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
-        return;
-      }
-      if(!confirm("Diese E-Mail beim Kunden löschen?")) return;
-      if(!await deleteEmail(orig)){
-        if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
-        return;
-      }
-      delete input.dataset.unlocked;
-      delete input.dataset.savedEmail;
-      delete input.dataset.emailMode;
-      const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==orig.toLowerCase());
-      setEmail(rest[0]||"", {lock:true});
-    });
-    $("customerEmailEdit")?.addEventListener("click",function(){
-      if(!input) return;
-      if(input.dataset.unlocked==="1"){
-        endEmailSession(true);
-        return;
-      }
-      input.dataset.savedEmail=currentEmail();
-      input.dataset.unlocked="1";
-      input.dataset.emailMode="edit";
-      input.readOnly=false;
-      syncEmailSaveButton();
-      try{ input.focus(); input.select(); }catch(e){}
     });
     bindEmailCopy();
   }
