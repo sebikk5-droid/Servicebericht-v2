@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.09">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.09</title>
+  <title>Servicebericht v4.10</title>
 <script>
-window.SB_APP_VERSION="4.09";
+window.SB_APP_VERSION="4.10";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -850,8 +850,8 @@ select.is-nudge,input.is-nudge{
 .machine-combo input{padding-right:40px}
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
-#customerEmail{padding-right:36px;font-size:16px;min-height:42px;padding-top:11px;padding-bottom:11px}
-#customerEmailBox{flex:1 1 16em;min-width:min(100%, 16em);max-width:none}
+#customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
+#customerEmailBox{flex:0 1 auto;width:280px;max-width:100%;min-width:0}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
 #customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
 #customerEmailBox .combo-results{z-index:70}
@@ -996,7 +996,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.09</span>
+      <span id="appCreditVer" class="app-ver">v4.10</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6059,7 +6059,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.09";
+  const APP_VERSION=window.SB_APP_VERSION||"4.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7523,7 +7523,48 @@ finally{ window.__pdfBuilding=false; }
     }
     syncEmailListToggle();
     syncEmailSaveButton();
+    syncEmailFieldSize();
   }
+  function syncEmailFieldSize(){
+    const el=$("customerEmail");
+    const box=$("customerEmailBox");
+    if(!el||!box) return;
+    const MIN=280;
+    const row=box.closest(".email-save-row");
+    let cap=MIN;
+    if(row){
+      let used=0;
+      Array.from(row.children).forEach(function(ch){
+        if(ch===box) return;
+        if(ch.hidden) return;
+        const st=getComputedStyle(ch);
+        if(st.display==="none") return;
+        used+=ch.getBoundingClientRect().width+8;
+      });
+      cap=Math.max(MIN, row.clientWidth-used);
+    }
+    const text=String(el.value||"");
+    if(!text){
+      box.style.width=Math.min(MIN, cap)+"px";
+      return;
+    }
+    let probe=syncEmailFieldSize._probe;
+    if(!probe){
+      probe=document.createElement("span");
+      probe.setAttribute("aria-hidden","true");
+      probe.style.cssText="position:absolute;left:-9999px;top:0;white-space:pre;visibility:hidden;pointer-events:none";
+      document.body.appendChild(probe);
+      syncEmailFieldSize._probe=probe;
+    }
+    const cs=getComputedStyle(el);
+    probe.style.font=cs.font;
+    probe.style.letterSpacing=cs.letterSpacing;
+    probe.textContent=text;
+    const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+    const need=Math.ceil(probe.getBoundingClientRect().width+pad+12);
+    box.style.width=Math.min(Math.max(MIN, need), cap)+"px";
+  }
+  window.syncEmailFieldSize=syncEmailFieldSize;
   function emailAlreadySaved(e){
     const n=String(e||"").trim().toLowerCase();
     if(!n) return false;
@@ -7639,6 +7680,12 @@ finally{ window.__pdfBuilding=false; }
       setEmail(input.value);
       show();
     });
+    if(window.syncEmailFieldSizeBound!=="1"){
+      window.syncEmailFieldSizeBound="1";
+      window.addEventListener("resize",()=>{
+        if(typeof window.syncEmailFieldSize==="function") window.syncEmailFieldSize();
+      });
+    }
     // E-Mail nur über „E-Mail merken“ speichern — nicht bei blur/change
     // (sonst landet eine neue Firma oft nur in customer-emails.json).
     clearBtn?.addEventListener("click",e=>{
