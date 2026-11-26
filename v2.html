@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.66">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.67">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.66</title>
+  <title>Servicebericht v4.67</title>
 <script>
-window.SB_APP_VERSION="4.66";
+window.SB_APP_VERSION="4.67";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -204,7 +204,7 @@ main{overflow-x:hidden}
 .btn-app-reload:active{background:#0f2840}
 .credit.is-stale .btn-app-reload:active{background:#b91c1c}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;width:100%;max-width:none;margin:0;padding:12px max(14px, calc((100% - 760px) / 2)) 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012;overflow:visible}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;width:100%;max-width:none;margin:0;padding:12px max(58px, calc((100% - 760px) / 2)) 16px max(14px, calc((100% - 760px) / 2))}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012;overflow:visible}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d0d0d6;border-radius:11px;background:#e8e8ed;color:#111}
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
@@ -434,7 +434,20 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #status{font-size:13px;color:#555;margin:7px 2px}
 #status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
-@media (min-width: 900px){main{padding-left:max(24px, calc((100% - 1000px) / 2));padding-right:max(24px, calc((100% - 1000px) / 2))}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
+@media (min-width: 900px){main{padding-left:max(24px, calc((100% - 1000px) / 2));padding-right:max(58px, calc((100% - 1000px) / 2))}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
+.page-jumps{
+  position:fixed;right:max(6px, env(safe-area-inset-right));top:46%;transform:translateY(-50%);
+  z-index:40;display:flex;flex-direction:column;gap:8px;width:48px;pointer-events:none;
+}
+.page-jumps button{
+  pointer-events:auto;flex:none;width:48px;min-width:48px;height:52px;margin:0;padding:4px 2px;
+  border:0;border-radius:14px;background:#163a5c;color:#fff;box-shadow:0 2px 10px #0000002e;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  font-size:10px;font-weight:750;line-height:1;cursor:pointer;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.page-jumps button svg{width:16px;height:16px;display:block}
+.page-jumps button:active{background:#0f2840}
 @media (orientation:landscape) and (min-width: 900px){.grid{grid-template-columns:repeat(2,1fr)}}
 .install-note{background:#eef2ff;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px;color:#374151}
 </style>
@@ -1018,7 +1031,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.66</span>
+      <span id="appCreditVer" class="app-ver">v4.67</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1273,6 +1286,31 @@ select.is-nudge,input.is-nudge{
     <div class="email-copy-list" id="emailCopyList"></div>
   </div>
 </div>
+<nav class="page-jumps" aria-label="Seitenanfang und Seitenende">
+  <button type="button" id="jumpPageTop" aria-label="Zum Anfang">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Anfang</span>
+  </button>
+  <button type="button" id="jumpPageEnd" aria-label="Zum Ende">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Ende</span>
+  </button>
+</nav>
+<script>
+(function(){
+  const main=document.querySelector("main");
+  const topBtn=document.getElementById("jumpPageTop");
+  const endBtn=document.getElementById("jumpPageEnd");
+  if(!main||!topBtn||!endBtn) return;
+  function jump(toEnd){
+    const y=toEnd?main.scrollHeight:0;
+    try{ main.scrollTo(0, y); }catch(e){}
+    main.scrollTop=y;
+  }
+  topBtn.addEventListener("click", function(ev){ ev.preventDefault(); jump(false); });
+  endBtn.addEventListener("click", function(ev){ ev.preventDefault(); jump(true); });
+})();
+</script>
 <div id="pdfEmailModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>PDF per E-Mail</h3>
@@ -6211,7 +6249,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.66";
+  const APP_VERSION=window.SB_APP_VERSION||"4.67";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
