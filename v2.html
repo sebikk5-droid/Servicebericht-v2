@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.02">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.03">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.02</title>
+  <title>Servicebericht v4.03</title>
 <script>
-window.SB_APP_VERSION="4.02";
+window.SB_APP_VERSION="4.03";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -369,6 +369,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfEmailModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #pdfEmailModal.is-open{display:flex}
 #pdfEmailModal .token-sheet{
@@ -382,6 +383,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #historySaveModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #historySaveModal.is-open{display:flex}
 #historySaveModal .token-sheet{
@@ -851,6 +853,7 @@ select.is-nudge,input.is-nudge{
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #tokenModal.is-open{display:flex}
 #tokenModal .token-sheet{
@@ -865,6 +868,7 @@ select.is-nudge,input.is-nudge{
 #routeModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #routeModal.is-open{display:flex}
 #routeModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
@@ -878,6 +882,7 @@ select.is-nudge,input.is-nudge{
 #companyEditModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #companyEditModal.is-open{display:flex}
 #companyEditModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
@@ -895,6 +900,7 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal{
   display:none;position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #machineSaveModal.is-open{display:flex}
 #machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
@@ -903,6 +909,7 @@ select.is-nudge,input.is-nudge{
 #pdfMissingModal{
   display:none;position:fixed;inset:0;z-index:100;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #pdfMissingModal.is-open{display:flex}
 #pdfMissingModal .token-sheet{
@@ -961,7 +968,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.02</span>
+      <span id="appCreditVer" class="app-ver">v4.03</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1386,6 +1393,13 @@ window.sbCachedFile=async function(name, timeoutMs){
   finally{ clearTimeout(to); }
   return fromCache();
 };
+function visFrame(){
+  const vv=window.visualViewport;
+  if(vv && vv.height){
+    return {top:vv.offsetTop, bottom:vv.offsetTop+vv.height, height:vv.height};
+  }
+  return {top:0, bottom:window.innerHeight, height:window.innerHeight};
+}
 function layoutComboResults(results, box){
   if(!results||!box) return;
   const parts=results.id==="partsResults";
@@ -1394,8 +1408,10 @@ function layoutComboResults(results, box){
   const r=boxEl.getBoundingClientRect();
   const v=(plusEl||boxEl).getBoundingClientRect();
   const gap=parts?2:4;
-  const spaceBelow=window.innerHeight-v.bottom-gap;
-  const spaceAbove=v.top-gap;
+  const vis=visFrame();
+  const kbPad=12;
+  const spaceBelow=vis.bottom-v.bottom-gap-kbPad;
+  const spaceAbove=v.top-vis.top-gap;
   const maxH=parts?190:260;
   results.style.position="fixed";
   if(parts){
@@ -1408,7 +1424,7 @@ function layoutComboResults(results, box){
   }
   results.style.right="auto";
   results.style.zIndex="80";
-  if(spaceBelow>=140 || spaceBelow>=spaceAbove){
+  if(spaceBelow>=120 || spaceBelow>=spaceAbove){
     results.style.top=(v.bottom+gap)+"px";
     results.style.bottom="auto";
     results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceBelow))+"px";
@@ -1423,6 +1439,7 @@ function openComboResults(results, box){
   results.hidden=false;
   results.style.display="block";
   layoutComboResults(results, box);
+  if(typeof window.sbKeepKbInView==="function") window.sbKeepKbInView();
 }
 
 // V27.6.65 — PDF return state
@@ -5846,7 +5863,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.02";
+  const APP_VERSION=window.SB_APP_VERSION||"4.03";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9532,6 +9549,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const main=()=>document.querySelector("main");
+  const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
       if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
@@ -9540,36 +9558,101 @@ finally{ window.__pdfBuilding=false; }
       if("hidden" in el) el.hidden=true;
     });
   }
-  function keepNotesInView(el){
+  function openComboEl(){
+    return Array.from(document.querySelectorAll(".combo-results")).find(el=>{
+      if(el.hidden) return false;
+      if((el.style.display||"")==="none") return false;
+      try{ return window.getComputedStyle(el).display!=="none"; }catch(e){ return true; }
+    })||null;
+  }
+  function vis(){
+    return typeof visFrame==="function" ? visFrame() : {
+      top:0, bottom:window.innerHeight, height:window.innerHeight
+    };
+  }
+  function syncKeyboardPad(){
+    const frame=vis();
+    const covered=Math.max(0, window.innerHeight-frame.bottom);
+    document.documentElement.style.setProperty("--sb-kb", covered+"px");
+    const scroller=main();
+    if(!scroller) return;
+    const sr=scroller.getBoundingClientRect();
+    const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
+    const combo=openComboEl();
+    const extra=combo ? Math.min(220, Math.max(120, combo.scrollHeight||160)) : 16;
+    const pad=overlap ? overlap+extra : extra>16 ? extra : 0;
+    scroller.style.paddingBottom=pad ? pad+"px" : "";
+  }
+  function keepFieldInView(el, extraBelow){
     const scroller=main();
     if(!scroller || !el) return;
-    const vv=window.visualViewport;
-    const viewTop=vv ? vv.offsetTop : 0;
-    const viewBottom=vv ? vv.offsetTop+vv.height : window.innerHeight;
+    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const er=el.getBoundingClientRect();
-    const topLimit=Math.max(sr.top+8, viewTop+8);
-    const bottomLimit=Math.min(sr.bottom-8, viewBottom-8);
+    const topLimit=Math.max(sr.top+8, frame.top+8);
+    const bottomLimit=Math.min(sr.bottom-8, frame.bottom-8)-(extraBelow||0);
+    if(bottomLimit<=topLimit+24){
+      if(er.top<topLimit) scroller.scrollTop-=topLimit-er.top;
+      return;
+    }
     if(er.bottom>bottomLimit)
       scroller.scrollTop+=er.bottom-bottomLimit;
     else if(er.top<topLimit)
       scroller.scrollTop-=topLimit-er.top;
   }
-  function onNotesFocus(el){
-    closeOpenCombos();
+  function keepNotesInView(el){
+    keepFieldInView(el, 0);
+  }
+  function keepKbInView(){
+    syncKeyboardPad();
+    const a=document.activeElement;
+    if(!isKbField(a)){
+      relayoutOpenCombo();
+      return;
+    }
+    const combo=a.closest && a.closest(".combo-box, .parts-box");
+    const results=openComboEl();
+    const extra=results ? Math.min(200, Math.max(96, results.getBoundingClientRect().height||160)) : 12;
+    const target=(combo&&results)?combo:a;
+    if(target && target.getBoundingClientRect) keepFieldInView(target, extra);
+    relayoutOpenCombo();
+  }
+  function relayoutOpenCombo(){
+    const results=openComboEl();
+    if(!results) return;
+    const box=results.closest(".combo-box, .parts-box") || $("partsBox");
+    if(typeof layoutComboResults==="function") layoutComboResults(results, box);
+  }
+  function isKbField(el){
+    if(!el || !el.tagName) return false;
+    const t=el.tagName;
+    if(t!=="INPUT" && t!=="TEXTAREA" && t!=="SELECT") return false;
+    if(el.disabled) return false;
+    const type=(el.type||"").toLowerCase();
+    if(type==="checkbox" || type==="radio" || type==="file" || type==="hidden" || type==="button" || type==="submit") return false;
+    if(el.closest && el.closest(MODAL_ROOT)) return false;
+    return true;
+  }
+  function onFieldFocus(el){
     const scroller=main();
     const keep=scroller ? scroller.scrollTop : 0;
     requestAnimationFrame(()=>{
       if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
-      keepNotesInView(el);
+      keepKbInView();
     });
-    setTimeout(()=>keepNotesInView(el), 280);
+    setTimeout(keepKbInView, 120);
+    setTimeout(keepKbInView, 320);
+    setTimeout(keepKbInView, 560);
   }
+  window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
-    el.addEventListener("focus",()=>onNotesFocus(el));
-    el.addEventListener("input",()=>keepNotesInView(el));
+    el.addEventListener("focus",()=>{
+      closeOpenCombos();
+      onFieldFocus(el);
+    });
+    el.addEventListener("input",()=>keepFieldInView(el, 0));
     el.addEventListener("wheel",e=>{
       const scroller=main();
       if(!scroller) return;
@@ -9590,6 +9673,19 @@ finally{ window.__pdfBuilding=false; }
     if(t && t.closest && t.closest(".combo-box")) return;
     closeOpenCombos();
   }, true);
+  document.addEventListener("focusin",e=>{
+    if(isKbField(e.target)) onFieldFocus(e.target);
+  }, true);
+  document.addEventListener("focusout",()=>{
+    setTimeout(()=>{
+      if(isKbField(document.activeElement)) return;
+      const frame=vis();
+      if(window.innerHeight-frame.bottom>80) return;
+      const scroller=main();
+      if(scroller) scroller.style.paddingBottom="";
+      document.documentElement.style.setProperty("--sb-kb","0px");
+    }, 220);
+  }, true);
   const scroller=main();
   if(scroller){
     scroller.addEventListener("scroll",()=>{
@@ -9600,14 +9696,14 @@ finally{ window.__pdfBuilding=false; }
   }
   window.addEventListener("resize",()=>{
     const a=document.activeElement;
-    if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
+    if(a && a.closest && a.closest(".combo-box, .parts-box")){
+      keepKbInView();
+      return;
+    }
     closeOpenCombos();
   }, {passive:true});
   if(window.visualViewport){
-    window.visualViewport.addEventListener("resize",()=>{
-      const a=document.activeElement;
-      if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
-    });
+    window.visualViewport.addEventListener("resize", keepKbInView);
   }
 
   let penField=null, penAt=0;
@@ -9632,7 +9728,7 @@ finally{ window.__pdfBuilding=false; }
       const back=penField;
       penField=null;
       try{ back.focus({preventScroll:true}); }catch(_e){ back.focus(); }
-      keepNotesInView(back);
+      keepKbInView();
       return;
     }
     penField=null;
