@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.74">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.75">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.74</title>
+  <title>Servicebericht v4.75</title>
 <script>
-window.SB_APP_VERSION="4.74";
+window.SB_APP_VERSION="4.75";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -1048,7 +1048,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.74</span>
+      <span id="appCreditVer" class="app-ver">v4.75</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1999,8 +1999,13 @@ function syncReturnArrivalFromDeparture(d){
     else setClock(b1,addMinutesToTime(b2.value,-span));
     return;
   }
-  if(b1.value && !filledTime(b2.value)) setClock(b2,addMinutesToTime(b1.value,span));
-  else if(b2.value && !filledTime(b1.value)) setClock(b1,addMinutesToTime(b2.value,-span));
+  if(b1.value && (!filledTime(b2.value) || b2.dataset.linked==="1")){
+    setClock(b2,addMinutesToTime(b1.value,span));
+    b2.dataset.linked="1";
+  }else if(b2.value && (!filledTime(b1.value) || b1.dataset.linked==="1")){
+    setClock(b1,addMinutesToTime(b2.value,-span));
+    b1.dataset.linked="1";
+  }
 }
 function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
@@ -2027,7 +2032,10 @@ function syncWorkEndToReturnStart(d){
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
   const span=rueckfahrtClockSpan(d);
-  if(ankunft && span && (Number(d)===1 || !filledTime(ankunft.value))) setClock(ankunft,addMinutesToTime(t,span));
+  if(ankunft && span && (Number(d)===1 || !filledTime(ankunft.value) || ankunft.dataset.linked==="1")){
+    setClock(ankunft,addMinutesToTime(t,span));
+    if(Number(d)>1) ankunft.dataset.linked="1";
+  }
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -4006,8 +4014,9 @@ function bindTimeInputs(){
     if(el.dataset.bound==="1") return;
     el.dataset.bound="1";
 
-    const handleTimeChange=()=>{
+    const handleTimeChange=(ev)=>{
       if(el.dataset.syncing==="1") return;
+      if(ev && ev.isTrusted && el.classList && el.classList.contains("quarter-time")) el.dataset.linked="0";
       const key=el.dataset.k||"";
       const box=el.closest("[data-daybox]");
       const boxDay=box ? parseInt(box.getAttribute("data-daybox"),10) : 1;
@@ -4124,8 +4133,13 @@ function bindTimeInputs(){
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
           const free=Number(d)>1;
-          if(duration && el===b1 && (!free || !filledTime(b2.value))) setClock(b2,addMinutesToTime(el.value,duration));
-          else if(duration && el===b2 && (!free || !filledTime(b1.value))) setClock(b1,addMinutesToTime(el.value,-duration));
+          if(duration && el===b1 && (!free || !filledTime(b2.value) || b2.dataset.linked==="1")){
+            setClock(b2,addMinutesToTime(el.value,duration));
+            if(free) b2.dataset.linked="1";
+          }else if(duration && el===b2 && (!free || !filledTime(b1.value) || b1.dataset.linked==="1")){
+            setClock(b1,addMinutesToTime(el.value,-duration));
+            if(free) b1.dataset.linked="1";
+          }
         }
       }
 
@@ -6331,7 +6345,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.74";
+  const APP_VERSION=window.SB_APP_VERSION||"4.75";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
