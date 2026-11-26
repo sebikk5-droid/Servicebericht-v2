@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.16">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.17">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.16</title>
+  <title>Servicebericht v4.17</title>
 <script>
-window.SB_APP_VERSION="4.16";
+window.SB_APP_VERSION="4.17";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -997,7 +997,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.16</span>
+      <span id="appCreditVer" class="app-ver">v4.17</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6065,7 +6065,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.16";
+  const APP_VERSION=window.SB_APP_VERSION||"4.17";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8125,9 +8125,32 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return false;
   }
+  function copyTextNow(text){
+    const t=String(text||"").trim();
+    if(!t) return false;
+    let ok=false;
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=t;
+      ta.setAttribute("readonly","");
+      ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, t.length);
+      ok=document.execCommand("copy");
+      document.body.removeChild(ta);
+    }catch(e){ ok=false; }
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(t).then(function(){ ok=true; }, function(){});
+    }catch(e){}
+    return ok;
+  }
   async function copyTextQuiet(text){
     const t=String(text||"").trim();
     if(!t) return false;
+    if(copyTextNow(t)) return true;
     try{
       if(navigator.clipboard && navigator.clipboard.writeText){
         await navigator.clipboard.writeText(t);
@@ -8212,16 +8235,16 @@ finally{ window.__pdfBuilding=false; }
       const shared=emailFile ? await sharePdfFile(emailFile, label) : null;
       if(shared){
         const usedTitle=!!shared.title;
-        if(!usedTitle) await copyTextQuiet(label);
-        else await copyTextQuiet(email);
-        if(usedTitle){
-          setStatus(email
-            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger: "+email
-            : "Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
+        if(email) await copyTextQuiet(email);
+        else if(!usedTitle) await copyTextQuiet(label);
+        if(email){
+          setStatus(usedTitle
+            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger in Zwischenablage: "+email
+            : "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen: "+email);
+        }else if(usedTitle){
+          setStatus("Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
         }else{
-          setStatus(email
-            ? "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen. Empfänger: "+email
-            : "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
+          setStatus("Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
         }
         return true;
       }
@@ -8592,22 +8615,35 @@ finally{ window.__pdfBuilding=false; }
   }
   function bindPdfEmailUi(){
     $("emailPdfBtn")?.addEventListener("click",()=>{
-      setStatus("PDF wird erstellt…");
+      const email=customerPdfEmail();
+      if(email) copyTextNow(email);
+      setStatus(email
+        ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
+        : "PDF wird erstellt…");
       window.ensurePdfForCurrentForm().then(ok=>{
         if(!ok){
           setStatus("PDF konnte nicht erstellt werden.");
           return;
         }
+        if(email) copyTextNow(email);
         offerHistorySaveBeforeEmail();
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
-    $("pdfEmailSend")?.addEventListener("click",()=>{ window.sendPdfByEmail({keepBlob:true}); });
+    $("pdfEmailSend")?.addEventListener("click",()=>{
+      const email=customerPdfEmail();
+      if(email) copyTextNow(email);
+      window.sendPdfByEmail({keepBlob:true});
+    });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
     });
     $("historySaveLater")?.addEventListener("click",()=>finishHistorySaveThenEmail(false));
-    $("historySaveNow")?.addEventListener("click",()=>finishHistorySaveThenEmail(true));
+    $("historySaveNow")?.addEventListener("click",()=>{
+      const email=customerPdfEmail();
+      if(email) copyTextNow(email);
+      finishHistorySaveThenEmail(true);
+    });
     $("historySaveModal")?.addEventListener("click",e=>{
       if(e.target===$("historySaveModal")) finishHistorySaveThenEmail(false);
     });
