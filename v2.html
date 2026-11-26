@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.12">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.15">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.12</title>
+  <title>Servicebericht v4.15</title>
 <script>
-window.SB_APP_VERSION="4.12";
+window.SB_APP_VERSION="4.15";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -997,7 +997,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.12</span>
+      <span id="appCreditVer" class="app-ver">v4.15</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1267,9 +1267,9 @@ select.is-nudge,input.is-nudge{
 <div id="historySaveModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Historie speichern?</h3>
-    <p class="muted" id="historySaveHint">Zuerst in der Historie speichern, dann die E-Mail senden.</p>
+    <p class="muted" id="historySaveHint">Zuerst in der Historie speichern. Danach geht die E-Mail mit PDF.</p>
     <div class="email-actions">
-      <button type="button" class="clear" id="historySaveLater">Später</button>
+      <button type="button" class="clear" id="historySaveLater">Abbrechen</button>
       <button type="button" class="go" id="historySaveNow">Speichern</button>
     </div>
   </div>
@@ -5510,7 +5510,8 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
   }
-  async function exportReportFile(item){
+  async function exportReportFile(item, opts){
+    opts=opts||{};
     const {filename, json}=reportPayload(item);
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
@@ -5523,7 +5524,7 @@ finally{ window.__pdfBuilding=false; }
         $("status").textContent="In der App gespeichert. In Dateien den Ordner wählen.";
         return;
       }
-    }else if(window.showDirectoryPicker){
+    }else if(!opts.downloadOnly && window.showDirectoryPicker){
       let handle=await loadHistoryDirHandle();
       if(handle && !(await historyDirPermission(handle, true))) handle=null;
       if(!handle) handle=await pickHistoryDir();
@@ -5535,7 +5536,7 @@ finally{ window.__pdfBuilding=false; }
       }
     }
 
-    if(window.showSaveFilePicker){
+    if(!opts.downloadOnly && window.showSaveFilePicker){
       const fh=await window.showSaveFilePicker({
         suggestedName:jsonFile.filename,
         types:[{description:"Servicebericht",accept:{"application/json":[".json"]}}]
@@ -5686,15 +5687,19 @@ finally{ window.__pdfBuilding=false; }
         setSelectedHistory(0, item);
       }
       const shareNow=isIosDevice() && !opts.skipFile;
-      const inApp=await saveHistory(list, {deferIdb:shareNow});
+      const deferIdb=!!opts.deferIdb || shareNow;
+      const inApp=await saveHistory(list, {deferIdb});
       showHistoryActionOk("ok");
-      if(opts.skipFile) return inApp;
+      if(opts.skipFile){
+        if(deferIdb) persistHistoryIdb(historyMem).catch(function(){});
+        return inApp;
+      }
       let fileOk=false;
       try{
-        await exportReportFile(item);
+        await exportReportFile(item, {downloadOnly: !!opts.requireFile && !isIosDevice()});
         fileOk=true;
       }catch(e){
-        if(e?.name==="AbortError"){
+        if(e?.name==="AbortError" && !opts.requireFile){
           if(shareNow) await persistHistoryIdb(historyMem);
           $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
           return inApp;
@@ -6060,7 +6065,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.12";
+  const APP_VERSION=window.SB_APP_VERSION||"4.15";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8051,14 +8056,19 @@ finally{ window.__pdfBuilding=false; }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
   }
-  function finishHistorySaveThenEmail(doSave){
+  async function finishHistorySaveThenEmail(doSave){
     const go=historySaveThenEmail;
     historySaveThenEmail=false;
     closeHistorySaveSheet();
-    if(doSave && typeof window.saveCurrentHistory==="function"){
-      try{ window.saveCurrentHistory({skipFile:true}); }catch(e){}
+    if(!go) return;
+    if(!doSave){
+      setStatus("E-Mail abgebrochen. Zuerst Historie speichern.");
+      return;
     }
-    if(go) window.sendPdfByEmail();
+    if(typeof window.saveCurrentHistory==="function"){
+      try{ await window.saveCurrentHistory({skipFile:true, deferIdb:true}); }catch(e){}
+    }
+    window.sendPdfByEmail({keepBlob:true});
   }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
@@ -8172,7 +8182,8 @@ finally{ window.__pdfBuilding=false; }
     }
     return null;
   }
-  window.sendPdfByEmail=async function(){
+  window.sendPdfByEmail=async function(opts){
+    opts=opts||{};
     const email=customerPdfEmail();
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
@@ -8185,7 +8196,8 @@ finally{ window.__pdfBuilding=false; }
     closePdfEmailSheet();
 
     const matches=typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm();
-    if(!lastPdfBlob || !matches){
+    const keep=opts.keepBlob && lastPdfBlob;
+    if(!keep && (!lastPdfBlob || !matches)){
       setStatus("PDF wird erstellt…");
       const ready=await window.ensurePdfForCurrentForm();
       if(!ready || !lastPdfBlob){
@@ -8585,7 +8597,7 @@ finally{ window.__pdfBuilding=false; }
           setStatus("PDF konnte nicht erstellt werden.");
           return;
         }
-        window.openPdfEmailSheet();
+        offerHistorySaveBeforeEmail();
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
