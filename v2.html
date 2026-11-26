@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.10">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.12">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.10</title>
+  <title>Servicebericht v4.12</title>
 <script>
-window.SB_APP_VERSION="4.10";
+window.SB_APP_VERSION="4.12";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -803,6 +803,7 @@ select.is-nudge,input.is-nudge{
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+#machineSave.is-listed{background:#e5e5ea;color:#111;cursor:default}
 #machineSaveHint{
   margin:8px 0 0;font-size:13px;line-height:1.35;color:#b42318;font-weight:650;
 }
@@ -828,7 +829,7 @@ select.is-nudge,input.is-nudge{
   display:block;width:100%;box-sizing:border-box;margin:12px 0 0;padding:12px 14px;
   min-height:48px;font-size:16px;font-weight:700;background:#163a5c;color:#fff;
 }
-#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse,#kundennummerSave.is-pulse{
+#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse,#kundennummerSave.is-pulse,#machineSave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
 @keyframes companySavePulse{
@@ -836,7 +837,7 @@ select.is-nudge,input.is-nudge{
   50%{transform:scale(1.045);box-shadow:0 0 0 12px rgba(22,58,92,0)}
 }
 @media (prefers-reduced-motion:reduce){
-  #companySave,#companyRouteEdit,#emailSave,#kundennummerSave{animation:none}
+  #companySave,#companyRouteEdit,#emailSave,#kundennummerSave,#machineSave{animation:none}
 }
 .customer-route-bar{
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;
@@ -906,7 +907,7 @@ select.is-nudge,input.is-nudge{
 #routeModal .email-actions button{flex:1 1 30%;min-width:90px}
 #routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
 #routeModalErr.is-info{color:#163a5c}
-#companySave:disabled,#companyRouteEdit:disabled,#companyIdentityEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled,#companyEditSave:disabled,#companyEditCancel:disabled{opacity:.72}
+#companySave:disabled,#companyRouteEdit:disabled,#companyIdentityEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled,#companyEditSave:disabled,#companyEditCancel:disabled,#machineSave:disabled{opacity:.72}
 #companyEditModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -996,7 +997,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.10</span>
+      <span id="appCreditVer" class="app-ver">v4.12</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6059,7 +6060,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.10";
+  const APP_VERSION=window.SB_APP_VERSION||"4.12";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9287,9 +9288,23 @@ finally{ window.__pdfBuilding=false; }
   function syncMachineSaveUi(){
     const btn=$("machineSave");
     if(!btn) return;
-    btn.textContent=formDiffersFromLoaded()
-      ? "Geänderte Maschine speichern"
-      : "Zur Maschinenliste des Kunden hinzufügen";
+    const saved=findSaved();
+    const dirty=!!(saved && !recEqual(cleanRec(fromForm()), cleanRec(saved)));
+    const listed=!!saved && !dirty;
+    btn.disabled=listed;
+    btn.classList.toggle("is-listed", listed);
+    btn.classList.toggle("is-pulse", dirty);
+    btn.setAttribute("aria-pressed", listed?"true":"false");
+    if(listed){
+      btn.textContent="Bereits auf der Liste";
+      btn.title="Diese Maschine steht schon auf der Liste des Kunden";
+    }else if(dirty){
+      btn.textContent="Geänderte Maschine speichern?";
+      btn.title="Geänderte Maschine speichern?";
+    }else{
+      btn.textContent="Zur Maschinenliste des Kunden hinzufügen";
+      btn.title="";
+    }
   }
   function closeMachineSaveModal(choice){
     const modal=$("machineSaveModal");
@@ -9402,6 +9417,11 @@ finally{ window.__pdfBuilding=false; }
       showMachineNoRequired();
       return;
     }
+    const already=findSaved();
+    if(!(opts && opts.mode) && already && recEqual(cleanRec(rec), cleanRec(already))){
+      syncMachineSaveUi();
+      return;
+    }
     hideMachineSaveHint();
     if(!norm(rec.manufacturer) || !norm(rec.type)){
       const s=$("status");
@@ -9470,6 +9490,7 @@ finally{ window.__pdfBuilding=false; }
   window.refreshCustomerMachines=async function(){
     await pullMachines();
     syncComboClears();
+    syncMachineSaveUi();
   };
   function bind(){
     setupCombo(
