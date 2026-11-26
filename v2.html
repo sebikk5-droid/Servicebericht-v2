@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.62">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.63">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.62</title>
+  <title>Servicebericht v4.63</title>
 <script>
-window.SB_APP_VERSION="4.62";
+window.SB_APP_VERSION="4.63";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.62</span>
+      <span id="appCreditVer" class="app-ver">v4.63</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1872,6 +1872,11 @@ function syncReturnArrivalFromDeparture(d){
   if(!b1.value && !b2.value) return;
   const span=rueckfahrtClockSpan(d);
   if(!span) return;
+  if(Number(d)===1){
+    if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
+    else setClock(b1,addMinutesToTime(b2.value,-span));
+    return;
+  }
   if(b1.value && !filledTime(b2.value)) setClock(b2,addMinutesToTime(b1.value,span));
   else if(b2.value && !filledTime(b1.value)) setClock(b1,addMinutesToTime(b2.value,-span));
 }
@@ -1899,7 +1904,7 @@ function syncWorkEndToReturnStart(d){
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
   const span=rueckfahrtClockSpan(d);
-  if(ankunft && span && !filledTime(ankunft.value)) setClock(ankunft,addMinutesToTime(t,span));
+  if(ankunft && span && (Number(d)===1 || !filledTime(ankunft.value))) setClock(ankunft,addMinutesToTime(t,span));
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -2461,10 +2466,19 @@ document.getElementById("times").addEventListener("change",function(e){
   const a1=field("RZstart",outRow), a2=field("RZende",outRow);
   const b1=field("RZstart",backRow), b2=field("RZende",backRow);
   const backSpan=rueckfahrtClockSpan(d);
+  const free=Number(d)>1;
 
   if(el.value===""){
     el.dataset.manual="0";
     el.removeAttribute("data-manual");
+    if(!free && row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
+      if(el===a2 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
+      else if(el===a1 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
+    }
+    if(!free && row===backRow && b1 && b2 && backMin && !rueckfahrtOff(dayBox)){
+      if(el===b2 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
+      else if(el===b1 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
+    }
     recalcTimes(); updateDayRouteNetto(d);
     return;
   }
@@ -2472,8 +2486,8 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===outRow && el.value) restoreAnfahrtAuto(dayBox);
 
   if(row===outRow && outMin && !anfahrtOff(dayBox)){
-    if(el===a1 && a1.value && a2 && !filledTime(a2.value)) setClock(a2,addMinutesToTime(a1.value,outMin));
-    else if(el===a2 && a2.value && a1 && !filledTime(a1.value)) setClock(a1,addMinutesToTime(a2.value,-outMin));
+    if(el===a1 && a1.value && a2 && (!free || !filledTime(a2.value))) setClock(a2,addMinutesToTime(a1.value,outMin));
+    else if(el===a2 && a2.value && a1 && (!free || !filledTime(a1.value))) setClock(a1,addMinutesToTime(a2.value,-outMin));
 
     const az=field("AZstart",outRow);
     if(az && a2 && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
@@ -2486,8 +2500,8 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===backRow && el.value) restoreRueckfahrtAuto(dayBox);
 
   if(row===backRow && backMin && !rueckfahrtOff(dayBox)){
-    if(el===b1 && b1.value && b2 && !filledTime(b2.value)) setClock(b2,addMinutesToTime(b1.value,backSpan));
-    else if(el===b2 && b2.value && b1 && !filledTime(b1.value)) setClock(b1,addMinutesToTime(b2.value,-backSpan));
+    if(el===b1 && b1.value && b2 && (!free || !filledTime(b2.value))) setClock(b2,addMinutesToTime(b1.value,backSpan));
+    else if(el===b2 && b2.value && b1 && (!free || !filledTime(b1.value))) setClock(b1,addMinutesToTime(b2.value,-backSpan));
 
     const azEnd=field("AZende",outRow);
     if(azEnd && b1.value && azEnd.dataset.manual!=="1") setClock(azEnd,b1.value);
@@ -3964,17 +3978,17 @@ function bindTimeInputs(){
         const a1=field("RZstart",outRow),a2=field("RZende",outRow);
         const b1=field("RZstart",backRow),b2=field("RZende",backRow);
         if(row===outRow && a1&&a2&&el.value){
-          if(el===a1 && !filledTime(a2.value)) setClock(a2,addMinutesToTime(el.value,outMin));
-          else if(el===a2 && !filledTime(a1.value)) setClock(a1,addMinutesToTime(el.value,-outMin));
+          const free=Number(d)>1;
+          if(el===a1 && (!free || !filledTime(a2.value))) setClock(a2,addMinutesToTime(el.value,outMin));
+          else if(el===a2 && (!free || !filledTime(a1.value))) setClock(a1,addMinutesToTime(el.value,-outMin));
           const az=field("AZstart",outRow);
           if(az&&a2.value&&az.dataset.manual!=="1") setClock(az,a2.value);
         }
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          if(duration){
-            if(el===b1 && !filledTime(b2.value)) setClock(b2,addMinutesToTime(el.value,duration));
-            else if(el===b2 && !filledTime(b1.value)) setClock(b1,addMinutesToTime(el.value,-duration));
-          }
+          const free=Number(d)>1;
+          if(duration && el===b1 && (!free || !filledTime(b2.value))) setClock(b2,addMinutesToTime(el.value,duration));
+          else if(duration && el===b2 && (!free || !filledTime(b1.value))) setClock(b1,addMinutesToTime(el.value,-duration));
         }
       }
 
@@ -3992,7 +4006,7 @@ function bindTimeInputs(){
       if(key===`RZstart${backRow}`&&el.value){
         const span=rueckfahrtClockSpan(d);
         const ankunft=field("RZende",backRow);
-        if(span>0 && ankunft && !filledTime(ankunft.value)) setClock(ankunft,addMinutesToTime(el.value,span));
+        if(span>0 && ankunft && (Number(d)===1 || !filledTime(ankunft.value))) setClock(ankunft,addMinutesToTime(el.value,span));
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
@@ -6159,7 +6173,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.62";
+  const APP_VERSION=window.SB_APP_VERSION||"4.63";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
