@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.07">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.08">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.07</title>
+  <title>Servicebericht v4.08</title>
 <script>
-window.SB_APP_VERSION="4.07";
+window.SB_APP_VERSION="4.08";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -355,6 +355,18 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .firma-nr-row #customerSearchBox{margin:0}
 .firma-nr-row #kundennummer{min-width:0}
+.kunde-nr-field{position:relative}
+.kunde-nr-field.has-edit #kundennummer{padding-right:40px}
+.kunde-nr-edit{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  width:28px;height:28px;min-width:28px;min-height:28px;padding:0;margin:0;
+  border:0;border-radius:8px;background:#163a5c;color:#fff;cursor:pointer;
+  display:none;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.kunde-nr-field.has-edit .kunde-nr-edit{display:inline-flex}
+.kunde-nr-edit svg{width:16px;height:16px;display:block}
+.kunde-nr-edit[hidden]{display:none!important}
 #kundennummerSave{
   width:100%;margin:6px 0 0;padding:6px 8px;min-height:32px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
@@ -984,7 +996,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.07</span>
+      <span id="appCreditVer" class="app-ver">v4.08</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1023,7 +1035,12 @@ select.is-nudge,input.is-nudge{
   </div>
   <div>
     <label for="kundennummer">Kundennummer</label>
-    <input id="kundennummer" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nr.">
+    <div class="kunde-nr-field" id="kundennummerField">
+      <input id="kundennummer" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nr.">
+      <button type="button" class="kunde-nr-edit" id="kundennummerEdit" hidden aria-label="Kundennummer ändern" title="Kundennummer ändern">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
     <button type="button" id="kundennummerSave" hidden>Merken</button>
     <span id="kundennummerSaveOk" title="Gespeichert" aria-hidden="true">✓</span>
   </div>
@@ -2252,6 +2269,40 @@ $("resetForm")?.addEventListener("click",()=>{
 });
 $("kundennummer")?.addEventListener("input", syncKundennummerSaveButton);
 $("kundennummer")?.addEventListener("change", syncKundennummerSaveButton);
+$("kundennummer")?.addEventListener("pointerdown",function(e){
+  if(this.readOnly) e.preventDefault();
+});
+$("kundennummer")?.addEventListener("blur",function(){
+  const el=this;
+  setTimeout(function(){
+    if(document.activeElement===el) return;
+    if(el.dataset.unlocked!=="1") return;
+    const name=String($("customerSearch")?.value||"").trim();
+    const existing=name ? companyRecordByName(name) : null;
+    const saved=existing ? companyKundennummer(existing) : "";
+    if(String(el.value||"").trim()===saved){
+      delete el.dataset.unlocked;
+      syncKundennummerSaveButton();
+    }
+  }, 160);
+});
+$("kundennummerEdit")?.addEventListener("click",function(){
+  const el=$("kundennummer");
+  if(!el) return;
+  const name=String($("customerSearch")?.value||"").trim();
+  const existing=name ? companyRecordByName(name) : null;
+  const saved=existing ? companyKundennummer(existing) : "";
+  if(el.dataset.unlocked==="1"){
+    el.value=saved;
+    delete el.dataset.unlocked;
+    syncKundennummerSaveButton();
+    return;
+  }
+  el.dataset.unlocked="1";
+  el.readOnly=false;
+  syncKundennummerSaveButton();
+  try{ el.focus(); el.select(); }catch(e){}
+});
 $("kundennummerSave")?.addEventListener("click",()=>{ saveKundennummerForListedFirm(); });
 $("addressMapsBtn")?.addEventListener("click", openAddressInGoogleMaps);
 syncAddressMapsBtn();
@@ -2769,7 +2820,10 @@ function bindCompanySelect(){
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
-    if($("kundennummer")) $("kundennummer").value=companyKundennummer(c);
+    if($("kundennummer")){
+      $("kundennummer").value=companyKundennummer(c);
+      delete $("kundennummer").dataset.unlocked;
+    }
     // Force KM from the new customer (unless the user marked KM as manual).
     applyCustomerRouteDay1({forceKm:true});
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d, {forceKm:true});
@@ -2968,17 +3022,32 @@ function syncCompanySaveButton(){
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
 function syncKundennummerSaveButton(){
+  const el=$("kundennummer");
   const btn=$("kundennummerSave");
+  const edit=$("kundennummerEdit");
+  const wrap=$("kundennummerField") || el?.closest(".kunde-nr-field");
   const ok=$("kundennummerSaveOk");
-  if(!btn) return;
+  if(!el) return;
   const name=String($("customerSearch")?.value||"").trim();
   const existing=name ? companyRecordByName(name) : null;
-  const typed=String($("kundennummer")?.value||"").trim();
+  const typed=String(el.value||"").trim();
   const saved=existing ? companyKundennummer(existing) : "";
-  const show=!!existing && !!typed && typed!==saved;
-  btn.hidden=!show;
-  btn.classList.toggle("is-pulse", show);
-  if(!show && ok && !ok.classList.contains("is-on")) ok.classList.remove("is-on");
+  const hasSaved=!!(existing && saved);
+  const unlocked=el.dataset.unlocked==="1";
+  const dirty=!!existing && !!typed && typed!==saved;
+  const lock=hasSaved && !unlocked && typed===saved;
+  el.readOnly=lock;
+  if(wrap) wrap.classList.toggle("has-edit", hasSaved && typed===saved);
+  if(edit){
+    edit.hidden=!hasSaved || typed!==saved;
+    edit.title=unlocked ? "Änderung abbrechen" : "Kundennummer ändern";
+    edit.setAttribute("aria-label", edit.title);
+  }
+  if(btn){
+    btn.hidden=!dirty;
+    btn.classList.toggle("is-pulse", dirty);
+  }
+  if(!dirty && ok && !ok.classList.contains("is-on")) ok.classList.remove("is-on");
 }
 window.syncKundennummerSaveButton=syncKundennummerSaveButton;
 function saveKundennummerForListedFirm(){
@@ -2998,6 +3067,8 @@ function saveKundennummerForListedFirm(){
   if(typeof applyCompanies==="function") applyCompanies(local, existing.firma||name);
   if(typeof markCompanyPending==="function") markCompanyPending(existing.firma||name);
   if(typeof flushPendingCompanies==="function") flushPendingCompanies();
+  const nrEl=$("kundennummer");
+  if(nrEl) delete nrEl.dataset.unlocked;
   syncKundennummerSaveButton();
   const ok=$("kundennummerSaveOk");
   if(ok){
@@ -5810,7 +5881,7 @@ finally{ window.__pdfBuilding=false; }
       const nr=document.getElementById("kundennummer");
       if(street) street.value="";
       if(city) city.value="";
-      if(nr) nr.value="";
+      if(nr){ nr.value=""; delete nr.dataset.unlocked; }
       const email=document.getElementById("customerEmail");
       if(email) email.value="";
       const emailBox=document.getElementById("customerEmailBox");
@@ -5988,7 +6059,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.07";
+  const APP_VERSION=window.SB_APP_VERSION||"4.08";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6817,7 +6888,10 @@ finally{ window.__pdfBuilding=false; }
       }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
-      if($("kundennummer")) $("kundennummer").value=edited.kundennummer||"";
+      if($("kundennummer")){
+        $("kundennummer").value=edited.kundennummer||"";
+        delete $("kundennummer").dataset.unlocked;
+      }
       if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
       if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
       if(oldKey!==newKey){
