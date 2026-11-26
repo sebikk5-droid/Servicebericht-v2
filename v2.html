@@ -2,11 +2,11 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,interactive-widget=overlays-content">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.27">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.28">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.27</title>
+  <title>Servicebericht v4.28</title>
 <script>
-window.SB_APP_VERSION="4.27";
+window.SB_APP_VERSION="4.28";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1007,7 +1007,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.27</span>
+      <span id="appCreditVer" class="app-ver">v4.28</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6086,7 +6086,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.27";
+  const APP_VERSION=window.SB_APP_VERSION||"4.28";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6225,12 +6225,13 @@ finally{ window.__pdfBuilding=false; }
       if(hint) hint.textContent="Token für privates Repo "+dataRepo().repo+" (Contents: Read and write). App bleibt auf github.io, Listen nicht.";
       if(skip) skip.textContent="Später";
     }
+    try{
+      const a=document.activeElement;
+      if(a && a.blur && a!==input) a.blur();
+    }catch(e){}
+    if(document.body) document.body.style.transform="";
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
-    setTimeout(()=>{
-      try{ input.focus({preventScroll:true}); }catch(e){ try{ input.focus(); }catch(_e){} }
-      if(typeof window.sbKeepKbInView==="function") window.sbKeepKbInView();
-    }, 150);
     return new Promise(resolve=>{ tokenModalWait=resolve; });
   }
   function ensureToken(){
@@ -6267,7 +6268,18 @@ finally{ window.__pdfBuilding=false; }
       setToken("");
       closeTokenModal(false);
     });
-    $("tokenStatusBtn")?.addEventListener("click",()=>{ openTokenModal(); });
+    const tokenBtn=$("tokenStatusBtn");
+    if(tokenBtn){
+      let tokenTapAt=0;
+      const openFromBtn=function(e){
+        if(e) e.preventDefault();
+        if(Date.now()-tokenTapAt<500) return;
+        tokenTapAt=Date.now();
+        openTokenModal();
+      };
+      tokenBtn.addEventListener("pointerdown", openFromBtn);
+      tokenBtn.addEventListener("click", openFromBtn);
+    }
   }
   function captureToken(){
     try{
@@ -10095,11 +10107,15 @@ finally{ window.__pdfBuilding=false; }
     keepFieldInView(el, 0);
   }
   function keepKbInView(){
-    pinHeaderToTop();
+    lockPageScroll();
     syncKeyboardPad();
     const a=document.activeElement;
     if(!isKbField(a)){
       relayoutOpenCombo();
+      return;
+    }
+    if(a.closest && a.closest(MODAL_ROOT)){
+      keepModalFieldInView(a);
       return;
     }
     const combo=a.closest && a.closest(".combo-box, .parts-box");
@@ -10116,7 +10132,6 @@ finally{ window.__pdfBuilding=false; }
     }
     if(target && target.getBoundingClientRect) keepFieldInView(target, extra);
     relayoutOpenCombo();
-    pinHeaderToTop();
   }
   function relayoutOpenCombo(){
     const results=openComboEl();
@@ -10133,9 +10148,6 @@ finally{ window.__pdfBuilding=false; }
     if(type==="checkbox" || type==="radio" || type==="file" || type==="hidden" || type==="button" || type==="submit") return false;
     return true;
   }
-  function openModalEl(){
-    return document.querySelector("#tokenModal.is-open, #pdfEmailModal.is-open, #historySaveModal.is-open, #pdfMissingModal.is-open, #machineSaveModal.is-open, #routeModal.is-open, #companyEditModal.is-open, #sigModal.is-open");
-  }
   function keepModalFieldInView(el){
     const sheet=el && el.closest && el.closest(".token-sheet");
     if(!sheet) return;
@@ -10148,17 +10160,24 @@ finally{ window.__pdfBuilding=false; }
       sheet.scrollTop-=(frame.top+pad)-er.top;
   }
   function onFieldFocus(el){
-    pinHeaderToTop();
+    lockPageScroll();
+    if(el && el.closest && el.closest(MODAL_ROOT)){
+      syncKeyboardPad();
+      requestAnimationFrame(syncKeyboardPad);
+      setTimeout(syncKeyboardPad, 140);
+      setTimeout(syncKeyboardPad, 320);
+      return;
+    }
     const scroller=main();
     const keep=scroller ? scroller.scrollTop : 0;
     requestAnimationFrame(()=>{
-      pinHeaderToTop();
+      lockPageScroll();
       if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
       keepKbInView();
     });
-    setTimeout(function(){ pinHeaderToTop(); keepKbInView(); }, 120);
-    setTimeout(function(){ pinHeaderToTop(); keepKbInView(); }, 320);
-    setTimeout(function(){ pinHeaderToTop(); keepKbInView(); }, 560);
+    setTimeout(keepKbInView, 120);
+    setTimeout(keepKbInView, 320);
+    setTimeout(keepKbInView, 560);
   }
   window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
@@ -10220,34 +10239,14 @@ finally{ window.__pdfBuilding=false; }
     }
     closeOpenCombos();
   }, {passive:true});
-  function currentTranslateY(el){
-    const t=(el && el.style && el.style.transform)||"";
-    const m=t.match(/translateY\((-?\d+(?:\.\d+)?)px\)/);
-    if(m) return parseFloat(m[1])||0;
-    const m2=t.match(/translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\)/);
-    if(m2) return parseFloat(m2[2])||0;
-    return 0;
-  }
-  function pinHeaderToTop(){
+  function lockPageScroll(){
     try{
       if(window.scrollX || window.scrollY) window.scrollTo(0,0);
       if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
       if(document.body.scrollTop) document.body.scrollTop=0;
     }catch(e){}
-    if(openModalEl()){
-      syncKeyboardPad();
-      return;
-    }
-    const body=document.body;
-    const header=document.querySelector("header");
-    if(!body || !header) return;
-    const top=header.getBoundingClientRect().top;
-    if(Math.abs(top)<1) return;
-    const next=Math.round(currentTranslateY(body)-top);
-    const css=next ? ("translateY("+next+"px)") : "";
-    if(body.style.transform!==css) body.style.transform=css;
+    if(document.body && document.body.style.transform) document.body.style.transform="";
   }
-  function lockPageScroll(){ pinHeaderToTop(); }
   function allowTouchScroll(el){
     if(!el || !el.closest) return false;
     if(el.closest("main, .combo-results, .token-sheet, #pdfPreviewModal, #sigModal")) return true;
