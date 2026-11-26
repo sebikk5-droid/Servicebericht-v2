@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.05">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.06">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.05</title>
+  <title>Servicebericht v4.06</title>
 <script>
-window.SB_APP_VERSION="4.05";
+window.SB_APP_VERSION="4.06";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -349,6 +349,12 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .addr-copy-wrap .grid{flex:1 1 auto;min-width:0}
 .addr-copy-wrap .email-copy-btn{margin:0 0 1px}
 .addr-copy-wrap .email-copy-btn svg{width:22px;height:22px}
+.firma-nr-row{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(6.6em, 8.8em);
+  column-gap:10px;align-items:end;margin:0 0 10px;
+}
+.firma-nr-row #customerSearchBox{margin:0}
+.firma-nr-row #kundennummer{min-width:0}
 .kunde-align{
   display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;
   column-gap:10px;align-items:end;
@@ -968,7 +974,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.05</span>
+      <span id="appCreditVer" class="app-ver">v4.06</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -996,13 +1002,19 @@ select.is-nudge,input.is-nudge{
   </div>
 </section>
 <section class="card"><h2>Kunde</h2>
-<label for="customerSearch">Firma</label>
-<div id="customerSearchBox" class="combo-box" style="margin:4px 0 10px">
-  <div class="combo-field">
-    <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
-    <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+<div class="firma-nr-row">
+  <div class="combo-box" id="customerSearchBox">
+    <label for="customerSearch">Firma</label>
+    <div class="combo-field">
+      <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
+      <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+    </div>
+    <div id="customerSearchResults" class="combo-results"></div>
   </div>
-  <div id="customerSearchResults" class="combo-results"></div>
+  <div>
+    <label for="kundennummer">Kundennummer</label>
+    <input id="kundennummer" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nr.">
+  </div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
 <div id="customerRouteBar" class="customer-route-bar" hidden>
@@ -1305,9 +1317,17 @@ select.is-nudge,input.is-nudge{
 <div id="companyEditModal" aria-hidden="true">
   <div class="token-sheet">
     <h3 id="companyEditTitle">Firma und Adresse</h3>
-    <p class="muted" id="companyEditHint">Name und Adresse in der Kundenliste ändern.</p>
-    <label for="companyEditName">Firma</label>
-    <input id="companyEditName" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <p class="muted" id="companyEditHint">Name, Kundennummer und Adresse in der Kundenliste ändern.</p>
+    <div class="route-grid">
+      <div>
+        <label for="companyEditName">Firma</label>
+        <input id="companyEditName" autocomplete="off" autocapitalize="words" spellcheck="false">
+      </div>
+      <div>
+        <label for="companyEditNr">Kundennummer</label>
+        <input id="companyEditNr" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
     <div class="route-grid">
       <div>
         <label for="companyEditStreet">Straße</label>
@@ -2556,6 +2576,11 @@ function addMinutesToTime(t,mins){
 function companyNameKey(c){
   return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
 }
+function companyKundennummer(c){
+  if(!c) return "";
+  return String(c.kundennummer||c.kundenummer||c.kdnr||c.customerNo||"").trim();
+}
+window.companyKundennummer=companyKundennummer;
 const COMPANIES_CACHE_KEY="servicebericht_companies_cache_v1";
 const COMPANIES_PENDING_KEY="servicebericht_companies_pending_v1";
 const COMPANIES_REMOVED_KEY="servicebericht_companies_removed_v1";
@@ -2701,6 +2726,7 @@ function mergePendingCompanies(remote, localList, pendingKeys){
       if(idx>=0){
         arr[idx].adres=String(rec.adres||"");
         if(rec.firma) arr[idx].firma=String(rec.firma).trim();
+        if(rec.kundennummer!=null) arr[idx].kundennummer=String(rec.kundennummer||"");
       }
     }
   });
@@ -2728,6 +2754,7 @@ function bindCompanySelect(){
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
+    if($("kundennummer")) $("kundennummer").value=companyKundennummer(c);
     // Force KM from the new customer (unless the user marked KM as manual).
     applyCustomerRouteDay1({forceKm:true});
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d, {forceKm:true});
@@ -2822,11 +2849,14 @@ function unionCompaniesPreferLocal(remoteList, localList){
     const locEmail=String(c.email||"").trim();
     const remEmail=String(rem.email||"").trim();
     const localFirma=String(c.firma||c.name||"").trim();
+    const locNr=companyKundennummer(c);
+    const remNr=companyKundennummer(rem);
     map.set(k, Object.assign({}, rem, {
       firma:(pending.has(k) && localFirma) ? localFirma : (rem.firma||c.firma||c.name||""),
       // Prefer a real address — local "" must not wipe a remote email.
       email:locEmail || remEmail || rem.email || c.email || "",
       adres:force.has(k) ? String(c.adres||"") : (rem.adres||c.adres||""),
+      kundennummer:(pending.has(k) || force.has(k)) ? String(c.kundennummer||c.kundenummer||locNr||"") : (locNr || remNr || ""),
       tel:rem.tel||c.tel||"",
       notatki:useLocalNote ? (locNote||remNote) : (remNote||locNote)
     }));
@@ -2941,6 +2971,7 @@ function mergeCompanyRecord(remote, rec){
       tel:String((rec&&rec.tel)||""),
       email:String((rec&&rec.email)||""),
       adres:String((rec&&rec.adres)||""),
+      kundennummer:String((rec&&rec.kundennummer)||"").trim(),
       notatki:String((rec&&rec.notatki)||"")
     });
   }else{
@@ -2950,6 +2981,8 @@ function mergeCompanyRecord(remote, rec){
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
     if(rec.adres) c.adres=rec.adres;
+    if(rec.kundennummer!=null && String(rec.kundennummer).trim()!=="")
+      c.kundennummer=String(rec.kundennummer).trim();
     // Never wipe km/Reisezeit with "" (E-Mail merken used to blank notatki).
     if(rec.notatki!=null && String(rec.notatki).trim()!=="") c.notatki=String(rec.notatki);
   }
@@ -2985,6 +3018,7 @@ function companyRecordFromForm(route){
   const city=String($("city")?.value||"").trim();
   const adres=[street, city].filter(Boolean).join(", ");
   const email=String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
+  const kundennummer=String($("kundennummer")?.value||"").trim();
   let km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
   const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
   const clock=rtTxt.match(/^(\d+):(\d+)$/);
@@ -2993,7 +3027,7 @@ function companyRecordFromForm(route){
     if(route.km!=null) km=Number(route.km)||0;
     if(route.minutes!=null) minutes=Number(route.minutes)||0;
   }
-  return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
+  return {firma, tel:"", email, adres, kundennummer, notatki:formatRouteNote(km, minutes)};
 }
 function currentAddressQuery(){
   const firma=typeof firmaName==="function" ? String(firmaName()||"").trim() : String($("customerSearch")?.value||"").trim();
@@ -3119,7 +3153,8 @@ function replaceCompanyIdentity(list, oldKey, rec){
   const base=oldIdx>=0?arr[oldIdx]:{};
   const next=Object.assign({}, base, {
     firma:name,
-    adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||"")
+    adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||""),
+    kundennummer:rec&&rec.kundennummer!=null ? String(rec.kundennummer) : companyKundennummer(base)
   });
   if(oldIdx>=0 && oldK!==newK) arr.splice(oldIdx, 1);
   const exist=arr.findIndex(c=>companyNameKey(c)===newK);
@@ -3461,7 +3496,7 @@ function fitSizeForField(n){
   if(/^Kilometer\d+$/.test(name)) return 7.5;
   if(/^(RZ|AZ)\d+$/.test(name)) return 8;
   if(/gesamt|Gesamtzeit/i.test(name)) return 9;
-  if(/^(Firma|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 9;
+  if(/^(Firma|Kundennummer|Kunden-Nr|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 9;
   if(/^Bemerkung\d+$/.test(name) || /^Ersatzteile/.test(name)) return 9;
   return 9;
 }
@@ -4589,6 +4624,8 @@ function pdfDateFromDay(dayNo){
   return el?.value || isoAddDays($("date")?.value||"", Number(dayNo)-1);
 }
 setFit(form,"Firma",firmaName(),9);
+setIf(form,"Kundennummer",$("kundennummer")?.value||"");
+setIf(form,"Kunden-Nr",$("kundennummer")?.value||"");
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
 setFit(form,"Text2", String($("blattNr")?.value||"").trim()||"1", 8);
@@ -4655,7 +4692,7 @@ if(all) setFit(form,"Gesamtzeit",fmtMinPdf(all),9);
 const pdfHasContent=!!(
   c || firmaName() || String($("remarks").value||"").trim() || String($("parts").value||"").trim() || km || travel || work || bet || ein || art ||
   document.getElementById("maschine_ok")?.checked ||
-  ["street","city","contact","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
+  ["street","city","contact","kundennummer","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
     .some(id=>String($(id)?.value||"").trim())
 );
 if(pdfHasContent){
@@ -5709,8 +5746,10 @@ finally{ window.__pdfBuilding=false; }
     function clearCustomerContactFields(){
       const street=document.getElementById("street");
       const city=document.getElementById("city");
+      const nr=document.getElementById("kundennummer");
       if(street) street.value="";
       if(city) city.value="";
+      if(nr) nr.value="";
       const email=document.getElementById("customerEmail");
       if(email) email.value="";
       const emailBox=document.getElementById("customerEmailBox");
@@ -5734,9 +5773,21 @@ finally{ window.__pdfBuilding=false; }
       const all=getOptions();
       let options=all;
       if(q){
-        const starts=all.filter(o=>o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q));
+        function hay(o){
+          const name=o.textContent.trim().toLocaleLowerCase("de-DE");
+          const rec=Array.isArray(companies)?companies[Number(o.value)]:null;
+          const nr=(typeof companyKundennummer==="function"?companyKundennummer(rec):"").toLocaleLowerCase("de-DE");
+          return {name, nr};
+        }
+        const starts=all.filter(o=>{
+          const h=hay(o);
+          return h.name.startsWith(q) || (h.nr && h.nr.startsWith(q));
+        });
         // "t" means names that begin with t. A name that only contains t stays out of that list.
-        options=starts.length ? starts : all.filter(o=>o.textContent.trim().toLocaleLowerCase("de-DE").includes(q));
+        options=starts.length ? starts : all.filter(o=>{
+          const h=hay(o);
+          return h.name.includes(q) || (h.nr && h.nr.includes(q));
+        });
       }
       options.sort((a,b)=>a.textContent.trim().localeCompare(b.textContent.trim(),"de",{numeric:true,sensitivity:"base"}));
       if(!options.length){
@@ -5876,7 +5927,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.05";
+  const APP_VERSION=window.SB_APP_VERSION||"4.06";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -6633,11 +6684,14 @@ finally{ window.__pdfBuilding=false; }
   function askCompanyEdit(rec){
     const modal=$("companyEditModal");
     const nameEl=$("companyEditName");
+    const nrEl=$("companyEditNr");
     const streetEl=$("companyEditStreet");
     const cityEl=$("companyEditCity");
     if(!modal||!nameEl||!streetEl||!cityEl) return Promise.resolve(null);
     const parsed=typeof address==="function" ? address(rec.adres||rec.address||"") : [rec.adres||"",""];
     nameEl.value=String(rec.firma||rec.name||"");
+    const formNr=String($("kundennummer")?.value||"").trim();
+    if(nrEl) nrEl.value=formNr || (typeof companyKundennummer==="function"?companyKundennummer(rec):"") || "";
     const formStreet=String($("street")?.value||"").trim();
     const formCity=String($("city")?.value||"").trim();
     streetEl.value=formStreet||parsed[0]||"";
@@ -6656,6 +6710,7 @@ finally{ window.__pdfBuilding=false; }
   function readCompanyEdit(){
     const err=$("companyEditErr");
     const name=String($("companyEditName")?.value||"").trim();
+    const kundennummer=String($("companyEditNr")?.value||"").trim();
     const street=String($("companyEditStreet")?.value||"").trim();
     const city=String($("companyEditCity")?.value||"").trim();
     if(!name){
@@ -6668,7 +6723,7 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
     if(err) err.textContent="";
-    return {firma:name, street:street, city:city, adres:[street, city].filter(Boolean).join(", ")};
+    return {firma:name, kundennummer:kundennummer, street:street, city:city, adres:[street, city].filter(Boolean).join(", ")};
   }
   async function saveCompanyIdentity(){
     const prev=saveLock;
@@ -6694,12 +6749,14 @@ finally{ window.__pdfBuilding=false; }
       if(typeof replaceCompanyIdentity==="function"){
         const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, {
           firma:edited.firma,
-          adres:edited.adres
+          adres:edited.adres,
+          kundennummer:edited.kundennummer
         });
         if(typeof applyCompanies==="function") applyCompanies(local, edited.firma);
       }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
+      if($("kundennummer")) $("kundennummer").value=edited.kundennummer||"";
       if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
       if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
       if(oldKey!==newKey){
@@ -6729,7 +6786,7 @@ finally{ window.__pdfBuilding=false; }
     if(!edited) return;
     closeCompanyEdit(edited);
   });
-  ["companyEditName","companyEditStreet","companyEditCity"].forEach(function(id){
+  ["companyEditName","companyEditNr","companyEditStreet","companyEditCity"].forEach(function(id){
     $(id)?.addEventListener("keydown",function(e){
       if(e.key!=="Enter") return;
       e.preventDefault();
@@ -6998,6 +7055,7 @@ finally{ window.__pdfBuilding=false; }
         tel:"",
         email:e,
         adres:adres,
+        kundennummer:String($("kundennummer")?.value||"").trim(),
         notatki:""
       });
     }
@@ -7049,6 +7107,7 @@ finally{ window.__pdfBuilding=false; }
         firma:displayName,
         email:String(email||"").trim(),
         adres:[street, city].filter(Boolean).join(", "),
+        kundennummer:String($("kundennummer")?.value||"").trim(),
         tel:""
       };
       companyPush=await window.sbLists.pushMerged(
