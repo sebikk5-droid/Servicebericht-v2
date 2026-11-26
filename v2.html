@@ -2,11 +2,11 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.30">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.31">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.30</title>
+  <title>Servicebericht v4.31</title>
 <script>
-window.SB_APP_VERSION="4.30";
+window.SB_APP_VERSION="4.31";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -171,7 +171,7 @@ window.sbReloadHeld=function(){
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;height:100dvh;width:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none;overflow-anchor:none}
-body{position:fixed;top:0;left:0;right:0;bottom:auto;width:100%;height:var(--sb-vvh,100dvh);display:flex;flex-direction:column;padding-top:var(--sb-header-h,0px);background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0;touch-action:none;overflow-anchor:none}
+body{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:var(--sb-header-h,0px);background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0;touch-action:none;overflow-anchor:none}
 header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:fixed;top:0;left:0;right:0;z-index:20;flex:0 0 auto;touch-action:none;overflow-anchor:none}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
@@ -1007,7 +1007,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.30</span>
+      <span id="appCreditVer" class="app-ver">v4.31</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6086,7 +6086,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.30";
+  const APP_VERSION=window.SB_APP_VERSION||"4.31";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10085,7 +10085,7 @@ finally{ window.__pdfBuilding=false; }
     const inner=window.innerHeight||0;
     const vv=window.visualViewport;
     if(vv && inner-vv.height>80) return Math.round(inner-vv.height);
-    return Math.min(380, Math.round(inner*0.42));
+    return Math.min(440, Math.round(inner*0.48));
   }
   function ensureScrollRoom(){
     const scroller=main();
@@ -10271,11 +10271,6 @@ finally{ window.__pdfBuilding=false; }
     const h=Math.ceil(header.getBoundingClientRect().height||0);
     if(h) document.documentElement.style.setProperty("--sb-header-h", h+"px");
   }
-  function syncVisualHeight(){
-    const vv=window.visualViewport;
-    const h=vv && vv.height ? Math.round(vv.height) : Math.round(window.innerHeight||0);
-    if(h) document.documentElement.style.setProperty("--sb-vvh", h+"px");
-  }
   function lockPageScroll(){
     try{
       if(window.scrollX || window.scrollY) window.scrollTo(0,0);
@@ -10283,7 +10278,6 @@ finally{ window.__pdfBuilding=false; }
       if(document.body.scrollTop) document.body.scrollTop=0;
     }catch(e){}
     if(document.body && document.body.style.transform) document.body.style.transform="";
-    syncVisualHeight();
     syncHeaderSlot();
   }
   function allowTouchScroll(el){
@@ -10311,7 +10305,6 @@ finally{ window.__pdfBuilding=false; }
       keepKbInView();
     });
   }
-  syncVisualHeight();
   syncHeaderSlot();
   try{
     if(window.ResizeObserver){
@@ -10324,6 +10317,18 @@ finally{ window.__pdfBuilding=false; }
     if(!el || !isKbField(el)) return;
     if(el.closest && el.closest(MODAL_ROOT)) return;
     liftFieldAboveKeyboard(el);
+    const type=(el.type||"").toLowerCase();
+    if(type==="date" || type==="time" || type==="month" || el.readOnly) return;
+    el.readOnly=true;
+    const unlock=function(){
+      el.removeEventListener("focus", unlock);
+      el.readOnly=false;
+      requestAnimationFrame(function(){
+        lockPageScroll();
+        liftFieldAboveKeyboard(el);
+      });
+    };
+    el.addEventListener("focus", unlock);
   }, true);
 
   let penField=null, penAt=0;
