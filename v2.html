@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.88">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,21 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.87</title>
+  <title>Servicebericht v4.88</title>
 <script>
-window.SB_APP_VERSION="4.87";
+window.SB_APP_VERSION="4.88";
+/** Kurznotiz beim Start: was sich gegenüber der vorherigen Arbeitsversion / GitHub geändert hat. */
+window.SB_RELEASE_NOTES=[
+  {v:"4.88", items:[
+    "Beim Start: Hinweis, was sich gegenüber GitHub (main) geändert hat.",
+    "Tag 2: Reisezeit netto wie Tag 1 – Pause wird abgezogen (PDF nicht mehr 2:15 statt 1:30).",
+    "Reisezeit ändern leeren stellt die Listenzeit wieder her (kein Rest wie ~6 Min)."
+  ]},
+  {v:"4.86", items:[
+    "Pause Rückfahrt hat eigenes Gelb; × stellt gelbe Felder und roten Tag-Sprung wieder her."
+  ]}
+];
+window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -159,6 +171,93 @@ window.sbReloadHeld=function(){
     if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
     checkLive();
   });
+
+  function parseGithubHtmlVersion(html){
+    const m=String(html||"").match(/SB_APP_VERSION\s*=\s*["']([\d.]+)["']/);
+    return m?m[1]:"";
+  }
+  function notesSince(githubVer){
+    const notes=Array.isArray(window.SB_RELEASE_NOTES)?window.SB_RELEASE_NOTES:[];
+    const local=window.SB_APP_VERSION||"";
+    const out=[];
+    notes.forEach(function(block){
+      if(!block||!block.v) return;
+      if(githubVer && compareVer(block.v, githubVer)<=0) return;
+      if(local && compareVer(block.v, local)>0) return;
+      (block.items||[]).forEach(function(t){
+        if(t) out.push({v:block.v, text:String(t)});
+      });
+    });
+    return out;
+  }
+  function closeWhatsNew(){
+    const modal=document.getElementById("whatsNewModal");
+    if(!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+    try{ localStorage.setItem("sb_whats_new_seen", window.SB_APP_VERSION||""); }catch(e){}
+  }
+  function openWhatsNew(githubVer, items){
+    const modal=document.getElementById("whatsNewModal");
+    const meta=document.getElementById("whatsNewMeta");
+    const list=document.getElementById("whatsNewList");
+    if(!modal||!meta||!list||!items.length) return;
+    const local=window.SB_APP_VERSION||"";
+    meta.textContent=githubVer
+      ? ("Arbeitsversion v"+local+" · auf GitHub (main): v"+githubVer)
+      : ("Arbeitsversion v"+local+" · GitHub-Version nicht geladen");
+    list.innerHTML="";
+    items.forEach(function(it){
+      const li=document.createElement("li");
+      li.textContent=(it.v?"v"+it.v+": ":"")+it.text;
+      list.appendChild(li);
+    });
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+  }
+  function maybeShowWhatsNew(){
+    const local=window.SB_APP_VERSION||"";
+    if(!local) return;
+    try{
+      if(localStorage.getItem("sb_whats_new_seen")===local) return;
+    }catch(e){}
+    const raw=window.SB_GITHUB_MAIN_RAW||"";
+    const finish=function(githubVer){
+      let show=notesSince(githubVer||"");
+      // Ohne GitHub-Version: nur Notizen der aktuellen Version zeigen.
+      if(!show.length){
+        show=notesSince("0").filter(function(it){ return it.v===local; });
+      }
+      if(!show.length) return;
+      openWhatsNew(githubVer||"", show.slice(0, 8));
+    };
+    if(!raw){ finish(""); return; }
+    fetch(raw+(raw.indexOf("?")>=0?"&":"?")+"t="+Date.now(), {cache:"no-store"})
+      .then(function(r){ return r&&r.ok?r.text():""; })
+      .then(function(html){ finish(parseGithubHtmlVersion(html)); })
+      .catch(function(){ finish(""); });
+  }
+  window.SB_SHOW_WHATS_NEW=maybeShowWhatsNew;
+  function bindWhatsNewUi(){
+    const ok=document.getElementById("whatsNewOk");
+    const modal=document.getElementById("whatsNewModal");
+    if(ok && ok.dataset.bound!=="1"){
+      ok.dataset.bound="1";
+      ok.addEventListener("click", closeWhatsNew);
+    }
+    if(modal && modal.dataset.bound!=="1"){
+      modal.dataset.bound="1";
+      modal.addEventListener("click", function(e){
+        if(e.target===modal) closeWhatsNew();
+      });
+    }
+    maybeShowWhatsNew();
+  }
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded", bindWhatsNewUi, {once:true});
+  }else{
+    bindWhatsNewUi();
+  }
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
   function warmPdfCache(){
@@ -981,20 +1080,24 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #machineSaveModal h3{margin:0 0 6px;font-size:18px}
 #machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
-#pdfMissingModal{
+#pdfMissingModal,#whatsNewModal{
   display:none;position:fixed;inset:0;z-index:100;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
   padding-bottom:var(--sb-kb,0px);
 }
-#pdfMissingModal.is-open{display:flex}
-#pdfMissingModal .token-sheet{
+#pdfMissingModal.is-open,#whatsNewModal.is-open{display:flex}
+#pdfMissingModal .token-sheet,#whatsNewModal .token-sheet{
   width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
   padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 24px rgba(0,0,0,.18);
 }
-#pdfMissingModal h3{margin:0 0 6px;font-size:18px}
-#pdfMissingModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#pdfMissingModal .email-actions button{flex:1}
+#pdfMissingModal h3,#whatsNewModal h3{margin:0 0 6px;font-size:18px}
+#pdfMissingModal .email-actions,#whatsNewModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#pdfMissingModal .email-actions button,#whatsNewModal .email-actions button{flex:1}
+#whatsNewModal .whats-new-meta{margin:0 0 10px;font-size:13px;line-height:1.4;color:#555}
+#whatsNewModal .whats-new-list{margin:0;padding:0 0 0 1.15em;font-size:14px;line-height:1.45;color:#222}
+#whatsNewModal .whats-new-list li{margin:0 0 8px}
+#whatsNewModal .whats-new-list li:last-child{margin-bottom:0}
 .machine-check-hint{
   grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73;
   transform-origin:left center;
@@ -1044,7 +1147,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.87</span>
+      <span id="appCreditVer" class="app-ver">v4.88</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1498,6 +1601,16 @@ select.is-nudge,input.is-nudge{
     <div class="email-actions">
       <button type="button" class="clear" id="pdfMissingNo">Nein</button>
       <button type="button" class="go" id="pdfMissingYes">Ja</button>
+    </div>
+  </div>
+</div>
+<div id="whatsNewModal" aria-hidden="true">
+  <div class="token-sheet" role="dialog" aria-labelledby="whatsNewTitle" aria-describedby="whatsNewMeta">
+    <h3 id="whatsNewTitle">Was hat sich geändert?</h3>
+    <p class="whats-new-meta" id="whatsNewMeta"></p>
+    <ul class="whats-new-list" id="whatsNewList"></ul>
+    <div class="email-actions">
+      <button type="button" class="go" id="whatsNewOk">OK</button>
     </div>
   </div>
 </div>
@@ -2496,7 +2609,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","whatsNewModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -6473,7 +6586,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.87";
+  const APP_VERSION=window.SB_APP_VERSION||"4.88";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10558,7 +10671,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const main=()=>document.querySelector("main");
-  const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
+  const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #whatsNewModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
       if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
