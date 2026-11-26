@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.18">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.19">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.18</title>
+  <title>Servicebericht v4.19</title>
 <script>
-window.SB_APP_VERSION="4.18";
+window.SB_APP_VERSION="4.19";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -822,7 +822,7 @@ select.is-nudge,input.is-nudge{
 @media (prefers-reduced-motion:reduce){
   #machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{animation:none}
 }
-#companySave[hidden],#emailSave[hidden],#kundennummerSave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden],#emailDelete[hidden],#kundennummerSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companyIdentityEdit[hidden]{display:none!important}
 #companyIdentityEdit{
@@ -882,6 +882,14 @@ select.is-nudge,input.is-nudge{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
 }
+#emailDelete{
+  flex:0 0 auto;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;
+  border:0;border-radius:8px;background:#163a5c;color:#fff;cursor:pointer;
+  display:none;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+#emailDelete:not([hidden]){display:inline-flex}
+#emailDelete svg{width:18px;height:18px;display:block}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
@@ -1000,7 +1008,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.18</span>
+      <span id="appCreditVer" class="app-ver">v4.19</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1092,6 +1100,9 @@ select.is-nudge,input.is-nudge{
   </div>
   <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
+  <button type="button" id="emailDelete" hidden aria-label="E-Mail löschen" title="E-Mail löschen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7M10 11v6M14 11v6M8 7l.7 12.2A1.8 1.8 0 0 0 10.5 21h3a1.8 1.8 0 0 0 1.8-1.8L16 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
@@ -6070,7 +6081,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.18";
+  const APP_VERSION=window.SB_APP_VERSION||"4.19";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -7589,24 +7600,29 @@ finally{ window.__pdfBuilding=false; }
   }
   function syncEmailSaveButton(){
     const btn=$("emailSave");
+    const del=$("emailDelete");
     const el=$("customerEmail");
     const edit=$("customerEmailEdit");
     const box=$("customerEmailBox");
     const e=currentEmail();
-    const saved=!!customerKey() && validEmail(e) && emailAlreadySaved(e);
-    const unlocked=el && el.dataset.unlocked==="1";
-    if(el) el.readOnly=saved && !unlocked;
-    if(box) box.classList.toggle("has-edit", saved);
+    const orig=String(el&&el.dataset.savedEmail||"").trim();
+    const editing=!!(el && el.dataset.unlocked==="1");
+    const listed=!!customerKey() && validEmail(e) && emailAlreadySaved(e);
+    if(el) el.readOnly=listed && !editing;
+    if(box) box.classList.toggle("has-edit", editing || listed);
     if(edit){
-      edit.hidden=!saved;
-      edit.title=unlocked ? "Änderung abbrechen" : "E-Mail ändern";
+      edit.hidden=!(editing || listed);
+      edit.title=editing ? "Änderung abbrechen" : "E-Mail ändern";
       edit.setAttribute("aria-label", edit.title);
     }
+    const dirty=editing && validEmail(e) && e.toLowerCase()!==orig.toLowerCase();
     const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
     if(btn){
       btn.hidden=!show;
+      btn.textContent=dirty ? "Geänderte E-Mail speichern?" : "E-Mail merken";
       btn.classList.toggle("is-pulse", show);
     }
+    if(del) del.hidden=!(editing && validEmail(orig));
   }
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
@@ -7709,18 +7725,6 @@ finally{ window.__pdfBuilding=false; }
     input.addEventListener("pointerdown",function(e){
       if(this.readOnly) e.preventDefault();
     });
-    input.addEventListener("blur",function(){
-      const el=this;
-      setTimeout(function(){
-        if(document.activeElement===el) return;
-        if(el.dataset.unlocked!=="1") return;
-        if(emailAlreadySaved(el.value)){
-          delete el.dataset.unlocked;
-          delete el.dataset.savedEmail;
-          syncEmailSaveButton();
-        }
-      }, 160);
-    });
     input.addEventListener("input",()=>{
       setEmail(input.value);
       show();
@@ -7753,14 +7757,44 @@ finally{ window.__pdfBuilding=false; }
     });
     $("emailSave")?.addEventListener("click", async ()=>{
       const e=currentEmail();
+      const prev=String(input.dataset.savedEmail||"").trim();
+      const replacing=input.dataset.unlocked==="1" && validEmail(prev) && prev.toLowerCase()!==e.toLowerCase();
+      if(replacing){
+        if(!await deleteEmail(prev)){
+          const s=$("status");
+          if(s) s.textContent="Alte E-Mail konnte nicht ersetzt werden.";
+          return;
+        }
+      }
       if(!await addEmail(e, {showOk:true})){
         const s=$("status");
         if(s) s.textContent=customerKey()? "Bitte eine gültige E-Mail eingeben." : "Zuerst den Kunden wählen.";
       }else{
         delete input.dataset.unlocked;
         delete input.dataset.savedEmail;
-        setEmail(e);
+        setEmail(e, {lock:true});
       }
+    });
+    $("emailDelete")?.addEventListener("click", async ()=>{
+      const orig=String(input.dataset.savedEmail||currentEmail()||"").trim();
+      const s=$("status");
+      if(!customerKey()){
+        if(s) s.textContent="Zuerst den Kunden wählen.";
+        return;
+      }
+      if(!validEmail(orig)){
+        if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
+        return;
+      }
+      if(!confirm("Diese E-Mail beim Kunden löschen?")) return;
+      if(!await deleteEmail(orig)){
+        if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
+        return;
+      }
+      delete input.dataset.unlocked;
+      delete input.dataset.savedEmail;
+      const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==orig.toLowerCase());
+      setEmail(rest[0]||"", {lock:true});
     });
     $("customerEmailEdit")?.addEventListener("click",function(){
       if(!input) return;
@@ -7768,7 +7802,7 @@ finally{ window.__pdfBuilding=false; }
         const prev=input.dataset.savedEmail || "";
         delete input.dataset.unlocked;
         delete input.dataset.savedEmail;
-        setEmail(prev);
+        setEmail(prev, {lock:true});
         syncEmailSaveButton();
         return;
       }
