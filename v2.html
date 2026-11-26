@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.64">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.65">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.64</title>
+  <title>Servicebericht v4.65</title>
 <script>
-window.SB_APP_VERSION="4.64";
+window.SB_APP_VERSION="4.65";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.64</span>
+      <span id="appCreditVer" class="app-ver">v4.65</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4663,11 +4663,13 @@ function openPdfKindSheet(){
 }
 
 function dayRouteGaps(){
+  if(typeof syncVisibleDaysFromDOM==="function") syncVisibleDaysFromDOM();
   const gaps=[];
-  const days=Math.max(1, Number(visibleDays)||1);
-  for(let d=1;d<=days;d++){
-    const box=typeof dayBoxEl==="function"?dayBoxEl(d):null;
-    if(!box) continue;
+  const boxes=[...document.querySelectorAll("[data-daybox]")];
+  boxes.forEach(box=>{
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    if(!d) return;
+    if(d>1 && box.getAttribute("data-day-active")!=="1") return;
     const bits=[];
     const driveMin=(dir)=>{
       const row=dir==="out" ? d*2-1 : d*2;
@@ -4679,16 +4681,23 @@ function dayRouteGaps(){
       if(typeof filledTime!=="function" || !filledTime(a?.value) || !filledTime(b?.value)) return 0;
       return Math.max(0, minutesBetween(a.value, b.value)-pauseMinutes(pause?.value||"0"));
     };
-    const pair=(off, kmName, dir, kmLabel, timeLabel)=>{
+    const need=(off, kmName, dir, kmLabel, timeLabel)=>{
       if(off) return;
       const km=box.querySelector(`[data-k="${kmName}"]`);
       if(!String(km?.value??"").trim()) bits.push(kmLabel);
       if(driveMin(dir)<=0) bits.push(timeLabel);
     };
-    pair(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
-    pair(typeof rueckfahrtOff==="function" && rueckfahrtOff(box), "Kilometer"+(d*2), "back", "km Rückfahrt", "Reisezeit Rückfahrt");
+    need(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
+    const backOff=typeof rueckfahrtOff==="function" && rueckfahrtOff(box);
+    if(!backOff){
+      const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+      const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+      if(!String(km?.value??"").trim()) bits.push("km Rückfahrt");
+      // Pause alone is not a return trip. Need a real driving time, or both clocks with time left after the pause.
+      if(!filledTime(end?.value) || driveMin("back")<=0) bits.push("Reisezeit Rückfahrt");
+    }
     if(bits.length) gaps.push("Tag "+d+": "+bits.join(", "));
-  }
+  });
   return gaps;
 }
 function pdfMissingChoices(){
@@ -6182,7 +6191,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.64";
+  const APP_VERSION=window.SB_APP_VERSION||"4.65";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
