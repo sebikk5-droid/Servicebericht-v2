@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.71">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.72">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.71</title>
+  <title>Servicebericht v4.72</title>
 <script>
-window.SB_APP_VERSION="4.71";
+window.SB_APP_VERSION="4.72";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -457,9 +457,14 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .page-jumps button svg{width:16px;height:16px;display:block}
 .page-jumps button:active{background:#0f2840}
-html.is-iphone .page-jumps{display:none}
-html.is-iphone main{padding-right:max(14px, calc((100% - 760px) / 2))}
-@media (min-width: 900px){html.is-iphone main{padding-right:max(24px, calc((100% - 1000px) / 2))}}
+@media (orientation:portrait){
+  html.is-iphone .page-jumps{display:none}
+  html.is-iphone main{padding-right:max(14px, calc((100% - 760px) / 2))}
+}
+@media (orientation:landscape) and (max-height:500px){
+  .page-jumps{top:calc(50% - 36px)}
+  .page-jumps button{width:44px;min-width:44px;height:44px}
+}
 @media (orientation:landscape) and (min-width: 900px){.grid{grid-template-columns:repeat(2,1fr)}}
 .install-note{background:#eef2ff;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px;color:#374151}
 </style>
@@ -1043,7 +1048,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.71</span>
+      <span id="appCreditVer" class="app-ver">v4.72</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1316,7 +1321,7 @@ select.is-nudge,input.is-nudge{
 (function(){
   const main=document.querySelector("main");
   const nav=document.querySelector(".page-jumps");
-  if(!main||!nav||document.documentElement.classList.contains("is-iphone")) return;
+  if(!main||!nav) return;
   let lockId="";
   let lockAt=0;
   let raf=0;
@@ -6328,7 +6333,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.71";
+  const APP_VERSION=window.SB_APP_VERSION||"4.72";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
