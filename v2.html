@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.37">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.38">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.37</title>
+  <title>Servicebericht v4.38</title>
 <script>
-window.SB_APP_VERSION="4.37";
+window.SB_APP_VERSION="4.38";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -252,6 +252,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
+html.kb-open .bottom{display:none}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
@@ -1007,7 +1008,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.37</span>
+      <span id="appCreditVer" class="app-ver">v4.38</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1498,9 +1499,14 @@ function layoutComboResults(results, box){
     results.style.width="100%";
   }
   results.scrollTop=0;
+  const tech=results.id==="techResults";
   const locked=results.dataset.place;
   let below;
-  if(locked==="below" && spaceBelow>=minH) below=true;
+  if(tech){
+    // Techniker sitzt unten im Formular — Liste immer nach oben, sonst unter die Tastatur.
+    below=false;
+    if(spaceAbove<minH && spaceBelow>spaceAbove) below=true;
+  }else if(locked==="below" && spaceBelow>=minH) below=true;
   else if(locked==="above" && spaceAbove>=minH) below=false;
   else below=(spaceBelow>=96 || spaceBelow>=spaceAbove);
   results.dataset.place=below?"below":"above";
@@ -1515,13 +1521,14 @@ function layoutComboResults(results, box){
     results.style.bottom="100%";
     results.style.marginTop="0";
     results.style.marginBottom=gap+"px";
-    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceAbove))+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, Math.max(spaceAbove, tech?140:minH)))+"px";
   }
 }
 function openComboResults(results, box){
   if(!results) return;
   const closed=results.hidden || (results.style.display||"")==="none";
   if(closed) delete results.dataset.place;
+  if(results.id==="techResults") results.dataset.place="above";
   results.hidden=false;
   results.style.display="block";
   layoutComboResults(results, box);
@@ -6092,7 +6099,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.37";
+  const APP_VERSION=window.SB_APP_VERSION||"4.38";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10064,10 +10071,16 @@ finally{ window.__pdfBuilding=false; }
       top:0, bottom:window.innerHeight, height:window.innerHeight
     };
   }
-  function syncKeyboardPad(){
+  function kbCovered(){
+    const vv=window.visualViewport;
+    if(vv && vv.height) return Math.max(0, Math.round(window.innerHeight-vv.height));
     const frame=vis();
-    const covered=Math.max(0, window.innerHeight-frame.bottom);
+    return Math.max(0, Math.round(window.innerHeight-frame.bottom));
+  }
+  function syncKeyboardPad(){
+    const covered=kbCovered();
     document.documentElement.style.setProperty("--sb-kb", covered+"px");
+    document.documentElement.classList.toggle("kb-open", covered>80);
     const scroller=main();
     if(!scroller) return;
     const combo=openComboEl();
@@ -10075,9 +10088,10 @@ finally{ window.__pdfBuilding=false; }
       if(covered<80) scroller.style.paddingBottom="";
       return;
     }
+    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
-    const extra=Math.min(220, Math.max(140, combo.scrollHeight||160));
+    const extra=Math.min(260, Math.max(160, combo.scrollHeight||180));
     scroller.style.paddingBottom=(overlap+extra)+"px";
   }
   function keepNotesInView(el){
@@ -10102,14 +10116,18 @@ finally{ window.__pdfBuilding=false; }
     const scroller=main();
     if(!box || !scroller) return;
     const frame=vis();
-    const need=Math.min(240, Math.max(140, results.scrollHeight||160));
+    const need=Math.min(260, Math.max(160, results.scrollHeight||180));
     const cr=box.getBoundingClientRect();
-    const topLimit=frame.top+8;
-    const bottomLimit=frame.bottom-12-need;
-    if(bottomLimit>topLimit+cr.height && cr.bottom>bottomLimit)
-      scroller.scrollTop+=cr.bottom-bottomLimit;
-    else if(cr.top<topLimit)
-      scroller.scrollTop-=topLimit-cr.top;
+    const place=results.dataset.place||"below";
+    if(place==="above"){
+      // Feld tiefer setzen, damit die Liste nach oben Platz hat.
+      const targetTop=Math.min(frame.bottom-cr.height-16, frame.top+need+20);
+      scroller.scrollTop+=cr.top-targetTop;
+    }else{
+      const bottomLimit=frame.bottom-12-need;
+      if(cr.bottom>bottomLimit) scroller.scrollTop+=cr.bottom-bottomLimit;
+      else if(cr.top<frame.top+8) scroller.scrollTop-=(frame.top+8)-cr.top;
+    }
   }
   function relayoutOpenCombo(){
     const results=openComboEl();
@@ -10173,11 +10191,11 @@ finally{ window.__pdfBuilding=false; }
     setTimeout(()=>{
       const a=document.activeElement;
       if(a && (a.tagName==="INPUT" || a.tagName==="TEXTAREA" || a.tagName==="SELECT")) return;
-      const frame=vis();
-      if(window.innerHeight-frame.bottom>80) return;
+      if(kbCovered()>80) return;
       const scroller=main();
       if(scroller) scroller.style.paddingBottom="";
       document.documentElement.style.setProperty("--sb-kb","0px");
+      document.documentElement.classList.remove("kb-open");
     }, 220);
   }, true);
   const scroller=main();
@@ -10200,6 +10218,10 @@ finally{ window.__pdfBuilding=false; }
     window.visualViewport.addEventListener("resize",()=>{
       keepKbInView();
     });
+    window.visualViewport.addEventListener("scroll",()=>{
+      syncKeyboardPad();
+      if(openComboEl()) relayoutOpenCombo();
+    }, {passive:true});
   }
 
   let penField=null, penAt=0;
