@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.90">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v3.91">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,17 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.90</title>
+  <title>Servicebericht v3.91</title>
 <script>
-window.SB_APP_VERSION="3.90";
+window.SB_APP_VERSION="3.91";
+window.SB_HOLD_RELOAD_UNTIL=0;
+window.sbHoldReload=function(ms){
+  const until=Date.now()+(ms||120000);
+  if(until>(window.SB_HOLD_RELOAD_UNTIL||0)) window.SB_HOLD_RELOAD_UNTIL=until;
+};
+window.sbReloadHeld=function(){
+  return Date.now()<(window.SB_HOLD_RELOAD_UNTIL||0);
+};
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
@@ -25,6 +33,7 @@ window.SB_APP_VERSION="3.90";
   }
   function go(ver){
     if(!ver || ver===window.SB_APP_VERSION) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
     try{
       // Prevent endless replace when SW still serves a stale HTML shell.
       if(sessionStorage.getItem("sb_ver_go")==="1") return;
@@ -69,6 +78,7 @@ window.SB_APP_VERSION="3.90";
       navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
+        if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
         try{
           if(sessionStorage.getItem("sb_sw_reload")) return;
           sessionStorage.setItem("sb_sw_reload","1");
@@ -79,8 +89,16 @@ window.SB_APP_VERSION="3.90";
   }catch(e){}
   window.SB_CHECK_LIVE=checkLive;
   checkLive();
-  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
-  window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
+  window.addEventListener("pageshow", function(ev){
+    if(!ev.persisted) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
   function warmPdfCache(){
@@ -858,7 +876,7 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.90</div>
+  <div class="credit" id="appCredit">Created by S. Pawlina v3.91</div>
 </header>
 <main>
 <section id="historySection" class="card">
@@ -4897,6 +4915,25 @@ finally{ window.__pdfBuilding=false; }
     },null,2);
     return {filename, json};
   }
+  function driveSafeFilename(item){
+    const d=new Date(item && item.savedAt ? item.savedAt : Date.now());
+    const pad=function(n){ return String(n).padStart(2,"0"); };
+    const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+    let co="";
+    try{ co=historyClient(item); }catch(e){ co=""; }
+    co=String(co||"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,24);
+    return "SB_"+stamp+(co?"_"+co:"")+".json";
+  }
+  function driveShareFilesFromJson(json, filename){
+    const name=String(filename||"SB.json").replace(/[\\/:*?"<>|]/g,"_");
+    const body=typeof json==="string" ? json : "";
+    const stem=name.replace(/\.json$/i,"");
+    return [
+      new File([body], name, {type:"application/octet-stream"}),
+      new File([body], stem+".txt", {type:"text/plain"}),
+      new File([body], name, {type:"application/json"})
+    ];
+  }
   function reportFileFromItem(item, mime){
     const {filename, json}=reportPayload(item);
     let name=filename;
@@ -5057,9 +5094,9 @@ finally{ window.__pdfBuilding=false; }
   }
   function enqueueDrivePending(item){
     if(!item) return;
-    const {filename, json}=reportPayload(item);
+    const {json}=reportPayload(item);
     const rec={
-      filename:String(filename||"Servicebericht.json").replace(/\.json$/i,".txt"),
+      filename:driveSafeFilename(item),
       json,
       savedAt:item.savedAt,
       name:item.name
@@ -5101,9 +5138,16 @@ finally{ window.__pdfBuilding=false; }
     const list=drivePendingList();
     if(!list.length) return false;
     const rec=list[0];
-    const file=new File([rec.json], rec.filename||"Servicebericht.txt", {type:"text/plain"});
-    const ok=await shareHistoryFile(file)
-      || await shareHistoryFile(new File([rec.json], rec.filename||"Servicebericht.json", {type:"application/json"}));
+    const files=driveShareFilesFromJson(rec.json, rec.filename||driveSafeFilename({savedAt:rec.savedAt, name:rec.name}));
+    let ok=false;
+    for(let i=0;i<files.length;i++){
+      try{
+        ok=await shareHistoryFile(files[i]);
+        if(ok) break;
+      }catch(e){
+        if(e && e.name==="AbortError") throw e;
+      }
+    }
     if(ok) dequeueDrivePending(rec);
     return ok;
   }
@@ -5183,10 +5227,11 @@ finally{ window.__pdfBuilding=false; }
   }
   async function shareHistoryFile(file){
     if(!navigator.share || !file) return false;
-    const payloads=[
-      {files:[file], title:file.name||"Servicebericht"},
-      {files:[file]}
-    ];
+    if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
+    // iOS Drive drops the file when title/text is attached. Files-only first.
+    const payloads=isIosDevice()
+      ? [{files:[file]}, {files:[file], title:file.name||"Servicebericht"}]
+      : [{files:[file], title:file.name||"Servicebericht"}, {files:[file]}];
     for(let i=0;i<payloads.length;i++){
       const data=payloads[i];
       try{
@@ -5210,8 +5255,11 @@ finally{ window.__pdfBuilding=false; }
 
     // iPad app: no remembered folder. Share immediately so Dateien/Drive can pick a folder.
     if(historyUsesShareSheet()){
-      const shared=await shareHistoryFile(textFile.file)
-        || await shareHistoryFile(jsonFile.file);
+      const files=driveShareFilesFromJson(json, driveSafeFilename(item));
+      let shared=false;
+      for(let i=0;i<files.length && !shared;i++){
+        shared=await shareHistoryFile(files[i]);
+      }
       if(shared){
         $("status").textContent="In der Historie auf diesem Gerät gespeichert. In Dateien den Ordner wählen.";
         return;
@@ -5427,16 +5475,17 @@ finally{ window.__pdfBuilding=false; }
         return true;
       }
       if(historyUsesShareSheet()){
+        if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
         try{
           if(drivePendingList().length){
             if(!flushOnly) try{ enqueueDrivePending(item); }catch(e){}
             fileOk=await shareOldestDrivePending();
           }else{
-            const textFile=reportFileFromItem(item,"text/plain");
-            fileOk=await shareHistoryFile(textFile.file);
-            if(!fileOk){
-              const jsonFile=reportFileFromItem(item,"application/json");
-              fileOk=await shareHistoryFile(jsonFile.file);
+            const {json}=reportPayload(item);
+            const files=driveShareFilesFromJson(json, driveSafeFilename(item));
+            for(let i=0;i<files.length;i++){
+              fileOk=await shareHistoryFile(files[i]);
+              if(fileOk) break;
             }
             if(!fileOk) try{ enqueueDrivePending(item); }catch(e){}
           }
@@ -5559,6 +5608,9 @@ finally{ window.__pdfBuilding=false; }
         localStorage.setItem(LIVE_KEY, payload);
         sessionStorage.setItem(LIVE_KEY, payload);
       }catch(e){}
+      try{
+        sessionStorage.setItem("sb_scroll", String(window.scrollY||document.documentElement.scrollTop||0));
+      }catch(e){}
     }
     function readLiveDraft(){
       try{
@@ -5588,6 +5640,10 @@ finally{ window.__pdfBuilding=false; }
       if(liveDraftApplied) return false;
       liveDraftApplied=true;
       applyForm(data);
+      try{
+        const y=Number(sessionStorage.getItem("sb_scroll")||0);
+        if(y>80) setTimeout(function(){ window.scrollTo(0, y); }, 50);
+      }catch(e){}
       // Keep Einsatzdatum / Tag dates from the saved draft. Do not jump to today.
       return true;
     }
@@ -5615,7 +5671,13 @@ finally{ window.__pdfBuilding=false; }
     window.addEventListener("pagehide", saveLiveDraft);
     document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveLiveDraft(); });
     window.addEventListener("pageshow",ev=>{
-      if(ev.persisted) return;
+      if(ev.persisted){
+        try{
+          const y=Number(sessionStorage.getItem("sb_scroll")||0);
+          if(y>80) window.scrollTo(0, y);
+        }catch(e){}
+        return;
+      }
       restoreLiveDraft(false);
     });
     restoreLiveDraft(false);
@@ -5826,7 +5888,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.90";
+  const APP_VERSION=window.SB_APP_VERSION||"3.91";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
