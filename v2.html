@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.52">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.53">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.52</title>
+  <title>Servicebericht v4.53</title>
 <script>
-window.SB_APP_VERSION="4.52";
+window.SB_APP_VERSION="4.53";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1017,7 +1017,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.52</span>
+      <span id="appCreditVer" class="app-ver">v4.53</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6101,7 +6101,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.52";
+  const APP_VERSION=window.SB_APP_VERSION||"4.53";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10178,13 +10178,30 @@ finally{ window.__pdfBuilding=false; }
     requestAnimationFrame(()=>keepKbInView());
     setTimeout(keepKbInView, 320);
   }
-  document.addEventListener("touchend",e=>{
+  let fieldTouch=null;
+  document.addEventListener("touchstart",e=>{
     const el=e.target && e.target.closest && e.target.closest("input,textarea");
-    if(!el || !isKbField(el) || skipsPagePan(el)) return;
+    const t=e.touches && e.touches[0];
+    if(!el || !t || !isKbField(el) || skipsPagePan(el)){ fieldTouch=null; return; }
+    fieldTouch={el, x:t.clientX, y:t.clientY, moved:false};
+  }, true);
+  document.addEventListener("touchmove",e=>{
+    if(!fieldTouch) return;
+    const t=e.touches && e.touches[0];
+    if(!t) return;
+    if(Math.abs(t.clientX-fieldTouch.x)>10 || Math.abs(t.clientY-fieldTouch.y)>10) fieldTouch.moved=true;
+  }, {passive:true, capture:true});
+  document.addEventListener("touchend",e=>{
+    const start=fieldTouch;
+    fieldTouch=null;
+    if(!start || start.moved) return;
+    const el=e.target && e.target.closest && e.target.closest("input,textarea");
+    if(!el || el!==start.el || !isKbField(el) || skipsPagePan(el)) return;
     if(document.activeElement===el) return;
     e.preventDefault();
     focusWithoutPagePan(el);
   }, true);
+  document.addEventListener("touchcancel",()=>{ fieldTouch=null; }, true);
   document.addEventListener("focusin",e=>{
     const el=e.target;
     if(!isKbField(el) || skipsPagePan(el)) return;
