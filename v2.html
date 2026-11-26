@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.80">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.81">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.80</title>
+  <title>Servicebericht v4.81</title>
 <script>
-window.SB_APP_VERSION="4.80";
+window.SB_APP_VERSION="4.81";
 (function(){
   try{
     var ua=navigator.userAgent||"";
@@ -600,12 +600,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox.day-collapsed .day-content{display:none}
 .daybox[data-daybox="1"] .day-remove{display:none}
 </style><style>
-.day-end-actions{display:flex;margin-top:12px}
-.btn-day-collapse{
-  width:100%;padding:12px 14px;border:0;border-radius:11px;cursor:pointer;
-  background:#163a5c;color:#fff;font-size:16px;font-weight:750;min-height:46px
-}
-.daybox.day-collapsed .day-end-actions{display:none}
 .day-collapsed .day-content,
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
@@ -1044,7 +1038,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.80</span>
+      <span id="appCreditVer" class="app-ver">v4.81</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -2340,9 +2334,6 @@ function dayTemplate(d){
       </div>
     </div>
     </div>
-  <div class="day-end-actions">
-  <button type="button" class="btn-day-collapse" data-collapse-day="${d}">Einklappen</button>
-</div>
 </div>`;
 }
 function syncDayDatesFromMainDate(){
@@ -2725,12 +2716,6 @@ document.getElementById("times").addEventListener("click",function(e){
     if(d) answerOvernightAsk(d, ask.getAttribute("data-overnight-ask")==="yes");
     return;
   }
-  const btn=e.target.closest(".btn-day-collapse");
-  if(!btn) return;
-  const d=btn.getAttribute("data-collapse-day");
-  const box=document.querySelector(`[data-daybox="${d}"]`);
-  if(!box) return;
-  setDayCollapsed(box, !box.classList.contains("day-collapsed"));
 });
 document.getElementById("times").addEventListener("change",function(e){
   const cb=e.target.closest("[data-overnight-day]");
@@ -6387,7 +6372,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.80";
+  const APP_VERSION=window.SB_APP_VERSION||"4.81";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
