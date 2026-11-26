@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.57">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.58">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.57</title>
+  <title>Servicebericht v4.58</title>
 <script>
-window.SB_APP_VERSION="4.57";
+window.SB_APP_VERSION="4.58";
 window.SB_HOLD_RELOAD_UNTIL=0;
 window.sbHoldReload=function(ms){
   const until=Date.now()+(ms||120000);
@@ -1018,7 +1018,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.57</span>
+      <span id="appCreditVer" class="app-ver">v4.58</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1876,6 +1876,7 @@ function syncReturnArrivalFromDeparture(d){
   if(!b1||!b2) return;
   if(!b1.value && !b2.value) return;
   const span=rueckfahrtClockSpan(d);
+  if(!span) return;
   if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
   else setClock(b1,addMinutesToTime(b2.value,-span));
 }
@@ -1902,7 +1903,8 @@ function syncWorkEndToReturnStart(d){
   setClock(abreise,t);
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
-  setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
+  const span=rueckfahrtClockSpan(d);
+  if(ankunft && span) setClock(ankunft,addMinutesToTime(t,span));
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -4003,8 +4005,11 @@ function bindTimeInputs(){
         syncWorkEndToReturnStart(d);
       }
       if(key===`RZstart${backRow}`&&el.value){
-        const ankunft=field("RZende",backRow);
-        setClock(ankunft,addMinutesToTime(el.value,rueckfahrtClockSpan(d)));
+        const span=rueckfahrtClockSpan(d);
+        if(span>0){
+          const ankunft=field("RZende",backRow);
+          setClock(ankunft,addMinutesToTime(el.value,span));
+        }
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
@@ -6171,7 +6176,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.57";
+  const APP_VERSION=window.SB_APP_VERSION||"4.58";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
