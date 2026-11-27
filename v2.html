@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.04">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.05">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.04</title>
+  <title>Servicebericht v5.05</title>
 <script>
-window.SB_APP_VERSION="5.04";
+window.SB_APP_VERSION="5.05";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"5.04", items:[
+  {v:"5.05", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -28,7 +28,7 @@ window.SB_RELEASE_NOTES=[
     "Unten: E-Mail kopieren oder per E-Mail schicken.",
     "App neu laden mit dem Aktualisieren-Knopf oben.",
     "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
-    "Ersatzteile-Liste: gemeinsame Artikel bei allen (GitHub), Auto-Abgleich alle 20 Sek., Hinweis wenn Token fehlt.",
+    "Ersatzteile: gemeinsame Artikel bei allen. Stift ändern, roter Knopf löschen (auch bei allen weg).",
     "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
     "Neues Feld Stau bei Anfahrt und Rückfahrt.",
     "Leere km oder Zeiten werden gelb markiert.",
@@ -382,14 +382,17 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 #partsResults .parts-pick-row .combo-pick{
   flex:1;min-width:0;margin:0;
 }
-#partsResults .parts-pick-edit{
+#partsResults .parts-pick-edit,#partsResults .parts-pick-del{
   flex:none;width:28px;min-width:28px;height:auto;min-height:28px;padding:0;margin:0;
-  border:0;border-radius:7px;background:#163a5c;color:#fff;cursor:pointer;
+  border:0;border-radius:7px;color:#fff;cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;
 }
-#partsResults .parts-pick-edit svg{width:14px;height:14px;display:block}
+#partsResults .parts-pick-edit{background:#163a5c}
+#partsResults .parts-pick-del{background:#8b1e1e}
+#partsResults .parts-pick-edit svg,#partsResults .parts-pick-del svg{width:14px;height:14px;display:block}
 #partsResults .parts-pick-edit:active{background:#0f2840}
+#partsResults .parts-pick-del:active{background:#6a1515}
 #partsResults .parts-custom-label{
   margin:2px 0 4px;font-size:11px;font-weight:700;color:#666;
 }
@@ -1178,7 +1181,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.04</span>
+      <span id="appCreditVer" class="app-ver">v5.05</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6577,7 +6580,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.04";
+  const APP_VERSION=window.SB_APP_VERSION||"5.05";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10518,11 +10521,23 @@ finally{ window.__pdfBuilding=false; }
     "Flächendicht grün Art. Nr.: 9501"
   ];
   const CUSTOM_KEY="servicebericht_parts_custom_v1";
+  const TOMB_KEY="servicebericht_parts_tomb_v1";
   const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const DEL_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M10 7V5h4v2m-6 3v8m4-8v8M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function asPartsList(data){
     if(Array.isArray(data)) return data.map(x=>String(x||"").trim()).filter(Boolean);
     if(data && Array.isArray(data.items)) return data.items.map(x=>String(x||"").trim()).filter(Boolean);
     return [];
+  }
+  function asPartsDeleted(data){
+    if(data && Array.isArray(data.deleted)) return data.deleted.map(x=>String(x||"").trim()).filter(Boolean);
+    return [];
+  }
+  function asPartsDoc(data){
+    if(Array.isArray(data)) return {items:asPartsList(data), deleted:[]};
+    if(data && typeof data==="object")
+      return {items:asPartsList(data), deleted:asPartsDeleted(data)};
+    return {items:[], deleted:[]};
   }
   function loadCustomParts(){
     try{
@@ -10534,8 +10549,50 @@ finally{ window.__pdfBuilding=false; }
   function saveCustomParts(list){
     try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(asPartsList(list).slice(0,80))); }catch(e){}
   }
+  function loadPartTombs(){
+    try{
+      const raw=localStorage.getItem(TOMB_KEY);
+      const list=JSON.parse(raw||"[]");
+      return asPartsList(list).map(x=>x.toLowerCase()).filter(Boolean).slice(0,120);
+    }catch(e){ return []; }
+  }
+  function savePartTombs(list){
+    try{
+      const out=[];
+      const seen=new Set();
+      asPartsList(list).forEach(function(x){
+        const k=String(x||"").trim().toLowerCase();
+        if(!k || seen.has(k)) return;
+        seen.add(k);
+        out.push(k);
+      });
+      localStorage.setItem(TOMB_KEY, JSON.stringify(out.slice(0,120)));
+    }catch(e){}
+  }
+  function applyPartsDoc(doc){
+    const d=asPartsDoc(doc);
+    saveCustomParts(d.items);
+    savePartTombs(d.deleted);
+    return d.items;
+  }
   function mergePartsLists(remote, local, dropNames){
-    const drop=new Set((dropNames||[]).map(x=>String(x||"").trim().toLowerCase()).filter(Boolean));
+    const r=asPartsDoc(remote);
+    const l=asPartsDoc(local);
+    const drop=new Set();
+    function markDrop(v){
+      const k=String(v||"").trim().toLowerCase();
+      if(k) drop.add(k);
+    }
+    r.deleted.forEach(markDrop);
+    l.deleted.forEach(markDrop);
+    loadPartTombs().forEach(markDrop);
+    (dropNames||[]).forEach(markDrop);
+    // Neu eingetragen = wieder aus der Löschliste nehmen.
+    asPartsList(l.items).forEach(function(v){
+      const k=String(v||"").trim().toLowerCase();
+      if(k && !(dropNames||[]).some(x=>String(x||"").trim().toLowerCase()===k))
+        drop.delete(k);
+    });
     const out=[];
     const seen=new Set();
     function add(v){
@@ -10547,10 +10604,9 @@ finally{ window.__pdfBuilding=false; }
       seen.add(k);
       out.push(s);
     }
-    // Remote first = Artikel von anderen erscheinen bei jedem Gerät.
-    asPartsList(remote).forEach(add);
-    asPartsList(local).forEach(add);
-    return out.slice(0,80);
+    r.items.forEach(add);
+    l.items.forEach(add);
+    return {items:out.slice(0,80), deleted:Array.from(drop).slice(0,120)};
   }
   function partsStatus(msg){
     const s=document.getElementById("status");
@@ -10569,19 +10625,23 @@ finally{ window.__pdfBuilding=false; }
       try{
         const got=await window.sbLists.pullFile("parts");
         const localBefore=loadCustomParts();
+        const localDoc={items:localBefore, deleted:loadPartTombs()};
         if(got && got.status===404){
           if(localBefore.length && opts.allowPush!==false)
             await pushCustomParts("Ersatzteile erstmalig gespeichert", null, {quiet:true});
           return loadCustomParts();
         }
         if(!got || got.data==null) return localBefore;
-        const remoteList=asPartsList(got.data);
-        const merged=mergePartsLists(remoteList, localBefore);
-        saveCustomParts(merged);
-        if(opts.allowPush!==false && localBefore.length){
-          const remoteSet=new Set(remoteList.map(x=>x.toLowerCase()));
-          const missing=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
-          if(missing) await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
+        const remoteDoc=asPartsDoc(got.data);
+        const merged=mergePartsLists(remoteDoc, localDoc);
+        applyPartsDoc(merged);
+        if(opts.allowPush!==false){
+          const remoteSet=new Set(remoteDoc.items.map(x=>x.toLowerCase()));
+          const remoteDel=new Set(remoteDoc.deleted.map(x=>x.toLowerCase()));
+          const missingItem=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
+          const missingTomb=loadPartTombs().some(x=>!remoteDel.has(x));
+          if(missingItem || missingTomb)
+            await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
         }
         return loadCustomParts();
       }catch(e){
@@ -10594,7 +10654,7 @@ finally{ window.__pdfBuilding=false; }
   window.pullCustomParts=pullCustomParts;
   async function pushCustomParts(message, dropNames, opts){
     opts=opts||{};
-    const local=loadCustomParts();
+    const localDoc={items:loadCustomParts(), deleted:loadPartTombs()};
     if(!window.sbLists || typeof window.sbLists.pushMerged!=="function") return {ok:false, reason:"no-cloud"};
     try{
       if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()){
@@ -10606,12 +10666,12 @@ finally{ window.__pdfBuilding=false; }
       }
       const {merged, result}=await window.sbLists.pushMerged(
         "parts",
-        local,
+        localDoc,
         message||"Ersatzteile aktualisiert",
         function(remote, loc){ return mergePartsLists(remote, loc, dropNames); },
         {attempts:4, quiet:!!opts.quiet, forcePut:!!opts.forcePut}
       );
-      if(Array.isArray(merged)) saveCustomParts(merged);
+      if(merged) applyPartsDoc(merged);
       if(result && result.ok) notifyPartsChanged();
       return result||{ok:false};
     }catch(e){
@@ -10627,6 +10687,7 @@ finally{ window.__pdfBuilding=false; }
     const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
     cur.unshift(v);
     saveCustomParts(cur);
+    savePartTombs(loadPartTombs().filter(x=>x!==low));
     notifyPartsChanged();
     return pushCustomParts("Ersatzteil hinzugefügt: "+v, null, {forcePut:true}).then(function(res){
       if(res && res.ok){
@@ -10653,6 +10714,9 @@ finally{ window.__pdfBuilding=false; }
     list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
     list[idx]=next;
     saveCustomParts(list);
+    let tombs=loadPartTombs().filter(x=>x!==lowNext);
+    if(lowPrev!==lowNext) tombs=tombs.concat([lowPrev]);
+    savePartTombs(tombs);
     notifyPartsChanged();
     const drop=lowPrev===lowNext ? [] : [prev];
     return pushCustomParts("Ersatzteil geändert: "+next, drop, {forcePut:true}).then(function(res){
@@ -10663,6 +10727,22 @@ finally{ window.__pdfBuilding=false; }
       return true;
     }).catch(function(){ return true; });
   }
+  function removeCustomPart(name){
+    const v=String(name||"").trim();
+    if(!v) return Promise.resolve(false);
+    const low=v.toLowerCase();
+    saveCustomParts(loadCustomParts().filter(x=>x.toLowerCase()!==low));
+    savePartTombs(loadPartTombs().concat([low]));
+    notifyPartsChanged();
+    return pushCustomParts("Ersatzteil gelöscht: "+v, [v], {forcePut:true}).then(function(res){
+      if(res && res.ok) partsStatus("Artikel für alle gelöscht.");
+      else if(res && res.reason==="no-token")
+        partsStatus("Nur hier gelöscht. Token nötig, sonst bleibt er bei anderen.");
+      else partsStatus("Lokal gelöscht. GitHub-Sync fehlgeschlagen – später erneut öffnen.");
+      return true;
+    }).catch(function(){ return true; });
+  }
+  window.removeCustomPart=removeCustomPart;
   function closePartsList(){
     const results=$("partsResults");
     if(!results) return;
@@ -10812,6 +10892,22 @@ finally{ window.__pdfBuilding=false; }
         bindPartsInput(bar, results, {value:label, editFrom:label});
       });
       row.appendChild(edit);
+      const del=document.createElement("button");
+      del.type="button";
+      del.className="parts-pick-del";
+      del.setAttribute("aria-label","Artikel löschen");
+      del.title="Artikel löschen";
+      del.innerHTML=DEL_SVG;
+      del.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(!window.confirm('Artikel löschen?\n„'+label+'“')) return;
+        del.disabled=true;
+        Promise.resolve(removeCustomPart(label)).finally(function(){
+          showPartsList({forceOpen:true});
+        });
+      });
+      row.appendChild(del);
     }
     results.appendChild(row);
   }
