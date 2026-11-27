@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.02">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.03">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.02</title>
+  <title>Servicebericht v5.03</title>
 <script>
-window.SB_APP_VERSION="5.02";
+window.SB_APP_VERSION="5.03";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"5.02", items:[
+  {v:"5.03", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -28,7 +28,7 @@ window.SB_RELEASE_NOTES=[
     "Unten: E-Mail kopieren oder per E-Mail schicken.",
     "App neu laden mit dem Aktualisieren-Knopf oben.",
     "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
-    "Ersatzteile: neue Artikel für alle speichern (gemeinsame Liste), Stift zum Ändern.",
+    "Ersatzteile: neue Artikel wirklich für alle (GitHub). Ohne Token erscheint Hinweis. Alte lokale Artikel werden nachgeladen.",
     "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
     "Neues Feld Stau bei Anfahrt und Rückfahrt.",
     "Leere km oder Zeiten werden gelb markiert.",
@@ -1178,7 +1178,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.02</span>
+      <span id="appCreditVer" class="app-ver">v5.03</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -3930,6 +3930,8 @@ window.addEventListener("sb-token-change", function(){
   }
   if(s) s.textContent="Token gespeichert. Kundenliste wird mit GitHub abgeglichen…";
   window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true});
+  if(typeof window.pullCustomParts==="function")
+    window.pullCustomParts({allowPush:true}).catch(function(){});
 });
 
 function fieldRectOf(form,n){
@@ -6575,7 +6577,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.02";
+  const APP_VERSION=window.SB_APP_VERSION||"5.03";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10549,66 +10551,103 @@ finally{ window.__pdfBuilding=false; }
     asPartsList(remote).forEach(add);
     return out.slice(0,80);
   }
-  async function pullCustomParts(){
+  function partsStatus(msg){
+    const s=document.getElementById("status");
+    if(s) s.textContent=msg;
+  }
+  async function pullCustomParts(opts){
+    opts=opts||{};
     if(!window.sbLists || typeof window.sbLists.pullFile!=="function") return loadCustomParts();
     if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()) return loadCustomParts();
     try{
       const got=await window.sbLists.pullFile("parts");
-      if(got && got.status===404) return loadCustomParts();
-      if(!got || got.data==null) return loadCustomParts();
-      const merged=mergePartsLists(got.data, loadCustomParts());
+      const localBefore=loadCustomParts();
+      if(got && got.status===404){
+        // Datei fehlt noch: lokale Artikel einmalig hochladen, sonst sehen andere nichts.
+        if(localBefore.length && opts.allowPush!==false)
+          await pushCustomParts("Ersatzteile erstmalig gespeichert", null, {quiet:true});
+        return loadCustomParts();
+      }
+      if(!got || got.data==null) return localBefore;
+      const merged=mergePartsLists(got.data, localBefore);
       saveCustomParts(merged);
-      return merged;
+      // Lokale Artikel, die remote noch fehlen, nachschieben.
+      if(opts.allowPush!==false && localBefore.length){
+        const remoteSet=new Set(asPartsList(got.data).map(x=>x.toLowerCase()));
+        const missing=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
+        if(missing) await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
+      }
+      return loadCustomParts();
     }catch(e){
       return loadCustomParts();
     }
   }
   window.pullCustomParts=pullCustomParts;
-  async function pushCustomParts(message, dropNames){
+  async function pushCustomParts(message, dropNames, opts){
+    opts=opts||{};
     const local=loadCustomParts();
-    if(!window.sbLists || typeof window.sbLists.pushMerged!=="function") return {ok:false};
+    if(!window.sbLists || typeof window.sbLists.pushMerged!=="function") return {ok:false, reason:"no-cloud"};
     try{
+      if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()){
+        if(opts.quiet) return {ok:false, reason:"no-token"};
+        if(typeof window.sbLists.ensureToken==="function"){
+          const ok=await window.sbLists.ensureToken();
+          if(!ok) return {ok:false, reason:"no-token"};
+        }else return {ok:false, reason:"no-token"};
+      }
       const {merged, result}=await window.sbLists.pushMerged(
         "parts",
         local,
         message||"Ersatzteile aktualisiert",
         function(remote, loc){ return mergePartsLists(remote, loc, dropNames); },
-        {attempts:3, quiet:true}
+        {attempts:3, quiet:!!opts.quiet}
       );
       if(Array.isArray(merged)) saveCustomParts(merged);
       return result||{ok:false};
     }catch(e){
-      return {ok:false};
+      return {ok:false, reason:"error"};
     }
   }
+  window.pushCustomParts=pushCustomParts;
   function rememberCustomPart(name){
     const v=String(name||"").trim();
-    if(!v) return;
+    if(!v) return Promise.resolve({ok:false});
     const low=v.toLowerCase();
-    if(PRESETS.some(p=>p.toLowerCase()===low)) return;
+    if(PRESETS.some(p=>p.toLowerCase()===low)) return Promise.resolve({ok:true, skipped:true});
     const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
     cur.unshift(v);
     saveCustomParts(cur);
-    pushCustomParts("Ersatzteil hinzugefügt: "+v).catch(function(){});
+    return pushCustomParts("Ersatzteil hinzugefügt: "+v).then(function(res){
+      if(res && res.ok) partsStatus("Artikel gespeichert – für alle sichtbar.");
+      else if(res && res.reason==="no-token")
+        partsStatus("Artikel nur hier gespeichert. Token nötig, damit alle ihn sehen.");
+      else partsStatus("Artikel lokal gespeichert. GitHub-Abgleich fehlgeschlagen – später erneut versuchen.");
+      return res||{ok:false};
+    }).catch(function(){
+      partsStatus("Artikel lokal gespeichert. GitHub-Abgleich fehlgeschlagen.");
+      return {ok:false};
+    });
   }
   function updateCustomPart(oldName, newName){
     const prev=String(oldName||"").trim();
     const next=String(newName||"").trim();
-    if(!prev || !next) return false;
+    if(!prev || !next) return Promise.resolve(false);
     const lowPrev=prev.toLowerCase();
     const lowNext=next.toLowerCase();
     let list=loadCustomParts();
     const idx=list.findIndex(x=>x.toLowerCase()===lowPrev);
-    if(idx<0){
-      rememberCustomPart(next);
-      return true;
-    }
+    if(idx<0) return rememberCustomPart(next).then(function(){ return true; });
     list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
     list[idx]=next;
     saveCustomParts(list);
     const drop=lowPrev===lowNext ? [] : [prev];
-    pushCustomParts("Ersatzteil geändert: "+next, drop).catch(function(){});
-    return true;
+    return pushCustomParts("Ersatzteil geändert: "+next, drop).then(function(res){
+      if(res && res.ok) partsStatus("Artikel geändert – für alle aktualisiert.");
+      else if(res && res.reason==="no-token")
+        partsStatus("Änderung nur hier. Token nötig für alle Geräte.");
+      else partsStatus("Änderung lokal. GitHub-Abgleich fehlgeschlagen.");
+      return true;
+    }).catch(function(){ return true; });
   }
   function closePartsList(){
     const results=$("partsResults");
@@ -10689,13 +10728,14 @@ finally{ window.__pdfBuilding=false; }
       const v=String(input.value||"").trim();
       if(!v){ input.focus(); return; }
       if(opts.editFrom){
-        updateCustomPart(opts.editFrom, v);
-        showPartsList({forceOpen:true});
+        Promise.resolve(updateCustomPart(opts.editFrom, v)).finally(function(){
+          showPartsList({forceOpen:true});
+        });
         return;
       }
-      rememberCustomPart(v);
       appendPart(v);
       closePartsList();
+      Promise.resolve(rememberCustomPart(v)).catch(function(){});
     }
     ok.addEventListener("click",e=>{
       e.preventDefault();
@@ -10813,10 +10853,12 @@ finally{ window.__pdfBuilding=false; }
       const box=$("partsBox");
       if(box && !box.contains(e.target)) closePartsList();
     });
-    window.addEventListener("sb-lists-ready", function(){
-      pullCustomParts().catch(function(){});
-    });
-    if(window.sbLists) pullCustomParts().catch(function(){});
+    function syncPartsCloud(){
+      pullCustomParts({allowPush:true}).catch(function(){});
+    }
+    window.addEventListener("sb-lists-ready", syncPartsCloud);
+    window.addEventListener("sb-token-change", syncPartsCloud);
+    if(window.sbLists) syncPartsCloud();
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPartsPlus);
   else bindPartsPlus();
