@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.2">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.3">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.2</title>
+  <title>Servicebericht v4.3</title>
 <script>
-window.SB_APP_VERSION="4.2";
+window.SB_APP_VERSION="4.3";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -410,6 +410,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .pdf-preview-page{
   margin:0 auto 10px;background:#fff;border-radius:4px;
   box-shadow:0 2px 10px rgba(0,0,0,.18);overflow:hidden;
+}
+.pdf-preview-part-label{
+  margin:14px auto 10px;padding:8px 12px;max-width:420px;
+  text-align:center;font-size:14px;font-weight:750;color:#163a5c;
+  background:#eef5fb;border:1px solid #c5d6e8;border-radius:10px;
 }
 #pdfPreviewPages canvas{
   width:100% !important;height:100% !important;display:block;margin:0;background:#fff;
@@ -1157,7 +1162,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.2</span>
+      <span id="appCreditVer" class="app-ver">v4.3</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4150,7 +4155,7 @@ function setFit(form,n,v,size){
     if(pdfFitFont){
       const r=field.acroField.getWidgets()[0].getRectangle();
       const maxW=fieldInnerWidth(r);
-      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 6.5 : 4.2;
+      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 6.5 : 4.3;
       while(sz>minSz && pdfFitFont.widthOfTextAtSize(s, sz)>maxW) sz-=0.15;
     }
     field.setFontSize(Math.round(sz*10)/10);
@@ -6692,7 +6697,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.2";
+  const APP_VERSION=window.SB_APP_VERSION||"4.3";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9189,6 +9194,7 @@ finally{ window.__pdfBuilding=false; }
   let previewZoom=1;
   let previewObjectUrl="";
   let previewPdf=null;
+  let previewPdfs=[];
   let previewGen=0;
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
@@ -9256,10 +9262,14 @@ finally{ window.__pdfBuilding=false; }
       try{ task.cancel(); }catch(e){}
     });
     previewRenderTasks=[];
-    if(previewPdf){
-      try{ await previewPdf.cleanup(); }catch(e){}
-      try{ await previewPdf.destroy(); }catch(e){}
-      previewPdf=null;
+    const docs=previewPdfs.slice();
+    if(previewPdf && docs.indexOf(previewPdf)<0) docs.push(previewPdf);
+    previewPdfs=[];
+    previewPdf=null;
+    for(let i=0;i<docs.length;i++){
+      const doc=docs[i];
+      try{ await doc.cleanup(); }catch(e){}
+      try{ await doc.destroy(); }catch(e){}
     }
   }
   function closePdfPreview(){
@@ -9345,7 +9355,8 @@ finally{ window.__pdfBuilding=false; }
     p.textContent=msg||"Vorschau fehlgeschlagen. Bitte erneut tippen.";
     host.appendChild(p);
   }
-  async function renderPdfPagesToHost(pdfjs, blob, host, gen){
+  async function renderPdfPagesToHost(pdfjs, blob, host, gen, opts){
+    opts=opts||{};
     const buf=await blob.arrayBuffer();
     if(gen!==previewGen) return false;
     const data=new Uint8Array(buf.slice(0));
@@ -9362,9 +9373,17 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
     previewPdf=pdf;
-    host.innerHTML="";
+    previewPdfs.push(pdf);
+    if(opts.clear!==false) host.innerHTML="";
+    if(opts.label){
+      const lab=document.createElement("div");
+      lab.className="pdf-preview-part-label";
+      lab.textContent=opts.label;
+      host.appendChild(lab);
+    }
     const avail=previewAvail();
     const dpr=Math.min(2, window.devicePixelRatio||1);
+    let painted=0;
     for(let i=1;i<=pdf.numPages;i++){
       if(gen!==previewGen) return false;
       const page=await pdf.getPage(i);
@@ -9388,7 +9407,6 @@ finally{ window.__pdfBuilding=false; }
       frame.dataset.fitH=String(Math.round(cssH));
       frame.style.width=frame.dataset.fitW+"px";
       frame.style.height=frame.dataset.fitH+"px";
-      if(i===pdf.numPages) frame.style.marginBottom="0px";
       canvas.style.width="100%";
       canvas.style.height="100%";
       frame.appendChild(canvas);
@@ -9402,11 +9420,12 @@ finally{ window.__pdfBuilding=false; }
       }
       if(gen!==previewGen) return false;
       host.appendChild(frame);
+      painted++;
       try{ page.cleanup(); }catch(e){}
     }
-    return host.querySelectorAll("canvas").length>0;
+    return painted>0;
   }
-  async function renderPdfPreview(blob){
+  async function renderPdfPreview(blob, bemBlob){
     const host=$("pdfPreviewPages");
     if(!host || !blob) return;
     const gen=++previewGen;
@@ -9415,13 +9434,26 @@ finally{ window.__pdfBuilding=false; }
     host.innerHTML="";
     previewZoom=previewStartZoom();
     previewZoomApply();
+    const hasBem=!!(bemBlob && bemBlob.size);
     try{
       const pdfjs=await loadPdfJs();
       if(gen!==previewGen) return;
-      const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
+      const ok1=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
+        clear:true,
+        label:hasBem ? "PDF 1 – Servicebericht" : ""
+      });
       if(gen!==previewGen) return;
-      if(ok){ previewZoomApply(); return; }
-      throw new Error("empty");
+      if(!ok1) throw new Error("empty");
+      if(hasBem){
+        const ok2=await renderPdfPagesToHost(pdfjs, bemBlob, host, gen, {
+          clear:false,
+          label:"PDF 2 – Bemerkungen"
+        });
+        if(gen!==previewGen) return;
+        if(!ok2) throw new Error("empty-bem");
+      }
+      previewZoomApply();
+      return;
     }catch(e){
       if(gen!==previewGen) return;
       const msg=String((e&&e.message)||e||"");
@@ -9429,7 +9461,11 @@ finally{ window.__pdfBuilding=false; }
       try{
         const pdfjs=await loadPdfJs();
         if(gen!==previewGen) return;
-        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
+        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {clear:true, label:hasBem?"PDF 1 – Servicebericht":""});
+        if(gen!==previewGen) return;
+        if(ok && hasBem){
+          await renderPdfPagesToHost(pdfjs, bemBlob, host, gen, {clear:false, label:"PDF 2 – Bemerkungen"});
+        }
         if(gen!==previewGen) return;
         if(ok){ previewZoomApply(); return; }
       }catch(e2){}
@@ -9441,6 +9477,12 @@ finally{ window.__pdfBuilding=false; }
       frame.src=previewObjectUrl;
       frame.style.cssText="width:100%;min-height:70vh;border:0;background:#fff";
       host.appendChild(frame);
+      if(hasBem){
+        const lab=document.createElement("div");
+        lab.className="pdf-preview-part-label";
+        lab.textContent="PDF 2 – Bemerkungen (unten speichern / teilen)";
+        host.appendChild(lab);
+      }
       setTimeout(function(){
         if(gen!==previewGen || !frame.isConnected) return;
         if(host.querySelector("canvas")) return;
@@ -9464,8 +9506,10 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
     openPdfPreviewSheet();
-    await renderPdfPreview(lastPdfBlob);
-    setStatus("Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
+    await renderPdfPreview(lastPdfBlob, lastPdfBemBlob||null);
+    setStatus(lastPdfBemBlob
+      ? "Vorschau: PDF 1 + PDF 2 (Bemerkungen) – nach unten scrollen."
+      : "Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
     return true;
   };
   function startPdfPreview(){
@@ -10665,7 +10709,7 @@ finally{ window.__pdfBuilding=false; }
   ];
   const CUSTOM_KEY="servicebericht_parts_custom_v1";
   const TOMB_KEY="servicebericht_parts_tomb_v1";
-  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.3 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   const DEL_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M10 7V5h4v2m-6 3v8m4-8v8M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function asPartsList(data){
     if(Array.isArray(data)) return data.map(x=>String(x||"").trim()).filter(Boolean);
