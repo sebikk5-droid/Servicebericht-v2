@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.28">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.29">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.28</title>
+  <title>Servicebericht v4.29</title>
 <script>
-window.SB_APP_VERSION="4.28";
+window.SB_APP_VERSION="4.29";
 /** Firmen-E-Mail – immer in CC / Empfänger-Liste bei PDF-Mail. */
 window.SB_FIRM_EMAIL="Service@Maschinenservice-LG.de";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
@@ -1035,16 +1035,16 @@ select.is-nudge,input.is-nudge{
 }
 #sigModal.open{display:flex}
 .sig-modal-top{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
   padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
   background:#fff;border-bottom:1px solid #ccc;
 }
 .sig-modal-title{font-size:17px;font-weight:750}
-.sig-modal-top button,.sig-modal-bottom button{
+.sig-modal-bottom button{
   border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;cursor:pointer;
 }
-.sig-modal-cancel{background:#e5e5ea}
-.sig-modal-done{background:#163a5c;color:#fff}
+.sig-modal-cancel{background:#e5e5ea;flex:1}
+.sig-modal-done{background:#163a5c;color:#fff;flex:1}
 .sig-modal-canvas-wrap{
   position:relative;flex:1;margin:10px 12px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #c5c5ca;min-height:220px;
   touch-action:none;-webkit-user-select:none;user-select:none;
@@ -1057,14 +1057,12 @@ select.is-nudge,input.is-nudge{
 .sig-modal-bottom{
   display:flex;flex-direction:column;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
 }
+.sig-modal-actions{display:flex;gap:8px;width:100%}
 .sig-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.sig-color-dot{
-  width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #bbb;padding:0;min-height:32px;flex:0 0 auto;
-}
-.sig-color-dot.is-on{box-shadow:0 0 0 3px #163a5c}
-.sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
-.sig-thick-btn.is-on{background:#163a5c;color:#fff}
+.sig-thick-btn{flex:0 0 auto;background:#163a5c;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;min-height:36px;pointer-events:none}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
+.sig-preview{cursor:pointer}
+.sig-actions .sig-clear{width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 0;min-width:0;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff;text-align:center}
 #machineSave.is-listed,#machineSave.is-listed:disabled{background:#16a34a;color:#fff;cursor:default;opacity:1}
@@ -1277,7 +1275,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.28</span>
+      <span id="appCreditVer" class="app-ver">v4.29</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1514,17 +1512,15 @@ select.is-nudge,input.is-nudge{
 <div class="sig-grid">
   <div class="sig-box">
     <label>Unterschrift Techniker</label>
-    <div class="sig-preview" id="sigTechPreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-preview" id="sigTechPreview" role="button" tabindex="0" aria-label="Unterschrift Techniker"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
     <div class="sig-actions">
-      <button type="button" class="sig-open" data-sig-open="sigTech">Unterschreiben</button>
       <button type="button" class="sig-clear" data-sig-clear="sigTech">Löschen</button>
     </div>
   </div>
   <div class="sig-box">
     <label>Unterschrift Kunde</label>
-    <div class="sig-preview" id="sigKundePreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-preview" id="sigKundePreview" role="button" tabindex="0" aria-label="Unterschrift Kunde"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
     <div class="sig-actions">
-      <button type="button" class="sig-open" data-sig-open="sigKunde">Unterschreiben</button>
       <button type="button" class="sig-clear" data-sig-clear="sigKunde">Löschen</button>
     </div>
   </div>
@@ -1877,21 +1873,15 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
-    <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
     <div class="sig-modal-title" id="sigModalTitle">Unterschrift</div>
-    <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
   </div>
   <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas" tabindex="0"></canvas></div>
   <div class="sig-modal-bottom">
-    <div class="sig-tools">
-      <button type="button" class="sig-color-dot is-on" data-sig-color="#111111" style="background:#111" aria-label="Schwarz"></button>
-      <button type="button" class="sig-color-dot" data-sig-color="#1a4a9e" style="background:#1a4a9e" aria-label="Blau"></button>
-      <button type="button" class="sig-color-dot" data-sig-color="#b42318" style="background:#b42318" aria-label="Rot"></button>
-      <button type="button" class="sig-thick-btn" data-sig-thick="0.7">Dünn</button>
-      <button type="button" class="sig-thick-btn is-on" data-sig-thick="1">Mittel</button>
-      <button type="button" class="sig-thick-btn" data-sig-thick="1.55">Dick</button>
-    </div>
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
+    <div class="sig-modal-actions">
+      <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
+      <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
+    </div>
   </div>
 </div>
 <script>
@@ -4915,7 +4905,7 @@ function initSignaturePads(){
   if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
   let drawing=false, pts=[], liveForce=0.18, activeId=null, inkBounds=null;
-  let inkColor="#111111", widthMul=1;
+  let inkColor="#1a4a9e", widthMul=0.7;
   const backup=document.createElement("canvas");
   const useRawUpdate=window.PointerEvent && "onpointerrawupdate" in window;
   const posFrom=ev=>{
@@ -5113,39 +5103,25 @@ function initSignaturePads(){
     activeId=null;
     endStroke();
   }
-  document.querySelectorAll("[data-sig-open]").forEach(btn=>{
-    btn.addEventListener("click",()=>openModal(btn.getAttribute("data-sig-open")));
-  });
   document.querySelectorAll(".sig-preview").forEach(box=>{
-    box.addEventListener("click",()=>{
+    const open=()=>{
       const id=box.id.replace("Preview","");
       openModal(id);
+    };
+    box.addEventListener("click", open);
+    box.addEventListener("keydown", e=>{
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); }
     });
   });
   $("sigModalCancel").addEventListener("click",closeModal);
   $("sigModalClear").addEventListener("click",()=>{ inkBounds=null; sizeModalCanvas(); });
+  // Fest: blau + dünn (keine Farb-/Dickenwahl mehr).
+  inkColor="#1a4a9e";
+  widthMul=0.7;
   try{
-    const savedC=localStorage.getItem("sig_ink_color");
-    const savedW=parseFloat(localStorage.getItem("sig_ink_thick")||"");
-    if(savedC) inkColor=savedC;
-    if(savedW>0.3 && savedW<3) widthMul=savedW;
+    localStorage.setItem("sig_ink_color", inkColor);
+    localStorage.setItem("sig_ink_thick", String(widthMul));
   }catch(e){}
-  document.querySelectorAll("[data-sig-color]").forEach(btn=>{
-    btn.classList.toggle("is-on", btn.getAttribute("data-sig-color").toLowerCase()===inkColor.toLowerCase());
-    btn.addEventListener("click",()=>{
-      inkColor=btn.getAttribute("data-sig-color");
-      document.querySelectorAll("[data-sig-color]").forEach(b=>b.classList.toggle("is-on", b===btn));
-      try{ localStorage.setItem("sig_ink_color", inkColor); }catch(e){}
-    });
-  });
-  document.querySelectorAll("[data-sig-thick]").forEach(btn=>{
-    btn.classList.toggle("is-on", Math.abs(parseFloat(btn.getAttribute("data-sig-thick"))-widthMul)<0.05);
-    btn.addEventListener("click",()=>{
-      widthMul=parseFloat(btn.getAttribute("data-sig-thick"))||1;
-      document.querySelectorAll("[data-sig-thick]").forEach(b=>b.classList.toggle("is-on", b===btn));
-      try{ localStorage.setItem("sig_ink_thick", String(widthMul)); }catch(e){}
-    });
-  });
   $("sigModalDone").addEventListener("click",()=>{
     const id=activeId;
     if(!id){ closeModal(); return; }
@@ -7022,7 +6998,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.28";
+  const APP_VERSION=window.SB_APP_VERSION||"4.29";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9295,8 +9271,8 @@ finally{ window.__pdfBuilding=false; }
     const firm=firmPdfEmail();
     if(hint){
       hint.textContent=email
-        ? ("An "+email+" + "+firm+"? In der Freigabe „Mail“ wählen – PDF wird angehängt. Beide Adressen sind in der Zwischenablage.")
-        : ("Keine Kunden-E-Mail – An: "+firm+". In der Freigabe „Mail“ wählen – PDF wird angehängt.");
+        ? ("An "+email+" + "+firm+" senden?")
+        : ("An "+firm+" senden?");
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -9467,19 +9443,8 @@ finally{ window.__pdfBuilding=false; }
         const usedTitle=!!shared.title;
         if(clipEmails) await copyTextQuiet(clipEmails);
         else if(!usedTitle) await copyTextQuiet(label);
-        if(email){
-          setStatus(usedTitle
-            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger (+ Firma) in Zwischenablage: "+clipEmails
-            : "Mail: PDF angehängt. Empfänger (+ Firma) einfügen: "+clipEmails);
-        }else if(firm){
-          setStatus(usedTitle
-            ? "Mail: PDF angehängt, Betreff gesetzt. Firmen-Mail in Zwischenablage: "+firm
-            : "Mail: PDF angehängt. Firmen-Mail einfügen: "+firm);
-        }else if(usedTitle){
-          setStatus("Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
-        }else{
-          setStatus("Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
-        }
+        if(usedTitle) setStatus("Mail: PDF angehängt, Betreff gesetzt.");
+        else setStatus("Mail: PDF angehängt.");
         return true;
       }
     }catch(e){
@@ -9488,9 +9453,7 @@ finally{ window.__pdfBuilding=false; }
 
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
-      ? (firm
-        ? "Mail geöffnet – Empfänger inkl. Firma, Betreff gesetzt. PDF ist gespeichert, bitte anhängen."
-        : "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen.")
+      ? "Mail geöffnet. PDF ist gespeichert, bitte anhängen."
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
     return opened;
   };
@@ -9939,9 +9902,7 @@ finally{ window.__pdfBuilding=false; }
         const email=customerPdfEmail();
         const clip=emailsForClipboard(email);
         if(clip) copyTextNow(clip);
-        setStatus(clip
-          ? "E-Mail kopiert (+ Firma): "+clip+". PDF wird erstellt…"
-          : "PDF wird erstellt…");
+        setStatus("PDF wird erstellt…");
         window.ensurePdfForCurrentForm().then(ready=>{
           if(!ready){
             setStatus("PDF konnte nicht erstellt werden.");
