@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.99">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.00">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.99</title>
+  <title>Servicebericht v5.00</title>
 <script>
-window.SB_APP_VERSION="4.99";
+window.SB_APP_VERSION="5.00";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"4.99", items:[
+  {v:"5.00", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -1160,7 +1160,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.99</span>
+      <span id="appCreditVer" class="app-ver">v5.00</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6557,7 +6557,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.99";
+  const APP_VERSION=window.SB_APP_VERSION||"5.00";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10501,7 +10501,9 @@ finally{ window.__pdfBuilding=false; }
     results.style.display="none";
     results.innerHTML="";
     results.hidden=true;
+    delete results.dataset.place;
   }
+  window.closePartsList=closePartsList;
   function partsTrailingQty(line){
     const s=String(line||"");
     const m=s.match(/^(.*?)(\d+[ \t]*[x×])[ \t]*$/i);
@@ -10579,6 +10581,17 @@ finally{ window.__pdfBuilding=false; }
     });
     input.addEventListener("keydown",e=>{
       if(e.key==="Enter"){ e.preventDefault(); commit(); }
+      if(e.key==="Escape"){ e.preventDefault(); closePartsList(); }
+    });
+    input.addEventListener("blur",()=>{
+      // Kurzer Delay: OK-Klick nicht verlieren, sonst Eingabe nicht „im Speicher“ offen lassen.
+      setTimeout(()=>{
+        if(!results.isConnected || results.hidden) return;
+        if(!results.querySelector(".parts-new-input")) return;
+        const a=document.activeElement;
+        if(a && results.contains(a)) return;
+        closePartsList();
+      }, 180);
     });
     input.addEventListener("click",e=>e.stopPropagation());
     bar.appendChild(input);
@@ -10645,7 +10658,11 @@ finally{ window.__pdfBuilding=false; }
   const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #whatsNewModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
-      if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
+      // Neu-Artikel-Eingabe nur offen lassen, solange das Feld aktiv tippt.
+      if(el.id==="partsResults" && el.querySelector(".parts-new-input")){
+        const a=document.activeElement;
+        if(a && a.classList && a.classList.contains("parts-new-input") && el.contains(a)) return;
+      }
       el.style.display="none";
       el.innerHTML="";
       if("hidden" in el) el.hidden=true;
