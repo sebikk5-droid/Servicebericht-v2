@@ -1,6 +1,8 @@
 Servicebericht – aktualnie v4.0 (main).
-Kopia v3.08: BACKUP_V3.08.zip (stan sprzed Übern.-kosten PDF-Text / Stau).
-Przywrócenie: rozpakować zip i podmienić pliki apki (v2.html, manifest-v2.webmanifest, …).
+Kopia zapasowa v3.87: BACKUP_V3.87.zip / branch cursor/backup-v387-6ee9 / tag backup-v3.87.
+Szybki powrót: git reset --hard backup-v3.87 && git push --force-with-lease origin main
+  (albo rozpakować BACKUP_V3.87.zip i podmienić pliki apki).
+Kopia v3.08: BACKUP_V3.08.zip (starsza).
 
 Servicebericht – V27.6.50
 Date fix:
