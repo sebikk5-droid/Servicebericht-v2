@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.6">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.7">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.6</title>
+  <title>Servicebericht v4.7</title>
 <script>
-window.SB_APP_VERSION="4.6";
+window.SB_APP_VERSION="4.7";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1172,7 +1172,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.6</span>
+      <span id="appCreditVer" class="app-ver">v4.7</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4126,7 +4126,7 @@ function drawBemerkungenHeaderText(page, font, opts){
     if(!t) return;
     try{ page.drawText(t,{x,y:y+2,size:size||9,font,color:ink}); }catch(e){}
   };
-  put(opts.tech, 472, 778.5, 9);
+  // Blatt-Kästchen (im bearbeiteten Formular wieder leer/korrekt).
   put(opts.blattNr||"2", 458, 765, 8);
   put(opts.blattVon||"2", 507, 765, 8);
   put(opts.einsatzdatum, 435, 732, 9);
@@ -4153,7 +4153,9 @@ async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   const contForm=cont.getForm();
   bindPdfFormFont(contForm, contFont);
   clearPdfForm(contForm);
-  // Bemerkungen in die Linien des bearbeiteten Formulars (ohne Ersatzteile/Zeiten).
+  // Techniker-Feld aus dem korrigierten Formular.
+  try{ setFit(contForm, "text_14", String(opts.tech||"").trim(), 9); }catch(e){}
+  // Bemerkungen in die Linien (ohne Ersatzteile/Zeiten).
   const bemFields=BEMERKUNG_PAGE2_FIELDS.filter(n=>{
     try{ contForm.getTextField(n); return true; }catch(e){ return false; }
   });
@@ -6771,7 +6773,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.6";
+  const APP_VERSION=window.SB_APP_VERSION||"4.7";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
