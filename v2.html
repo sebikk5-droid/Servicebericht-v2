@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.24">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.25">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.24</title>
+  <title>Servicebericht v4.25</title>
 <script>
-window.SB_APP_VERSION="4.24";
+window.SB_APP_VERSION="4.25";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -367,12 +367,16 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   padding:6px 8px;
   min-width:0;
 }
+.parts-ls-cell > input{flex:1;min-width:0}
 .parts-art-cell{
   border-left:1px solid #c9c9ce;
+  padding:6px 8px;
+}
+.parts-art-fields{
+  flex:1;min-width:0;
   display:grid;
   grid-template-columns:minmax(64px,.75fr) minmax(0,1.35fr) minmax(58px,.55fr);
   gap:6px;
-  padding:6px 8px;
 }
 .parts-table input{
   width:100%;min-width:0;margin:0;
@@ -383,6 +387,16 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   text-align:center;
   font-variant-numeric:tabular-nums;
 }
+.parts-clear-ls,.parts-clear-art{
+  flex:none;width:28px;height:28px;min-width:28px;min-height:28px;padding:0;margin:0;
+  border:0;border-radius:8px;
+  background:#f3e8e8;color:#8b1e1e;
+  font-size:18px;font-weight:700;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.parts-clear-ls:active,.parts-clear-art:active{background:#e8d0d0}
 .parts-table-tools{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   margin-top:8px;
@@ -1261,7 +1275,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.24</span>
+      <span id="appCreditVer" class="app-ver">v4.25</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1428,7 +1442,7 @@ select.is-nudge,input.is-nudge{
   <div class="parts-table-tools">
     <div class="parts-table-tools-left">
       <button type="button" class="parts-row-add" id="partsRowAdd">+ Zeile</button>
-      <button type="button" class="parts-row-clear" id="partsRowClear" title="Tabelle leeren und extra Zeilen schließen">Leeren</button>
+      <button type="button" class="parts-row-clear" id="partsRowClear" title="Alles leeren und extra Zeilen schließen">Alles leeren</button>
     </div>
     <button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen" title="Artikel aus Liste">+</button>
   </div>
@@ -7006,7 +7020,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.24";
+  const APP_VERSION=window.SB_APP_VERSION||"4.25";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11465,6 +11479,22 @@ finally{ window.__pdfBuilding=false; }
     writePartsTextareaFromTable({force:true, quiet:true});
     return String(($("parts")&&$("parts").value)||"");
   };
+  function partsRowIsEmpty(row){
+    if(!row) return true;
+    return !String(row.querySelector('[data-parts="ls"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="nr"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="name"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="menge"]')?.value||"").trim();
+  }
+  function pruneEmptyPartsRows(){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const rows=[...body.querySelectorAll(".parts-table-row")];
+    // Extra leere Zeilen schließen, mind. 2 behalten.
+    for(let i=rows.length-1;i>=2;i--){
+      if(partsRowIsEmpty(rows[i])) rows[i].remove();
+    }
+  }
   function makePartsRow(data){
     data=data||{};
     const row=document.createElement("div");
@@ -11472,11 +11502,15 @@ finally{ window.__pdfBuilding=false; }
     row.innerHTML=
       '<div class="parts-ls-cell">'+
         '<input type="text" data-parts="ls" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Lieferschein Nr.">'+
+        '<button type="button" class="parts-clear-ls" title="Nur Lieferschein löschen" aria-label="Lieferschein löschen">×</button>'+
       '</div>'+
       '<div class="parts-art-cell">'+
-        '<input type="text" data-parts="nr" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Artikel Nr.">'+
-        '<input type="text" data-parts="name" inputmode="text" autocomplete="off" placeholder="Name" aria-label="Artikel Name">'+
-        '<input type="text" data-parts="menge" inputmode="decimal" autocomplete="off" placeholder="×" aria-label="Menge">'+
+        '<div class="parts-art-fields">'+
+          '<input type="text" data-parts="nr" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Artikel Nr.">'+
+          '<input type="text" data-parts="name" inputmode="text" autocomplete="off" placeholder="Name" aria-label="Artikel Name">'+
+          '<input type="text" data-parts="menge" inputmode="decimal" autocomplete="off" placeholder="×" aria-label="Menge">'+
+        '</div>'+
+        '<button type="button" class="parts-clear-art" title="Nur Artikel löschen" aria-label="Artikel löschen">×</button>'+
       '</div>';
     const ls=row.querySelector('[data-parts="ls"]');
     const nr=row.querySelector('[data-parts="nr"]');
@@ -11494,6 +11528,24 @@ finally{ window.__pdfBuilding=false; }
         if(!body) return;
         partsFocusRow=Math.max(0, [...body.children].indexOf(row));
       });
+    });
+    row.querySelector(".parts-clear-ls")?.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(ls) ls.value="";
+      writePartsTextareaFromTable({force:true});
+      pruneEmptyPartsRows();
+      writePartsTextareaFromTable({force:true, quiet:true});
+    });
+    row.querySelector(".parts-clear-art")?.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(nr) nr.value="";
+      if(name) name.value="";
+      if(menge) menge.value="";
+      writePartsTextareaFromTable({force:true});
+      pruneEmptyPartsRows();
+      writePartsTextareaFromTable({force:true, quiet:true});
     });
     return row;
   }
