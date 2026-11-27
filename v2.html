@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.0">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.1">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.0</title>
+  <title>Servicebericht v4.1</title>
 <script>
-window.SB_APP_VERSION="4.0";
+window.SB_APP_VERSION="4.1";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1145,7 +1145,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.0</span>
+      <span id="appCreditVer" class="app-ver">v4.1</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -3932,22 +3932,28 @@ function packFieldLines(font, paragraphs, widths, size){
   for(let p=0;p<paragraphs.length;p++){
     const words=paragraphs[p].split(/\s+/).filter(Boolean);
     while(words.length){
-      if(lines.length>=widths.length)
-        return {lines, leftover:words};
+      if(lines.length>=widths.length){
+        const rest=[words.join(" ")].concat(paragraphs.slice(p+1)).map(x=>String(x||"").trim()).filter(Boolean);
+        return {lines, leftover:rest};
+      }
       const line=consumeLine(font, words, size, widths[lines.length]);
-      if(line===null) return {lines, leftover:words, tooWide:true};
+      if(line===null){
+        const rest=[words.join(" ")].concat(paragraphs.slice(p+1)).map(x=>String(x||"").trim()).filter(Boolean);
+        return {lines, leftover:rest, tooWide:true};
+      }
       lines.push(line);
     }
   }
   return {lines, leftover:[]};
 }
+/** Fills text into named fields. Returns leftover paragraphs that did not fit. */
 function wrapIntoFields(form, names, text, font){
   const MIN=7;
   const raw=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  if(!raw.length) return;
+  if(!raw.length) return [];
   if(!font){
     names.forEach((n,i)=>setIf(form,n, raw[i]||""));
-    return;
+    return raw.slice(names.length);
   }
   const meta=names.map(n=>{
     const r=fieldRectOf(form,n);
@@ -3986,6 +3992,89 @@ function wrapIntoFields(form, names, text, font){
     const line=out[i]||"";
     if(line) setFit(form,n,line,size);
   });
+  return leftover.slice();
+}
+const BEMERKUNG_PDF_FIELDS=["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"];
+function countBemerkungExtraPages(font, leftover, form){
+  let left=(leftover||[]).slice();
+  if(!left.length || !font) return 0;
+  const widths=BEMERKUNG_PDF_FIELDS.map(n=>fieldInnerWidth(fieldRectOf(form,n)));
+  let extra=0;
+  while(left.length && extra<8){
+    let size=9;
+    let packed=packFieldLines(font, left, widths, size);
+    while((packed.leftover.length || packed.tooWide) && size>7){
+      size=Math.round((size-0.25)*4)/4;
+      packed=packFieldLines(font, left, widths, size);
+    }
+    let out=packed.lines.slice();
+    let rest=(packed.leftover||[]).slice();
+    while(rest.length && out.length<widths.length){
+      const line=consumeLine(font, rest, size, widths[out.length]);
+      if(line===null) out.push(rest.shift());
+      else out.push(line);
+    }
+    if(rest.length && out.length){
+      const maxW=widths[Math.min(out.length-1, widths.length-1)];
+      let line=out[out.length-1]||"";
+      while(rest.length){
+        const trial=line?line+" "+rest[0]:rest[0];
+        if(font.widthOfTextAtSize(trial, 7)>maxW) break;
+        line=trial;
+        rest.shift();
+      }
+      out[out.length-1]=line;
+    }
+    if(!out.length && rest.length){
+      // Safety: force at least one field so we never spin forever.
+      out.push(rest.shift());
+    }
+    left=rest;
+    extra++;
+  }
+  return extra;
+}
+async function appendBemerkungenFortsetzungPages(mainPdf, leerBytes, leftover, opts){
+  opts=opts||{};
+  let left=(leftover||[]).slice();
+  if(!left.length) return 0;
+  const font=opts.font||null;
+  const firma=String(opts.firma||"").trim();
+  const kundennr=String(opts.kundennr||"").trim();
+  const totalSheets=Math.max(2, Number(opts.totalSheets)||2);
+  let added=0;
+  let pageNo=2;
+  while(left.length && added<8){
+    const cont=await PDFLib.PDFDocument.load(leerBytes.slice(0));
+    const contFont=await cont.embedFont(PDFLib.StandardFonts.Helvetica);
+    forceWinAnsiHelvetica(cont);
+    const contForm=cont.getForm();
+    bindPdfFormFont(contForm, contFont);
+    clearPdfForm(contForm);
+    if(firma) setFit(contForm,"Firma",firma,9);
+    if(kundennr){
+      setIf(contForm,"Kundennummer",kundennr);
+      setIf(contForm,"Kunden-Nr",kundennr);
+    }
+    setFit(contForm,"Text2", String(pageNo), 8);
+    setFit(contForm,"Text3", String(totalSheets), 8);
+    // Mark continuation so the sheet is clearly only remarks overflow.
+    try{ setFit(contForm,"Störung", "Fortsetzung Bemerkungen", 8); }catch(e){}
+    left=wrapIntoFields(contForm, BEMERKUNG_PDF_FIELDS, left.join("\n"), contFont)||[];
+    if(contFont) contForm.updateFieldAppearances(contFont);
+    else contForm.updateFieldAppearances();
+    ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
+      try{ contForm.removeField(contForm.getTextField(name)); }catch(e){}
+    });
+    contForm.flatten({updateFieldAppearances:false});
+    forceWinAnsiHelvetica(cont);
+    scrubPdfForAdobePrint(cont);
+    const pages=await mainPdf.copyPages(cont, cont.getPageIndices());
+    pages.forEach(function(p){ mainPdf.addPage(p); });
+    added++;
+    pageNo++;
+  }
+  return added;
 }
 function pdfFieldFontName(){
   return (pdfFitFont && pdfFitFont.name) ? pdfFitFont.name : "Helvetica";
@@ -5231,14 +5320,18 @@ setIf(form,"Kundennummer",$("kundennummer")?.value||"");
 setIf(form,"Kunden-Nr",$("kundennummer")?.value||"");
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
-setFit(form,"Text2", String($("blattNr")?.value||"").trim()||"1", 8);
-setFit(form,"Text3", String($("blattVon")?.value||"").trim()||"1", 8);
 setIf(form,"Hersteller",$("manufacturer").value);setIf(form,"Typ",$("type").value);setIf(form,"Maschinennummer",$("machineNo").value);
 setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value);setIf(form,"PLC Version",$("plc").value);
 setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
 setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
-wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
+const bemerkungLeftover=wrapIntoFields(form,BEMERKUNG_PDF_FIELDS,$("remarks").value,pdfFitFont)||[];
+const bemerkungExtraPages=countBemerkungExtraPages(pdfFitFont, bemerkungLeftover, form);
+const totalBlatt=1+bemerkungExtraPages;
+const blattNrUi=String($("blattNr")?.value||"").trim()||"1";
+setFit(form,"Text2", blattNrUi, 8);
+setFit(form,"Text3", String(totalBlatt), 8);
+try{ if($("blattVon")) $("blattVon").value=String(totalBlatt); }catch(e){}
 wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
 let km=0, travel=0, work=0, all=0, pauseRzSum=0, pauseAzSum=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
@@ -5377,12 +5470,25 @@ drawPdfTotalsRow(page, pdfFitFont, {
 await embedSignatures(pdf, sigBoxes);
 scrubPdfForAdobePrint(pdf);
 forceWinAnsiHelvetica(pdf);
+if(bemerkungLeftover.length){
+  const added=await appendBemerkungenFortsetzungPages(pdf, bytes, bemerkungLeftover, {
+    font:pdfFitFont,
+    firma:firmaName(),
+    kundennr:$("kundennummer")?.value||"",
+    totalSheets:totalBlatt
+  });
+  if(added){
+    try{ if($("blattVon")) $("blattVon").value=String(1+added); }catch(e){}
+  }
+}
 let out=await pdf.save({useObjectStreams:false, updateFieldAppearances:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
 }
-$("status").textContent="Fertig – das PDF ist vorbereitet.";
+$("status").textContent=bemerkungLeftover.length
+  ? "Fertig – PDF mit Fortsetzung Bemerkungen."
+  : "Fertig – das PDF ist vorbereitet.";
 if(!window.__pdfBuildQuiet && typeof window.afterPdfBuilt==="function"){
   try{ await window.afterPdfBuilt(); }catch(e){}
 }
@@ -6544,7 +6650,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.0";
+  const APP_VERSION=window.SB_APP_VERSION||"4.1";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
