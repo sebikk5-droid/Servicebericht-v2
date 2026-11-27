@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.16">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.17">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.16</title>
+  <title>Servicebericht v4.17</title>
 <script>
-window.SB_APP_VERSION="4.16";
+window.SB_APP_VERSION="4.17";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -321,7 +321,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 }
 .parts-table-head,.parts-table-subhead,.parts-table-row{
   display:grid;
-  grid-template-columns:minmax(0,1.05fr) minmax(0,1.55fr);
+  grid-template-columns:minmax(0,.9fr) minmax(0,1.7fr);
   gap:0;
 }
 .parts-table-head{
@@ -343,11 +343,11 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 }
 .parts-table-subhead > div:first-child{
   padding:0 10px 6px;
-  font-size:11px;font-weight:700;color:#666;
+  font-size:11px;font-weight:700;color:#555;
 }
 .parts-col-art-head{
   display:grid;
-  grid-template-columns:minmax(72px,.7fr) minmax(0,1.4fr);
+  grid-template-columns:minmax(64px,.75fr) minmax(0,1.35fr) minmax(58px,.55fr);
   gap:0;
   border-left:1px solid #c9c9ce;
 }
@@ -370,17 +370,18 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .parts-art-cell{
   border-left:1px solid #c9c9ce;
   display:grid;
-  grid-template-columns:minmax(72px,.7fr) minmax(0,1.4fr);
+  grid-template-columns:minmax(64px,.75fr) minmax(0,1.35fr) minmax(58px,.55fr);
   gap:6px;
   padding:6px 8px;
-}
-.parts-ls-prefix{
-  flex:none;font-size:13px;font-weight:800;color:#333;min-width:1.6em;
 }
 .parts-table input{
   width:100%;min-width:0;margin:0;
   font-size:14px;padding:8px 9px;border-radius:8px;
   background:#e8e8ed;border:1px solid #d0d0d6;
+}
+.parts-table input[data-parts="menge"]{
+  text-align:center;
+  font-variant-numeric:tabular-nums;
 }
 .parts-table-tools{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -1257,7 +1258,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.16</span>
+      <span id="appCreditVer" class="app-ver">v4.17</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1416,8 +1417,8 @@ select.is-nudge,input.is-nudge{
       <div class="parts-art-title">Artikel</div>
     </div>
     <div class="parts-table-subhead">
-      <div></div>
-      <div class="parts-col-art-head"><span>Nr.</span><span>Name</span></div>
+      <div>Nr.</div>
+      <div class="parts-col-art-head"><span>Nr.</span><span>Name</span><span>menge</span></div>
     </div>
     <div class="parts-table-body" id="partsTableBody"></div>
   </div>
@@ -6994,7 +6995,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.16";
+  const APP_VERSION=window.SB_APP_VERSION||"4.17";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11307,45 +11308,68 @@ finally{ window.__pdfBuilding=false; }
   const PARTS_MAX_ROWS=4;
   let partsTableLock=false;
   let partsFocusRow=0;
+  function splitPartsQty(text){
+    let s=String(text||"").trim();
+    let menge="";
+    const lead=s.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+    if(lead){ menge=lead[1]; s=String(lead[2]||"").trim(); }
+    else{
+      const trail=s.match(/^(.*?)(?:[, ]+)?(\d+)\s*[x×]\s*$/i);
+      if(trail && String(trail[1]||"").trim()){
+        s=String(trail[1]||"").trim();
+        menge=trail[2];
+      }
+    }
+    return {text:s, menge:menge};
+  }
   function parsePartsCatalogLabel(label){
-    const s=String(label||"").trim();
-    if(!s) return {nr:"", name:""};
+    const split=splitPartsQty(label);
+    const s=split.text;
+    if(!s) return {nr:"", name:"", menge:split.menge};
     const m=s.match(/^(.*?)(?:\s*[,;]?\s*)Art\.?\s*Nr\.?\s*:?\s*(\S+)\s*$/i);
-    if(m) return {nr:String(m[2]||"").trim(), name:String(m[1]||"").trim()};
+    if(m) return {nr:String(m[2]||"").trim(), name:String(m[1]||"").trim(), menge:split.menge};
     const m2=s.match(/^(\S+)\s+(.+)$/);
-    if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim()};
-    return {nr:"", name:s};
+    if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim(), menge:split.menge};
+    return {nr:"", name:s, menge:split.menge};
   }
   function formatPartsRowLine(row){
     const ls=String(row.ls||"").trim();
     const nr=String(row.nr||"").trim();
     const name=String(row.name||"").trim();
-    if(!ls && !nr && !name) return "";
-    const art=[nr, name].filter(Boolean).join(" ");
+    const menge=String(row.menge||"").trim();
+    if(!ls && !nr && !name && !menge) return "";
+    let art=[nr, name].filter(Boolean).join(" ");
+    if(menge) art=art ? art+", "+menge+"x" : menge+"x";
     if(ls && art) return "LS "+ls+" | "+art;
     if(ls) return "LS "+ls;
     return art;
   }
   function parsePartsRowLine(line){
-    const s=String(line||"").trim();
-    if(!s) return {ls:"", nr:"", name:""};
-    const pipe=s.match(/^LS(?:-?\s*Nr\.?)?\s*([^|]*)\|\s*(.*)$/i);
+    const empty={ls:"", nr:"", name:"", menge:""};
+    const raw=String(line||"").trim();
+    if(!raw) return empty;
+    let ls="";
+    let rest=raw;
+    const pipe=raw.match(/^LS(?:-?\s*Nr\.?)?\s*([^|]*)\|\s*(.*)$/i);
     if(pipe){
-      const ls=String(pipe[1]||"").trim();
-      const art=parsePartsCatalogLabel(String(pipe[2]||"").trim());
-      return {ls:ls, nr:art.nr, name:art.name||String(pipe[2]||"").trim()};
-    }
-    const lsOnly=s.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
-    if(lsOnly){
-      const rest=String(lsOnly[1]||"").trim();
-      const bits=rest.split(/\s+/);
-      if(bits.length>=2 && /^\d/.test(bits[1])){
-        return {ls:bits[0], nr:bits[1], name:bits.slice(2).join(" ")};
+      ls=String(pipe[1]||"").trim();
+      rest=String(pipe[2]||"").trim();
+    }else{
+      const lsOnly=raw.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
+      if(lsOnly){
+        const bits=String(lsOnly[1]||"").trim().split(/\s+/);
+        if(bits.length>=2 && /^\d/.test(bits[1])){
+          ls=bits[0];
+          rest=bits.slice(1).join(" ");
+        }else{
+          ls=String(lsOnly[1]||"").trim();
+          rest="";
+        }
       }
-      return {ls:rest, nr:"", name:""};
     }
-    const art=parsePartsCatalogLabel(s);
-    return {ls:"", nr:art.nr, name:art.name||s};
+    const art=parsePartsCatalogLabel(rest);
+    if(!ls && !rest) return empty;
+    return {ls:ls, nr:art.nr, name:art.name||(!art.nr?rest:""), menge:art.menge};
   }
   function readPartsTableRows(){
     const body=$("partsTableBody");
@@ -11354,7 +11378,8 @@ finally{ window.__pdfBuilding=false; }
       return {
         ls:row.querySelector('[data-parts="ls"]')?.value||"",
         nr:row.querySelector('[data-parts="nr"]')?.value||"",
-        name:row.querySelector('[data-parts="name"]')?.value||""
+        name:row.querySelector('[data-parts="name"]')?.value||"",
+        menge:row.querySelector('[data-parts="menge"]')?.value||""
       };
     });
   }
@@ -11377,19 +11402,21 @@ finally{ window.__pdfBuilding=false; }
     row.className="parts-table-row";
     row.innerHTML=
       '<div class="parts-ls-cell">'+
-        '<span class="parts-ls-prefix">LS</span>'+
         '<input type="text" data-parts="ls" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Lieferschein Nr.">'+
       '</div>'+
       '<div class="parts-art-cell">'+
         '<input type="text" data-parts="nr" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Artikel Nr.">'+
         '<input type="text" data-parts="name" inputmode="text" autocomplete="off" placeholder="Name" aria-label="Artikel Name">'+
+        '<input type="text" data-parts="menge" inputmode="decimal" autocomplete="off" placeholder="×" aria-label="Menge">'+
       '</div>';
     const ls=row.querySelector('[data-parts="ls"]');
     const nr=row.querySelector('[data-parts="nr"]');
     const name=row.querySelector('[data-parts="name"]');
+    const menge=row.querySelector('[data-parts="menge"]');
     if(ls) ls.value=data.ls||"";
     if(nr) nr.value=data.nr||"";
     if(name) name.value=data.name||"";
+    if(menge) menge.value=data.menge||"";
     row.querySelectorAll("input").forEach(inp=>{
       inp.addEventListener("input", writePartsTextareaFromTable);
       inp.addEventListener("change", writePartsTextareaFromTable);
@@ -11419,18 +11446,20 @@ finally{ window.__pdfBuilding=false; }
       if(!String(line||"").trim() && !rows.length) return;
       rows.push(parsePartsRowLine(line));
     });
-    while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name)
+    while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name && !rows[rows.length-1].menge)
       rows.pop();
     const count=Math.max(2, Math.min(PARTS_MAX_ROWS, rows.length||2));
     ensurePartsRowCount(count);
     [...body.querySelectorAll(".parts-table-row")].forEach((row,i)=>{
-      const d=rows[i]||{ls:"",nr:"",name:""};
+      const d=rows[i]||{ls:"",nr:"",name:"",menge:""};
       const ls=row.querySelector('[data-parts="ls"]');
       const nr=row.querySelector('[data-parts="nr"]');
       const name=row.querySelector('[data-parts="name"]');
+      const menge=row.querySelector('[data-parts="menge"]');
       if(ls) ls.value=d.ls||"";
       if(nr) nr.value=d.nr||"";
       if(name) name.value=d.name||"";
+      if(menge) menge.value=d.menge||"";
     });
     partsTableLock=false;
   }
@@ -11445,7 +11474,8 @@ finally{ window.__pdfBuilding=false; }
     function rowEmpty(r){
       if(!r) return true;
       return !String(r.querySelector('[data-parts="nr"]')?.value||"").trim()
-        && !String(r.querySelector('[data-parts="name"]')?.value||"").trim();
+        && !String(r.querySelector('[data-parts="name"]')?.value||"").trim()
+        && !String(r.querySelector('[data-parts="menge"]')?.value||"").trim();
     }
     if(!rowEmpty(target)){
       target=rows.find(rowEmpty) || null;
@@ -11459,14 +11489,16 @@ finally{ window.__pdfBuilding=false; }
     if(!target) return;
     const nr=target.querySelector('[data-parts="nr"]');
     const name=target.querySelector('[data-parts="name"]');
+    const menge=target.querySelector('[data-parts="menge"]');
     if(nr && parsed.nr) nr.value=parsed.nr;
     if(name){
       const cur=String(name.value||"").trim();
       name.value=parsed.name ? (cur && cur!==parsed.name ? cur+", "+parsed.name : parsed.name) : cur;
     }
+    if(menge && parsed.menge && !String(menge.value||"").trim()) menge.value=parsed.menge;
     partsFocusRow=Math.max(0, [...body.children].indexOf(target));
     writePartsTextareaFromTable();
-    try{ (name||nr)?.focus(); }catch(e){}
+    try{ (menge||name||nr)?.focus(); }catch(e){}
   }
   function bindPartsTableUi(){
     const add=$("partsRowAdd");

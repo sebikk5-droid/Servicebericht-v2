@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v4-16";
+const CACHE_NAME = "servicebericht-v4-17";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
