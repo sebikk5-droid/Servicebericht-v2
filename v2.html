@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.05">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.06">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,29 +14,11 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.05</title>
+  <title>Servicebericht v5.06</title>
 <script>
-window.SB_APP_VERSION="5.05";
-/** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
-window.SB_RELEASE_NOTES=[
-  {v:"5.05", items:[
-    "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
-    "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
-    "km und Fahrzeit für den Kunden direkt ändern.",
-    "E-Mail merken und weitere Adresse hinzufügen.",
-    "E-Mail-Taste: zuerst Speichern, danach Senden. Wenn schon gespeichert – direkt zur E-Mail.",
-    "Unten: E-Mail kopieren oder per E-Mail schicken.",
-    "App neu laden mit dem Aktualisieren-Knopf oben.",
-    "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
-    "Ersatzteile: gemeinsame Artikel bei allen. Stift ändern, roter Knopf löschen (auch bei allen weg).",
-    "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
-    "Neues Feld Stau bei Anfahrt und Rückfahrt.",
-    "Leere km oder Zeiten werden gelb markiert.",
-    "Pause Rückfahrt wird anders gelb markiert.",
-    "Fehlt etwas am Tag, wird der Tag-Knopf rot.",
-    "Nächster Tag behält km und Zeit – bei Übernachtung werden sie geleert."
-  ]}
-];
+window.SB_APP_VERSION="5.06";
+/** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
+window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
 (function(){
   try{
@@ -225,26 +207,8 @@ window.sbReloadHeld=function(){
     modal.setAttribute("aria-hidden","false");
   }
   function maybeShowWhatsNew(){
-    const local=window.SB_APP_VERSION||"";
-    if(!local) return;
-    try{
-      if(localStorage.getItem("sb_whats_new_seen")===local) return;
-    }catch(e){}
-    const raw=window.SB_GITHUB_MAIN_RAW||"";
-    const finish=function(githubVer){
-      let show=notesSince(githubVer||"");
-      // Ohne GitHub-Version: nur Notizen der aktuellen Version zeigen.
-      if(!show.length){
-        show=notesSince("0").filter(function(it){ return it.v===local; });
-      }
-      if(!show.length) return;
-      openWhatsNew(githubVer||"", show.slice(0, 14));
-    };
-    if(!raw){ finish(""); return; }
-    fetch(raw+(raw.indexOf("?")>=0?"&":"?")+"t="+Date.now(), {cache:"no-store"})
-      .then(function(r){ return r&&r.ok?r.text():""; })
-      .then(function(html){ finish(parseGithubHtmlVersion(html)); })
-      .catch(function(){ finish(""); });
+    // Informationsnotiz beim Start absichtlich aus.
+    return;
   }
   window.SB_SHOW_WHATS_NEW=maybeShowWhatsNew;
   function bindWhatsNewUi(){
@@ -1181,7 +1145,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.05</span>
+      <span id="appCreditVer" class="app-ver">v5.06</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6580,7 +6544,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.05";
+  const APP_VERSION=window.SB_APP_VERSION||"5.06";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
