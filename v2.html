@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.9">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.10">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.9</title>
+  <title>Servicebericht v4.10</title>
 <script>
-window.SB_APP_VERSION="4.9";
+window.SB_APP_VERSION="4.10";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1172,7 +1172,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.9</span>
+      <span id="appCreditVer" class="app-ver">v4.10</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4146,6 +4146,36 @@ function drawBemerkungenHeaderText(page, font, opts){
   put(opts.plc, 473, 640, 9);
   put(opts.hours, 394, 622, 9);
 }
+/** Checkbox-/Unterschriftsdaten auf Leer-bemerkungen.pdf (Zeile nach unten verschoben). */
+function drawBemerkungenChoicesAndSign(page, font, opts){
+  if(!page || !font) return;
+  const ink=PDFLib.rgb(0.102,0.101,0.095);
+  const bold=opts.boldFont||font;
+  // Original-Kontrollkästchen ~y450 → im Bemerkungen-Formular ~y211 (Offset -239).
+  const dy=-239;
+  const tick=(on,x,y)=>{
+    if(!on) return;
+    try{ page.drawText("X",{x,y,size:8,font:bold,color:ink}); }catch(e){}
+  };
+  tick(!!opts.betIo, 118.2, 450.4+dy);
+  tick(!!opts.betBed, 142.8, 450.4+dy);
+  tick(!!opts.betNicht, 194.2, 450.4+dy);
+  tick(!!opts.einNein, 414.8, 450.6+dy);
+  tick(!!opts.einJa, 443.8, 450.6+dy);
+  // El/Mech/Anw-Kästchen sitzen etwas tiefer in der Zelle.
+  tick(!!opts.artEl, 471.5, 437.9+dy+2);
+  tick(!!opts.artMech, 499.2, 437.9+dy+2);
+  tick(!!opts.artAnw, 536.5, 437.9+dy+2);
+  // Fuß: übernommen + Datum/Name wie PDF 1.
+  tick(!!opts.maschineOk, 290.2, 74.0);
+  const put=(s,x,y,size)=>{
+    const t=String(s||"").trim();
+    if(!t) return;
+    try{ page.drawText(t,{x,y,size:size||9,font,color:ink}); }catch(e){}
+  };
+  put(opts.signDate, 103.9, 58.6, 7.5);
+  put(opts.customerSign, 87.9, 38.4, 9);
+}
 async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   opts=opts||{};
   const tplBytes=await loadBemerkungenTemplateBytes(leerBytes);
@@ -4167,7 +4197,11 @@ async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   if(contFont) contForm.updateFieldAppearances(contFont);
   else contForm.updateFieldAppearances();
   try{ contForm.flatten({updateFieldAppearances:false}); }catch(e){}
-  drawBemerkungenHeaderText(cont.getPages()[0], contFont, opts);
+  const page=cont.getPages()[0];
+  let boldFont=contFont;
+  try{ boldFont=await cont.embedFont(PDFLib.StandardFonts.HelveticaBold); }catch(e){}
+  drawBemerkungenHeaderText(page, contFont, opts);
+  drawBemerkungenChoicesAndSign(page, contFont, Object.assign({}, opts, {boldFont}));
   try{ await embedSignatures(cont, signatureFieldBoxes(null)); }catch(e){}
   forceWinAnsiHelvetica(cont);
   scrubPdfForAdobePrint(cont);
@@ -5576,6 +5610,7 @@ if(twoPdfs){
   let page2Text=String($("remarksPage2")?.value||"").trim();
   if(!page2Text && bemerkungLeftover.length)
     page2Text=bemerkungLeftover.join("\n");
+  const signIso=typeof signDateValue==="function" ? signDateValue() : String($("signdate")?.value||"");
   lastPdfBemBlob=await buildBemerkungenOnlyPdfBlob(bytes, page2Text, {
     firma:firmaName(),
     street:$("street")?.value||"",
@@ -5593,7 +5628,18 @@ if(twoPdfs){
     einsatzdatum:typeof pdfDate==="function" ? pdfDate($("einsatzdatum")?.value||$("date")?.value||"") : ($("einsatzdatum")?.value||""),
     kundennr:$("kundennummer")?.value||"",
     blattNr:"2",
-    blattVon:"2"
+    blattVon:"2",
+    betIo:bet==="io",
+    betBed:bet==="bedingt",
+    betNicht:bet==="nicht",
+    einNein:ein==="nein",
+    einJa:ein==="ja",
+    artEl:artOn("el"),
+    artMech:artOn("mech"),
+    artAnw:artOn("anw"),
+    maschineOk:!!document.getElementById("maschine_ok")?.checked,
+    customerSign:$("customersign")?.value||"",
+    signDate:signIso && typeof pdfDate==="function" ? pdfDate(signIso) : ""
   });
   window.lastPdfBemBlob=lastPdfBemBlob;
 }
@@ -6776,7 +6822,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.9";
+  const APP_VERSION=window.SB_APP_VERSION||"4.10";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
