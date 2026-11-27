@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.13">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.14">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.13</title>
+  <title>Servicebericht v4.14</title>
 <script>
-window.SB_APP_VERSION="4.13";
+window.SB_APP_VERSION="4.14";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1172,7 +1172,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.13</span>
+      <span id="appCreditVer" class="app-ver">v4.14</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4064,6 +4064,7 @@ function setRemarksPage2Visible(on){
   const card=$("remarksPage2Card");
   const add=$("remarksPage2Add");
   if(!card) return;
+  const was=!(card.hidden);
   card.hidden=!on;
   if(add) add.hidden=!!on;
   if(!on){
@@ -4072,6 +4073,8 @@ function setRemarksPage2Visible(on){
   }
   try{ if($("blattVon")) $("blattVon").value=on ? "2" : "1"; }catch(e){}
   try{ if($("blattNr")) $("blattNr").value="1"; }catch(e){}
+  if(was!==!!on && typeof window.invalidateStashedPdf==="function")
+    window.invalidateStashedPdf();
 }
 window.setRemarksPage2Visible=setRemarksPage2Visible;
 function bindRemarksPage2Ui(){
@@ -4084,7 +4087,7 @@ function bindRemarksPage2Ui(){
       setRemarksPage2Visible(true);
       try{ $("remarksPage2")?.focus(); }catch(err){}
       const s=$("status");
-      if(s) s.textContent="Bemerkungen-Seite 2 aktiv – PDF speichert zwei Dateien.";
+      if(s) s.textContent="Bemerkungen-Seite 2 aktiv – PDF hat 2 Seiten in einer Datei.";
     });
   }
   if(rem && rem.dataset.bound!=="1"){
@@ -5698,6 +5701,7 @@ if(twoPdfs){
   lastPdfBemBlob=null;
   window.lastPdfBemBlob=null;
 }
+window.lastPdfPageCount=twoPdfs ? 2 : 1;
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
 }
@@ -5839,8 +5843,11 @@ finally{ window.__pdfBuilding=false; }
         norm[k]=v;
       });
       if(typeof selectedPdfKind==="function") norm.__pdfKind=selectedPdfKind();
-      if(typeof window.remarksPage2Enabled==="function")
-        norm.__remarksPage2=window.remarksPage2Enabled()?1:0;
+      if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
+        norm.__remarksPage2=1;
+        // v4.13+: Seite 1+2 in einem PDF – alte 1-Seiten-Stashes ungültig machen.
+        norm.__pdfMergedPages=2;
+      }
       const raw=JSON.stringify(norm);
       let h=2166136261>>>0;
       for(let i=0;i<raw.length;i++){
@@ -6886,7 +6893,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.13";
+  const APP_VERSION=window.SB_APP_VERSION||"4.14";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8890,17 +8897,31 @@ finally{ window.__pdfBuilding=false; }
   function currentFormFingerprint(){
     return typeof window.currentPdfFingerprint==="function" ? window.currentPdfFingerprint() : "";
   }
+  async function countPdfPages(blob){
+    if(!blob || !window.PDFLib) return 0;
+    try{
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      const doc=await PDFLib.PDFDocument.load(bytes.slice(0), {ignoreEncryption:true});
+      return doc.getPageCount()||0;
+    }catch(e){ return 0; }
+  }
+  window.countPdfPages=countPdfPages;
   window.pdfMatchesCurrentForm=function(){
     const fp=currentFormFingerprint();
     const stored=window.lastPdfFormFingerprint || (getMeta()&&getMeta().fingerprint) || "";
-    // Seite 2 steckt im zusammengefügten lastPdfBlob – kein Extra-Blob nötig.
-    return !!(lastPdfBlob && fp && stored && stored===fp);
+    if(!(lastPdfBlob && fp && stored && stored===fp)) return false;
+    // Bei Blatt 2 muss das gemergte PDF wirklich 2 Seiten haben (alte Stashes = 1 Seite).
+    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
+      if((window.lastPdfPageCount||0) < 2) return false;
+    }
+    return true;
   };
   window.invalidateStashedPdf=function(){
     lastPdfBlob=null;
     lastPdfBemBlob=null;
     window.lastPdfBemBlob=null;
     window.lastPdfFormFingerprint="";
+    window.lastPdfPageCount=0;
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
   window.stashGeneratedPdf=async function(blob, filename){
@@ -8909,6 +8930,9 @@ finally{ window.__pdfBuilding=false; }
     const name=filename||"Servicebericht.pdf";
     const fp=currentFormFingerprint();
     window.lastPdfFormFingerprint=fp;
+    if(!(window.lastPdfPageCount>0)){
+      window.lastPdfPageCount=await countPdfPages(copy);
+    }
     setMeta(name, true, fp);
     try{ await idbPut(copy, name, true, fp); }catch(e){}
     try{ await opfsFile(copy, name); }catch(e){}
@@ -8922,6 +8946,15 @@ finally{ window.__pdfBuilding=false; }
     const cur=currentFormFingerprint();
     if(!storedFp || !cur || storedFp!==cur) return false;
     lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
+    window.lastPdfPageCount=await countPdfPages(lastPdfBlob);
+    // Alte 1-Seiten-Stashes bei aktiver Seite 2 verwerfen.
+    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()
+      && (window.lastPdfPageCount||0) < 2){
+      lastPdfBlob=null;
+      window.lastPdfPageCount=0;
+      window.lastPdfFormFingerprint="";
+      return false;
+    }
     window.lastPdfFormFingerprint=storedFp;
     setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false, storedFp);
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
@@ -9701,11 +9734,23 @@ finally{ window.__pdfBuilding=false; }
   }
   window.showPdfPreview=async function(){
     setStatus("Vorschau wird erstellt…");
-    const hasPage2=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
+    const wantPage2=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
+    if(wantPage2 && (window.lastPdfPageCount||0) < 2 && typeof window.invalidateStashedPdf==="function")
+      window.invalidateStashedPdf();
     const ready=await window.ensurePdfForCurrentForm();
     if(!ready || !lastPdfBlob){
       setStatus("PDF-Vorschau konnte nicht erstellt werden.");
       return false;
+    }
+    // Nach Build nochmal prüfen: gemergtes PDF muss 2 Seiten haben.
+    let pages=window.lastPdfPageCount||0;
+    if(wantPage2 && pages < 2 && typeof window.countPdfPages==="function"){
+      pages=await window.countPdfPages(lastPdfBlob);
+      window.lastPdfPageCount=pages;
+    }
+    const hasPage2=wantPage2 && pages>=2;
+    if(wantPage2 && !hasPage2){
+      setStatus("Blatt 2 fehlt – bitte Vorschau noch einmal tippen.");
     }
     previewMainBlob=lastPdfBlob;
     previewHasPage2=hasPage2;
