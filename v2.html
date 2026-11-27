@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.26">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.27">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,11 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.26</title>
+  <title>Servicebericht v4.27</title>
 <script>
-window.SB_APP_VERSION="4.26";
+window.SB_APP_VERSION="4.27";
+/** Firmen-E-Mail – immer in CC / Empfänger-Liste bei PDF-Mail. */
+window.SB_FIRM_EMAIL="Service@Maschinenservice-LG.de";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1275,7 +1277,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.26</span>
+      <span id="appCreditVer" class="app-ver">v4.27</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -7020,7 +7022,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.26";
+  const APP_VERSION=window.SB_APP_VERSION||"4.27";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9162,6 +9164,29 @@ finally{ window.__pdfBuilding=false; }
   function customerPdfEmail(){
     return String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
   }
+  function firmPdfEmail(){
+    return String(window.SB_FIRM_EMAIL||"Service@Maschinenservice-LG.de").trim();
+  }
+  function emailsForMailto(customerEmail){
+    const to=String(customerEmail||"").trim();
+    const firm=firmPdfEmail();
+    const same=to && firm && to.toLowerCase()===firm.toLowerCase();
+    return {to:to, cc:(firm && !same) ? firm : ""};
+  }
+  function emailsForClipboard(customerEmail){
+    const m=emailsForMailto(customerEmail);
+    if(m.to && m.cc) return m.to+", "+m.cc;
+    return m.to || m.cc || "";
+  }
+  function buildPdfMailtoHref(customerEmail, label, body){
+    const m=emailsForMailto(customerEmail);
+    let href="mailto:"+(m.to ? encodeURIComponent(m.to) : "");
+    const q=[];
+    if(m.cc) q.push("cc="+encodeURIComponent(m.cc));
+    q.push("subject="+encodeURIComponent(label||""));
+    q.push("body="+encodeURIComponent(body||""));
+    return href+"?"+q.join("&");
+  }
   window.syncPdfEmailUi=function(){
     const btn=$("emailPdfBtn");
     if(!btn) return;
@@ -9261,10 +9286,11 @@ finally{ window.__pdfBuilding=false; }
     const modal=$("pdfEmailModal");
     const hint=$("pdfEmailHint");
     const email=customerPdfEmail();
+    const firm=firmPdfEmail();
     if(hint){
       hint.textContent=email
-        ? "An "+email+" senden? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger liegt in der Zwischenablage."
-        : "Keine Kunden-E-Mail. In der Freigabe „Mail“ wählen – PDF wird angehängt; Empfänger selbst eintragen.";
+        ? ("An "+email+" senden (CC: "+firm+")? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger inkl. Firmen-Mail in der Zwischenablage.")
+        : ("Keine Kunden-E-Mail. Firmen-Mail "+firm+" wird mitgegeben. In der Freigabe „Mail“ wählen – PDF wird angehängt.");
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -9407,14 +9433,14 @@ finally{ window.__pdfBuilding=false; }
   window.sendPdfByEmail=async function(opts){
     opts=opts||{};
     const email=customerPdfEmail();
+    const firm=firmPdfEmail();
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
       ? window.pdfFileName()
       : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
     const body=label+"\n\n"+emailName;
-    const mailtoHref="mailto:"+(email?encodeURIComponent(email):"")
-      +"?subject="+encodeURIComponent(label)
-      +"&body="+encodeURIComponent(body);
+    const mailtoHref=buildPdfMailtoHref(email, label, body);
+    const clipEmails=emailsForClipboard(email);
     closePdfEmailSheet();
 
     const matches=typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm();
@@ -9433,12 +9459,16 @@ finally{ window.__pdfBuilding=false; }
       const shared=emailFile ? await sharePdfFile(emailFile, label) : null;
       if(shared){
         const usedTitle=!!shared.title;
-        if(email) await copyTextQuiet(email);
+        if(clipEmails) await copyTextQuiet(clipEmails);
         else if(!usedTitle) await copyTextQuiet(label);
         if(email){
           setStatus(usedTitle
-            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger in Zwischenablage: "+email
-            : "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen: "+email);
+            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger (+ Firma) in Zwischenablage: "+clipEmails
+            : "Mail: PDF angehängt. Empfänger (+ Firma) einfügen: "+clipEmails);
+        }else if(firm){
+          setStatus(usedTitle
+            ? "Mail: PDF angehängt, Betreff gesetzt. Firmen-Mail in Zwischenablage: "+firm
+            : "Mail: PDF angehängt. Firmen-Mail einfügen: "+firm);
         }else if(usedTitle){
           setStatus("Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
         }else{
@@ -9452,7 +9482,9 @@ finally{ window.__pdfBuilding=false; }
 
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
-      ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
+      ? (firm
+        ? "Mail geöffnet – Betreff + CC "+firm+". PDF ist gespeichert, bitte anhängen."
+        : "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen.")
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
     return opened;
   };
@@ -9899,24 +9931,25 @@ finally{ window.__pdfBuilding=false; }
       ask.then(function(ok){
         if(!ok) return;
         const email=customerPdfEmail();
-        if(email) copyTextNow(email);
-        setStatus(email
-          ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
+        const clip=emailsForClipboard(email);
+        if(clip) copyTextNow(clip);
+        setStatus(clip
+          ? "E-Mail kopiert (+ Firma): "+clip+". PDF wird erstellt…"
           : "PDF wird erstellt…");
         window.ensurePdfForCurrentForm().then(ready=>{
           if(!ready){
             setStatus("PDF konnte nicht erstellt werden.");
             return;
           }
-          if(email) copyTextNow(email);
+          if(clip) copyTextNow(clip);
           offerHistorySaveBeforeEmail();
         });
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
     $("pdfEmailSend")?.addEventListener("click",()=>{
-      const email=customerPdfEmail();
-      if(email) copyTextNow(email);
+      const clip=emailsForClipboard(customerPdfEmail());
+      if(clip) copyTextNow(clip);
       window.sendPdfByEmail({keepBlob:true});
     });
     $("pdfEmailModal")?.addEventListener("click",e=>{
@@ -9924,8 +9957,8 @@ finally{ window.__pdfBuilding=false; }
     });
     $("historySaveLater")?.addEventListener("click",()=>finishHistorySaveThenEmail(false));
     $("historySaveNow")?.addEventListener("click",()=>{
-      const email=customerPdfEmail();
-      if(email) copyTextNow(email);
+      const clip=emailsForClipboard(customerPdfEmail());
+      if(clip) copyTextNow(clip);
       finishHistorySaveThenEmail(true);
     });
     $("historySaveModal")?.addEventListener("click",e=>{
@@ -11358,8 +11391,10 @@ finally{ window.__pdfBuilding=false; }
     return {nr:"", name:s, menge:split.menge};
   }
   function lsFieldValue(v){
-    // Genau so wie getippt – kein automatisches „LS “ davor/weg.
-    return String(v||"").trim();
+    // Wie getippt; altes „LS …“ aus Entwürfen nur für die Anzeige/PDF abstreifen.
+    let s=String(v||"").trim();
+    s=s.replace(/^LS(?:-?\s*Nr\.?)?\s+/i,"").trim();
+    return s;
   }
   function looksLikePartsArtChunk(chunk){
     const s=String(chunk||"").trim();
