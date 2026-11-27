@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.01">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.02">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.01</title>
+  <title>Servicebericht v5.02</title>
 <script>
-window.SB_APP_VERSION="5.01";
+window.SB_APP_VERSION="5.02";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"5.01", items:[
+  {v:"5.02", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -28,7 +28,7 @@ window.SB_RELEASE_NOTES=[
     "Unten: E-Mail kopieren oder per E-Mail schicken.",
     "App neu laden mit dem Aktualisieren-Knopf oben.",
     "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
-    "Ersatzteile: neuer Artikel bleibt gespeichert, Stift zum Ändern.",
+    "Ersatzteile: neue Artikel für alle speichern (gemeinsame Liste), Stift zum Ändern.",
     "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
     "Neues Feld Stau bei Anfahrt und Rückfahrt.",
     "Leere km oder Zeiten werden gelb markiert.",
@@ -1178,7 +1178,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.01</span>
+      <span id="appCreditVer" class="app-ver">v5.02</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6575,8 +6575,8 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.01";
-  const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
+  const APP_VERSION=window.SB_APP_VERSION||"5.02";
+  const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
     try{
@@ -10470,6 +10470,8 @@ finally{ window.__pdfBuilding=false; }
         if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
       }).catch(function(){});
     }
+    if(typeof window.pullCustomParts==="function")
+      window.pullCustomParts().catch(function(){});
   }
   function armCompanySync(){
     clearInterval(companySyncTimer);
@@ -10515,16 +10517,69 @@ finally{ window.__pdfBuilding=false; }
   ];
   const CUSTOM_KEY="servicebericht_parts_custom_v1";
   const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  function asPartsList(data){
+    if(Array.isArray(data)) return data.map(x=>String(x||"").trim()).filter(Boolean);
+    if(data && Array.isArray(data.items)) return data.items.map(x=>String(x||"").trim()).filter(Boolean);
+    return [];
+  }
   function loadCustomParts(){
     try{
       const raw=localStorage.getItem(CUSTOM_KEY);
       const list=JSON.parse(raw||"[]");
-      if(!Array.isArray(list)) return [];
-      return list.map(x=>String(x||"").trim()).filter(Boolean).slice(0,80);
+      return asPartsList(list).slice(0,80);
     }catch(e){ return []; }
   }
   function saveCustomParts(list){
-    try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify((list||[]).slice(0,80))); }catch(e){}
+    try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(asPartsList(list).slice(0,80))); }catch(e){}
+  }
+  function mergePartsLists(remote, local, dropNames){
+    const drop=new Set((dropNames||[]).map(x=>String(x||"").trim().toLowerCase()).filter(Boolean));
+    const out=[];
+    const seen=new Set();
+    function add(v){
+      const s=String(v||"").trim();
+      if(!s) return;
+      const k=s.toLowerCase();
+      if(drop.has(k) || seen.has(k)) return;
+      if(PRESETS.some(p=>p.toLowerCase()===k)) return;
+      seen.add(k);
+      out.push(s);
+    }
+    asPartsList(local).forEach(add);
+    asPartsList(remote).forEach(add);
+    return out.slice(0,80);
+  }
+  async function pullCustomParts(){
+    if(!window.sbLists || typeof window.sbLists.pullFile!=="function") return loadCustomParts();
+    if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()) return loadCustomParts();
+    try{
+      const got=await window.sbLists.pullFile("parts");
+      if(got && got.status===404) return loadCustomParts();
+      if(!got || got.data==null) return loadCustomParts();
+      const merged=mergePartsLists(got.data, loadCustomParts());
+      saveCustomParts(merged);
+      return merged;
+    }catch(e){
+      return loadCustomParts();
+    }
+  }
+  window.pullCustomParts=pullCustomParts;
+  async function pushCustomParts(message, dropNames){
+    const local=loadCustomParts();
+    if(!window.sbLists || typeof window.sbLists.pushMerged!=="function") return {ok:false};
+    try{
+      const {merged, result}=await window.sbLists.pushMerged(
+        "parts",
+        local,
+        message||"Ersatzteile aktualisiert",
+        function(remote, loc){ return mergePartsLists(remote, loc, dropNames); },
+        {attempts:3, quiet:true}
+      );
+      if(Array.isArray(merged)) saveCustomParts(merged);
+      return result||{ok:false};
+    }catch(e){
+      return {ok:false};
+    }
   }
   function rememberCustomPart(name){
     const v=String(name||"").trim();
@@ -10534,6 +10589,7 @@ finally{ window.__pdfBuilding=false; }
     const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
     cur.unshift(v);
     saveCustomParts(cur);
+    pushCustomParts("Ersatzteil hinzugefügt: "+v).catch(function(){});
   }
   function updateCustomPart(oldName, newName){
     const prev=String(oldName||"").trim();
@@ -10550,6 +10606,8 @@ finally{ window.__pdfBuilding=false; }
     list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
     list[idx]=next;
     saveCustomParts(list);
+    const drop=lowPrev===lowNext ? [] : [prev];
+    pushCustomParts("Ersatzteil geändert: "+next, drop).catch(function(){});
     return true;
   }
   function closePartsList(){
@@ -10703,15 +10761,7 @@ finally{ window.__pdfBuilding=false; }
     }
     results.appendChild(row);
   }
-  function showPartsList(opts){
-    const results=$("partsResults");
-    const box=$("partsBox");
-    if(!results || !box) return;
-    const force=opts&&opts.forceOpen;
-    if(!force && results.style.display==="block" && !results.hidden){
-      closePartsList();
-      return;
-    }
+  function renderPartsList(results, box){
     results.innerHTML="";
     const bar=document.createElement("div");
     bar.className="parts-new-bar";
@@ -10730,12 +10780,28 @@ finally{ window.__pdfBuilding=false; }
     if(custom.length){
       const lab=document.createElement("div");
       lab.className="parts-custom-label";
-      lab.textContent="Gespeicherte Artikel";
+      lab.textContent="Gespeicherte Artikel (für alle)";
       results.appendChild(lab);
       custom.forEach(v=>addPickRow(results, v, true));
     }
     PRESETS.forEach(v=>addPickRow(results, v, false));
     openComboResults(results, box);
+  }
+  function showPartsList(opts){
+    const results=$("partsResults");
+    const box=$("partsBox");
+    if(!results || !box) return;
+    const force=opts&&opts.forceOpen;
+    if(!force && results.style.display==="block" && !results.hidden){
+      closePartsList();
+      return;
+    }
+    renderPartsList(results, box);
+    pullCustomParts().then(function(){
+      if(!results.isConnected || results.hidden) return;
+      if(results.querySelector(".parts-new-input")) return;
+      renderPartsList(results, box);
+    }).catch(function(){});
   }
   function bindPartsPlus(){
     $("partsPlus")?.addEventListener("click",e=>{
@@ -10747,6 +10813,10 @@ finally{ window.__pdfBuilding=false; }
       const box=$("partsBox");
       if(box && !box.contains(e.target)) closePartsList();
     });
+    window.addEventListener("sb-lists-ready", function(){
+      pullCustomParts().catch(function(){});
+    });
+    if(window.sbLists) pullCustomParts().catch(function(){});
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPartsPlus);
   else bindPartsPlus();
