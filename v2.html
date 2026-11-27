@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.10">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.11">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.10</title>
+  <title>Servicebericht v4.11</title>
 <script>
-window.SB_APP_VERSION="4.10";
+window.SB_APP_VERSION="4.11";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1172,7 +1172,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.10</span>
+      <span id="appCreditVer" class="app-ver">v4.11</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4146,28 +4146,52 @@ function drawBemerkungenHeaderText(page, font, opts){
   put(opts.plc, 473, 640, 9);
   put(opts.hours, 394, 622, 9);
 }
+/** Häkchen zentriert in der Box – kein „X“. */
+function drawPdfCheckmark(page, boxX, boxY, boxW, boxH, color){
+  if(!page) return;
+  const ink=color||PDFLib.rgb(0.102,0.101,0.095);
+  const w=Math.max(5, Number(boxW)||7);
+  const h=Math.max(5, Number(boxH)||7);
+  const x=Number(boxX)||0;
+  const y=Number(boxY)||0;
+  // Innenrand, damit die Fajka mittig sitzt (nicht am Rand).
+  const pad=w*0.16;
+  const ix=x+pad, iy=y+pad, iw=w-2*pad, ih=h-2*pad;
+  const t=Math.max(0.95, Math.min(iw,ih)*0.22);
+  try{
+    page.drawLine({
+      start:{x:ix+iw*0.08, y:iy+ih*0.48},
+      end:{x:ix+iw*0.38, y:iy+ih*0.12},
+      thickness:t, color:ink, lineCap:PDFLib.LineCapStyle.Round
+    });
+    page.drawLine({
+      start:{x:ix+iw*0.35, y:iy+ih*0.12},
+      end:{x:ix+iw*0.92, y:iy+ih*0.88},
+      thickness:t, color:ink, lineCap:PDFLib.LineCapStyle.Round
+    });
+  }catch(e){}
+}
 /** Checkbox-/Unterschriftsdaten auf Leer-bemerkungen.pdf (Zeile nach unten verschoben). */
 function drawBemerkungenChoicesAndSign(page, font, opts){
   if(!page || !font) return;
   const ink=PDFLib.rgb(0.102,0.101,0.095);
-  const bold=opts.boldFont||font;
-  // Original-Kontrollkästchen ~y450 → im Bemerkungen-Formular ~y211 (Offset -239).
+  // Original-Kontrollkästchen ~y450 → Bemerkungen-Formular (Offset -239).
   const dy=-239;
-  const tick=(on,x,y)=>{
+  const tick=(on,x,y,w,h)=>{
     if(!on) return;
-    try{ page.drawText("X",{x,y,size:8,font:bold,color:ink}); }catch(e){}
+    drawPdfCheckmark(page, x, y+dy, w, h, ink);
   };
-  tick(!!opts.betIo, 118.2, 450.4+dy);
-  tick(!!opts.betBed, 142.8, 450.4+dy);
-  tick(!!opts.betNicht, 194.2, 450.4+dy);
-  tick(!!opts.einNein, 414.8, 450.6+dy);
-  tick(!!opts.einJa, 443.8, 450.6+dy);
-  // El/Mech/Anw-Kästchen sitzen etwas tiefer in der Zelle.
-  tick(!!opts.artEl, 471.5, 437.9+dy+2);
-  tick(!!opts.artMech, 499.2, 437.9+dy+2);
-  tick(!!opts.artAnw, 536.5, 437.9+dy+2);
-  // Fuß: übernommen + Datum/Name wie PDF 1.
-  tick(!!opts.maschineOk, 290.2, 74.0);
+  // Boxen = Leer.pdf-Widgets, Y um dy verschoben.
+  tick(!!opts.betIo, 116.13, 450.37, 7.19, 6.91);
+  tick(!!opts.betBed, 140.74, 450.37, 7.19, 6.64);
+  tick(!!opts.betNicht, 192.17, 450.37, 7.19, 6.91);
+  tick(!!opts.einNein, 412.81, 450.65, 6.64, 6.64);
+  tick(!!opts.einJa, 441.84, 450.65, 6.91, 6.64);
+  tick(!!opts.artEl, 469.77, 437.93, 6.91, 6.91);
+  tick(!!opts.artMech, 497.42, 437.93, 6.91, 6.64);
+  tick(!!opts.artAnw, 534.75, 437.93, 6.91, 6.91);
+  // Fuß übernommen: Original-Y (nicht verschoben).
+  if(opts.maschineOk) drawPdfCheckmark(page, 289.53, 73.67, 6.98, 6.55, ink);
   const put=(s,x,y,size)=>{
     const t=String(s||"").trim();
     if(!t) return;
@@ -4198,10 +4222,8 @@ async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   else contForm.updateFieldAppearances();
   try{ contForm.flatten({updateFieldAppearances:false}); }catch(e){}
   const page=cont.getPages()[0];
-  let boldFont=contFont;
-  try{ boldFont=await cont.embedFont(PDFLib.StandardFonts.HelveticaBold); }catch(e){}
   drawBemerkungenHeaderText(page, contFont, opts);
-  drawBemerkungenChoicesAndSign(page, contFont, Object.assign({}, opts, {boldFont}));
+  drawBemerkungenChoicesAndSign(page, contFont, opts);
   try{ await embedSignatures(cont, signatureFieldBoxes(null)); }catch(e){}
   forceWinAnsiHelvetica(cont);
   scrubPdfForAdobePrint(cont);
@@ -6822,7 +6844,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.10";
+  const APP_VERSION=window.SB_APP_VERSION||"4.11";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
