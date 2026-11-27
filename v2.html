@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.21">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.22">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.21</title>
+  <title>Servicebericht v4.22</title>
 <script>
-window.SB_APP_VERSION="4.21";
+window.SB_APP_VERSION="4.22";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1258,7 +1258,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.21</span>
+      <span id="appCreditVer" class="app-ver">v4.22</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -5620,7 +5620,12 @@ const blattNrUi=String($("blattNr")?.value||"").trim()||"1";
 setFit(form,"Text2", blattNrUi, 8);
 setFit(form,"Text3", String(totalBlatt), 8);
 try{ if($("blattVon")) $("blattVon").value=String(totalBlatt); }catch(e){}
-wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
+{
+  const partsText=(typeof window.syncPartsTextFromTable==="function")
+    ? window.syncPartsTextFromTable()
+    : String($("parts")?.value||"");
+  wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],partsText,pdfFitFont);
+}
 let km=0, travel=0, work=0, all=0, pauseRzSum=0, pauseAzSum=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
@@ -6995,7 +7000,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.21";
+  const APP_VERSION=window.SB_APP_VERSION||"4.22";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11402,8 +11407,9 @@ finally{ window.__pdfBuilding=false; }
       };
     });
   }
-  function writePartsTextareaFromTable(){
-    if(partsTableLock) return;
+  function writePartsTextareaFromTable(opts){
+    opts=opts||{};
+    if(partsTableLock && !opts.force) return;
     const el=$("parts");
     if(!el) return;
     const lines=readPartsTableRows().map(formatPartsRowLine).filter(Boolean);
@@ -11413,13 +11419,19 @@ finally{ window.__pdfBuilding=false; }
     partsTableLock=true;
     el.value=next;
     // Kein bubbled input auf #parts – sonst scrollt keepFieldInView zur versteckten Box.
-    try{
-      el.dispatchEvent(new Event("change",{bubbles:true}));
-      if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
-      if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
-    }catch(e){}
+    if(!opts.quiet){
+      try{
+        el.dispatchEvent(new Event("change",{bubbles:true}));
+        if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
+        if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
+      }catch(e){}
+    }
     partsTableLock=false;
   }
+  window.syncPartsTextFromTable=function(){
+    writePartsTextareaFromTable({force:true, quiet:true});
+    return String(($("parts")&&$("parts").value)||"");
+  };
   function makePartsRow(data){
     data=data||{};
     const row=document.createElement("div");
@@ -11481,6 +11493,8 @@ finally{ window.__pdfBuilding=false; }
       if(menge) menge.value=d.menge||"";
     });
     partsTableLock=false;
+    // Alte Entwürfe mit „|“ auf aktuelles Komma-Format normalisieren.
+    writePartsTextareaFromTable({force:true, quiet:true});
   }
   window.syncPartsTableFromTextarea=syncPartsTableFromTextarea;
   function appendPart(line){
