@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.12">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.13">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.12</title>
+  <title>Servicebericht v4.13</title>
 <script>
-window.SB_APP_VERSION="4.12";
+window.SB_APP_VERSION="4.13";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1172,7 +1172,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.12</span>
+      <span id="appCreditVer" class="app-ver">v4.13</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -4240,6 +4240,26 @@ async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   const out=await cont.save({useObjectStreams:false, updateFieldAppearances:false});
   return new Blob([out],{type:"application/pdf"});
 }
+async function mergePdfBlobs(blobs){
+  const docs=(blobs||[]).filter(b=>b && (b.size||b.byteLength));
+  if(!docs.length) return null;
+  if(docs.length===1){
+    const only=docs[0];
+    return only instanceof Blob ? only : new Blob([only],{type:"application/pdf"});
+  }
+  const out=await PDFLib.PDFDocument.create();
+  for(let i=0;i<docs.length;i++){
+    const srcBytes=docs[i] instanceof Blob
+      ? new Uint8Array(await docs[i].arrayBuffer())
+      : new Uint8Array(docs[i]);
+    const src=await PDFLib.PDFDocument.load(srcBytes.slice(0));
+    const pages=await out.copyPages(src, src.getPageIndices());
+    pages.forEach(p=>out.addPage(p));
+  }
+  const saved=await out.save({useObjectStreams:false, updateFieldAppearances:false});
+  return new Blob([saved],{type:"application/pdf"});
+}
+window.mergePdfBlobs=mergePdfBlobs;
 function pdfFieldFontName(){
   return (pdfFitFont && pdfFitFont.name) ? pdfFitFont.name : "Helvetica";
 }
@@ -5643,7 +5663,7 @@ if(twoPdfs){
   if(!page2Text && bemerkungLeftover.length)
     page2Text=bemerkungLeftover.join("\n");
   const signIso=typeof signDateValue==="function" ? signDateValue() : String($("signdate")?.value||"");
-  lastPdfBemBlob=await buildBemerkungenOnlyPdfBlob(bytes, page2Text, {
+  const page2Blob=await buildBemerkungenOnlyPdfBlob(bytes, page2Text, {
     firma:firmaName(),
     street:$("street")?.value||"",
     city:$("city")?.value||"",
@@ -5673,17 +5693,20 @@ if(twoPdfs){
     customerSign:$("customersign")?.value||"",
     signDate:signIso && typeof pdfDate==="function" ? pdfDate(signIso) : ""
   });
-  window.lastPdfBemBlob=lastPdfBemBlob;
+  // Ein PDF zum Speichern/Mailen: Seite 1 + Bemerkungen als Blatt 2.
+  lastPdfBlob=await mergePdfBlobs([lastPdfBlob, page2Blob]);
+  lastPdfBemBlob=null;
+  window.lastPdfBemBlob=null;
 }
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
 }
 if(twoPdfs && bemerkungLeftover.length && !String($("remarksPage2")?.value||"").trim()){
-  $("status").textContent="Fertig – 2 PDFs (Rest von Seite 1 steht in Bemerkungen-PDF).";
+  $("status").textContent="Fertig – 1 PDF mit 2 Seiten (Rest von Seite 1 auf Blatt 2).";
 }else if(twoPdfs){
-  $("status").textContent="Fertig – 2 PDFs: Servicebericht + Bemerkungen.";
+  $("status").textContent="Fertig – 1 PDF mit 2 Seiten (Servicebericht + Bemerkungen).";
 }else if(bemerkungLeftover.length){
-  $("status").textContent="Fertig – Hinweis: Bemerkungen zu lang. „Bemerkungen-Seite hinzufügen“ für 2. PDF.";
+  $("status").textContent="Fertig – Hinweis: Bemerkungen zu lang. „Bemerkungen-Seite hinzufügen“ für Blatt 2.";
 }else{
   $("status").textContent="Fertig – das PDF ist vorbereitet.";
 }
@@ -6863,7 +6886,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.12";
+  const APP_VERSION=window.SB_APP_VERSION||"4.13";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8870,13 +8893,8 @@ finally{ window.__pdfBuilding=false; }
   window.pdfMatchesCurrentForm=function(){
     const fp=currentFormFingerprint();
     const stored=window.lastPdfFormFingerprint || (getMeta()&&getMeta().fingerprint) || "";
-    if(!(lastPdfBlob && fp && stored && stored===fp)) return false;
-    // Wenn Seite 2 aktiv ist, muss auch das Bemerkungen-PDF da sein.
-    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
-      const bem=window.lastPdfBemBlob || (typeof lastPdfBemBlob!=="undefined" ? lastPdfBemBlob : null);
-      if(!bem) return false;
-    }
-    return true;
+    // Seite 2 steckt im zusammengefügten lastPdfBlob – kein Extra-Blob nötig.
+    return !!(lastPdfBlob && fp && stored && stored===fp);
   };
   window.invalidateStashedPdf=function(){
     lastPdfBlob=null;
@@ -9191,9 +9209,8 @@ finally{ window.__pdfBuilding=false; }
   }
   async function sharePdfFile(file, label){
     if(!navigator.share || !file) return null;
+    // Immer eine Datei: Seite 1+2 sind bereits in lastPdfBlob gemerged.
     const files=[file];
-    const bem=bemerkungenPdfFile();
-    if(bem) files.push(bem);
     // Outlook nimmt den Share-title als Betreff. text weglassen: auf iOS
     // scheitert files+title+text oft und dann bleibt der Betreff leer.
     const attempts=isIosPdfDevice()
@@ -9296,14 +9313,11 @@ finally{ window.__pdfBuilding=false; }
       if(!lastPdfBlob) return false;
       shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
     }
-    const bemFile=bemerkungenPdfFile();
-    const shareFiles=bemFile ? [shareFile, bemFile] : [shareFile];
+    const shareFiles=[shareFile];
     const afterShare=function(){
       const offline=navigator.onLine===false;
       if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
-      setStatus(bemFile
-        ? "2 PDFs zum Speichern/Teilen bereit (Servicebericht + Bemerkungen)."
-        : (typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet."));
+      setStatus(typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet.");
       offerPdfEmailAfterSave();
       return true;
     };
@@ -9329,21 +9343,8 @@ finally{ window.__pdfBuilding=false; }
         const writable=await handle.createWritable();
         await writable.write(shareFile);
         await writable.close();
-        if(bemFile){
-          try{
-            const handle2=await window.showSaveFilePicker({
-              suggestedName:bemFile.name||"Servicebericht_Bemerkungen.pdf",
-              types:[{description:"PDF-Datei", accept:{"application/pdf":[".pdf"]}}]
-            });
-            const w2=await handle2.createWritable();
-            await w2.write(bemFile);
-            await w2.close();
-          }catch(e2){
-            if(e2 && e2.name==="AbortError"){ /* main already saved */ }
-          }
-        }
         if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(false);
-        setStatus(bemFile ? "2 PDFs wurden gespeichert." : "PDF wurde gespeichert.");
+        setStatus("PDF wurde gespeichert.");
         offerPdfEmailAfterSave();
         return true;
       }
@@ -9376,15 +9377,15 @@ finally{ window.__pdfBuilding=false; }
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
   let previewMainBlob=null;
-  let previewBemBlob=null;
+  let previewHasPage2=false;
   let previewActiveTab=1;
-  function syncPdfPreviewTabs(hasBem, active){
+  function syncPdfPreviewTabs(hasPage2, active){
     const tabs=$("pdfPreviewTabs");
     const t1=$("pdfPreviewTab1");
     const t2=$("pdfPreviewTab2");
     if(!tabs) return;
-    tabs.hidden=!hasBem;
-    tabs.classList.toggle("is-on", !!hasBem);
+    tabs.hidden=!hasPage2;
+    tabs.classList.toggle("is-on", !!hasPage2);
     if(t1) t1.classList.toggle("is-on", active===1);
     if(t2) t2.classList.toggle("is-on", active===2);
   }
@@ -9489,7 +9490,7 @@ finally{ window.__pdfBuilding=false; }
       previewObjectUrl="";
     }
     previewMainBlob=null;
-    previewBemBlob=null;
+    previewHasPage2=false;
     previewActiveTab=1;
     syncPdfPreviewTabs(false, 1);
     previewZoom=1;
@@ -9587,11 +9588,18 @@ finally{ window.__pdfBuilding=false; }
       lab.textContent=opts.label;
       host.appendChild(lab);
     }
+    const pageLabels=opts.pageLabels||null;
     const avail=previewAvail();
     const dpr=Math.min(2, window.devicePixelRatio||1);
     let painted=0;
     for(let i=1;i<=pdf.numPages;i++){
       if(gen!==previewGen) return false;
+      if(pageLabels && pageLabels[i]){
+        const lab=document.createElement("div");
+        lab.className="pdf-preview-part-label";
+        lab.textContent=pageLabels[i];
+        host.appendChild(lab);
+      }
       const page=await pdf.getPage(i);
       if(gen!==previewGen) return false;
       const base=page.getViewport({scale:1});
@@ -9631,7 +9639,7 @@ finally{ window.__pdfBuilding=false; }
     }
     return painted>0;
   }
-  async function renderPdfPreview(blob, bemBlob){
+  async function renderPdfPreview(blob, hasPage2){
     const host=$("pdfPreviewPages");
     if(!host || !blob) return;
     const gen=++previewGen;
@@ -9640,24 +9648,18 @@ finally{ window.__pdfBuilding=false; }
     host.innerHTML="";
     previewZoom=previewStartZoom();
     previewZoomApply();
-    const hasBem=!!(bemBlob && bemBlob.size);
+    const pageLabels=hasPage2
+      ? {1:"1 · Servicebericht", 2:"2 · Bemerkungen"}
+      : null;
     try{
       const pdfjs=await loadPdfJs();
       if(gen!==previewGen) return;
-      const ok1=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
+      const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
         clear:true,
-        label:hasBem ? "PDF 1 – Servicebericht" : ""
+        pageLabels:pageLabels
       });
       if(gen!==previewGen) return;
-      if(!ok1) throw new Error("empty");
-      if(hasBem){
-        const ok2=await renderPdfPagesToHost(pdfjs, bemBlob, host, gen, {
-          clear:false,
-          label:"PDF 2 – Bemerkungen"
-        });
-        if(gen!==previewGen) return;
-        if(!ok2) throw new Error("empty-bem");
-      }
+      if(!ok) throw new Error("empty");
       previewZoomApply();
       return;
     }catch(e){
@@ -9667,11 +9669,10 @@ finally{ window.__pdfBuilding=false; }
       try{
         const pdfjs=await loadPdfJs();
         if(gen!==previewGen) return;
-        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {clear:true, label:hasBem?"PDF 1 – Servicebericht":""});
-        if(gen!==previewGen) return;
-        if(ok && hasBem){
-          await renderPdfPagesToHost(pdfjs, bemBlob, host, gen, {clear:false, label:"PDF 2 – Bemerkungen"});
-        }
+        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
+          clear:true,
+          pageLabels:pageLabels
+        });
         if(gen!==previewGen) return;
         if(ok){ previewZoomApply(); return; }
       }catch(e2){}
@@ -9683,12 +9684,6 @@ finally{ window.__pdfBuilding=false; }
       frame.src=previewObjectUrl;
       frame.style.cssText="width:100%;min-height:70vh;border:0;background:#fff";
       host.appendChild(frame);
-      if(hasBem){
-        const lab=document.createElement("div");
-        lab.className="pdf-preview-part-label";
-        lab.textContent="PDF 2 – Bemerkungen (unten speichern / teilen)";
-        host.appendChild(lab);
-      }
       setTimeout(function(){
         if(gen!==previewGen || !frame.isConnected) return;
         if(host.querySelector("canvas")) return;
@@ -9706,28 +9701,20 @@ finally{ window.__pdfBuilding=false; }
   }
   window.showPdfPreview=async function(){
     setStatus("Vorschau wird erstellt…");
-    const needBem=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
-    let bem=currentBemBlob();
-    if(needBem && !bem && typeof window.invalidateStashedPdf==="function"){
-      window.invalidateStashedPdf();
-    }
+    const hasPage2=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
     const ready=await window.ensurePdfForCurrentForm();
-    bem=currentBemBlob();
     if(!ready || !lastPdfBlob){
       setStatus("PDF-Vorschau konnte nicht erstellt werden.");
       return false;
     }
-    if(needBem && !bem){
-      setStatus("Bemerkungen-PDF fehlt – bitte noch einmal Vorschau tippen.");
-    }
     previewMainBlob=lastPdfBlob;
-    previewBemBlob=bem;
+    previewHasPage2=hasPage2;
     previewActiveTab=1;
     openPdfPreviewSheet();
-    syncPdfPreviewTabs(!!bem, 1);
-    await renderPdfPreview(lastPdfBlob, bem||null);
-    setStatus(bem
-      ? "Vorschau: oben Tab „2 · Bemerkungen“ oder nach unten scrollen."
+    syncPdfPreviewTabs(hasPage2, 1);
+    await renderPdfPreview(lastPdfBlob, hasPage2);
+    setStatus(hasPage2
+      ? "Vorschau: 1 PDF, 2 Seiten – Tab „2 · Bemerkungen“ oder nach unten scrollen."
       : "Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
     return true;
   };
@@ -9779,13 +9766,13 @@ finally{ window.__pdfBuilding=false; }
     $("pdfPreviewBack")?.addEventListener("click", closePdfPreview);
     $("pdfPreviewTab1")?.addEventListener("click",()=>{
       previewActiveTab=1;
-      syncPdfPreviewTabs(!!previewBemBlob, 1);
-      if(previewBemBlob) scrollPreviewToPart(1);
-      else if(previewMainBlob) renderPdfPreview(previewMainBlob, null);
+      syncPdfPreviewTabs(previewHasPage2, 1);
+      if(previewHasPage2) scrollPreviewToPart(1);
+      else if(previewMainBlob) renderPdfPreview(previewMainBlob, false);
     });
     $("pdfPreviewTab2")?.addEventListener("click",()=>{
-      if(!previewBemBlob){
-        setStatus("Kein Bemerkungen-PDF – zuerst „Bemerkungen-Seite hinzufügen“.");
+      if(!previewHasPage2){
+        setStatus("Kein Blatt 2 – zuerst „Bemerkungen-Seite hinzufügen“.");
         return;
       }
       previewActiveTab=2;
