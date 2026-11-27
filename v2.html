@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.00">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.01">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.00</title>
+  <title>Servicebericht v5.01</title>
 <script>
-window.SB_APP_VERSION="5.00";
+window.SB_APP_VERSION="5.01";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"5.00", items:[
+  {v:"5.01", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -28,6 +28,7 @@ window.SB_RELEASE_NOTES=[
     "Unten: E-Mail kopieren oder per E-Mail schicken.",
     "App neu laden mit dem Aktualisieren-Knopf oben.",
     "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
+    "Ersatzteile: neuer Artikel bleibt gespeichert, Stift zum Ändern.",
     "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
     "Neues Feld Stau bei Anfahrt und Rückfahrt.",
     "Leere km oder Zeiten werden gelb markiert.",
@@ -374,6 +375,23 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 #partsResults .parts-new-ok{
   flex:none;width:auto;min-height:28px;padding:4px 9px;margin:0;
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
+}
+#partsResults .parts-pick-row{
+  display:flex;align-items:stretch;gap:4px;margin:0 0 5px;
+}
+#partsResults .parts-pick-row .combo-pick{
+  flex:1;min-width:0;margin:0;
+}
+#partsResults .parts-pick-edit{
+  flex:none;width:28px;min-width:28px;height:auto;min-height:28px;padding:0;margin:0;
+  border:0;border-radius:7px;background:#163a5c;color:#fff;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+#partsResults .parts-pick-edit svg{width:14px;height:14px;display:block}
+#partsResults .parts-pick-edit:active{background:#0f2840}
+#partsResults .parts-custom-label{
+  margin:2px 0 4px;font-size:11px;font-weight:700;color:#666;
 }
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
 .bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible;touch-action:none}
@@ -1160,7 +1178,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.00</span>
+      <span id="appCreditVer" class="app-ver">v5.01</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6557,7 +6575,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.00";
+  const APP_VERSION=window.SB_APP_VERSION||"5.01";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10495,6 +10513,45 @@ finally{ window.__pdfBuilding=false; }
     "Montagepaste Art. Nr.: 4143",
     "Flächendicht grün Art. Nr.: 9501"
   ];
+  const CUSTOM_KEY="servicebericht_parts_custom_v1";
+  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  function loadCustomParts(){
+    try{
+      const raw=localStorage.getItem(CUSTOM_KEY);
+      const list=JSON.parse(raw||"[]");
+      if(!Array.isArray(list)) return [];
+      return list.map(x=>String(x||"").trim()).filter(Boolean).slice(0,80);
+    }catch(e){ return []; }
+  }
+  function saveCustomParts(list){
+    try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify((list||[]).slice(0,80))); }catch(e){}
+  }
+  function rememberCustomPart(name){
+    const v=String(name||"").trim();
+    if(!v) return;
+    const low=v.toLowerCase();
+    if(PRESETS.some(p=>p.toLowerCase()===low)) return;
+    const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
+    cur.unshift(v);
+    saveCustomParts(cur);
+  }
+  function updateCustomPart(oldName, newName){
+    const prev=String(oldName||"").trim();
+    const next=String(newName||"").trim();
+    if(!prev || !next) return false;
+    const lowPrev=prev.toLowerCase();
+    const lowNext=next.toLowerCase();
+    let list=loadCustomParts();
+    const idx=list.findIndex(x=>x.toLowerCase()===lowPrev);
+    if(idx<0){
+      rememberCustomPart(next);
+      return true;
+    }
+    list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
+    list[idx]=next;
+    saveCustomParts(list);
+    return true;
+  }
   function closePartsList(){
     const results=$("partsResults");
     if(!results) return;
@@ -10558,12 +10615,14 @@ finally{ window.__pdfBuilding=false; }
       el.setSelectionRange(caretAt, caretAt);
     }catch(e){}
   }
-  function showNewInput(bar, results){
+  function bindPartsInput(bar, results, opts){
+    opts=opts||{};
     bar.innerHTML="";
     const input=document.createElement("input");
     input.className="parts-new-input";
     input.placeholder="Artikel, Art. Nr. …";
     input.setAttribute("autocomplete","off");
+    if(opts.value) input.value=opts.value;
     const ok=document.createElement("button");
     ok.type="button";
     ok.className="parts-new-ok";
@@ -10571,6 +10630,12 @@ finally{ window.__pdfBuilding=false; }
     function commit(){
       const v=String(input.value||"").trim();
       if(!v){ input.focus(); return; }
+      if(opts.editFrom){
+        updateCustomPart(opts.editFrom, v);
+        showPartsList({forceOpen:true});
+        return;
+      }
+      rememberCustomPart(v);
       appendPart(v);
       closePartsList();
     }
@@ -10581,29 +10646,69 @@ finally{ window.__pdfBuilding=false; }
     });
     input.addEventListener("keydown",e=>{
       if(e.key==="Enter"){ e.preventDefault(); commit(); }
-      if(e.key==="Escape"){ e.preventDefault(); closePartsList(); }
+      if(e.key==="Escape"){
+        e.preventDefault();
+        if(opts.editFrom) showPartsList({forceOpen:true});
+        else closePartsList();
+      }
     });
     input.addEventListener("blur",()=>{
-      // Kurzer Delay: OK-Klick nicht verlieren, sonst Eingabe nicht „im Speicher“ offen lassen.
       setTimeout(()=>{
         if(!results.isConnected || results.hidden) return;
         if(!results.querySelector(".parts-new-input")) return;
         const a=document.activeElement;
         if(a && results.contains(a)) return;
-        closePartsList();
+        if(opts.editFrom) showPartsList({forceOpen:true});
+        else closePartsList();
       }, 180);
     });
     input.addEventListener("click",e=>e.stopPropagation());
     bar.appendChild(input);
     bar.appendChild(ok);
     layoutComboResults(results, $("partsBox"));
-    setTimeout(()=>{ try{ input.focus(); }catch(err){} }, 40);
+    setTimeout(()=>{ try{ input.focus(); if(opts.editFrom) input.select(); }catch(err){} }, 40);
   }
-  function showPartsList(){
+  function showNewInput(bar, results){
+    bindPartsInput(bar, results, {});
+  }
+  function addPickRow(results, label, canEdit){
+    const row=document.createElement("div");
+    row.className="parts-pick-row";
+    const pick=document.createElement("div");
+    pick.className="combo-pick";
+    pick.setAttribute("role","option");
+    pick.textContent=label;
+    pick.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      appendPart(label);
+      closePartsList();
+    });
+    row.appendChild(pick);
+    if(canEdit){
+      const edit=document.createElement("button");
+      edit.type="button";
+      edit.className="parts-pick-edit";
+      edit.setAttribute("aria-label","Artikel ändern");
+      edit.title="Artikel ändern";
+      edit.innerHTML=PEN_SVG;
+      edit.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const bar=results.querySelector(".parts-new-bar");
+        if(!bar) return;
+        bindPartsInput(bar, results, {value:label, editFrom:label});
+      });
+      row.appendChild(edit);
+    }
+    results.appendChild(row);
+  }
+  function showPartsList(opts){
     const results=$("partsResults");
     const box=$("partsBox");
     if(!results || !box) return;
-    if(results.style.display==="block" && !results.hidden){
+    const force=opts&&opts.forceOpen;
+    if(!force && results.style.display==="block" && !results.hidden){
       closePartsList();
       return;
     }
@@ -10621,19 +10726,15 @@ finally{ window.__pdfBuilding=false; }
     });
     bar.appendChild(neu);
     results.appendChild(bar);
-    PRESETS.forEach(v=>{
-      const pick=document.createElement("div");
-      pick.className="combo-pick";
-      pick.setAttribute("role","option");
-      pick.textContent=v;
-      pick.addEventListener("click",e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        appendPart(v);
-        closePartsList();
-      });
-      results.appendChild(pick);
-    });
+    const custom=loadCustomParts();
+    if(custom.length){
+      const lab=document.createElement("div");
+      lab.className="parts-custom-label";
+      lab.textContent="Gespeicherte Artikel";
+      results.appendChild(lab);
+      custom.forEach(v=>addPickRow(results, v, true));
+    }
+    PRESETS.forEach(v=>addPickRow(results, v, false));
     openComboResults(results, box);
   }
   function bindPartsPlus(){
