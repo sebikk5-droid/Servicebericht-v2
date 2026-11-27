@@ -1,0 +1,7 @@
+Backup v4.0 przed scaleniem v5.0 (cursor/lokal-kolejne-6ee9).
+
+Zawartość: BACKUP_V4.0.zip – stan main przed scalam (v4.0).
+Przywrócenie: rozpakować zip w katalogu repo i podmienić pliki apki.
+
+Główne zmiany w v5.0 (skrót): PDF Blatt 1+2, Ersatzteile-tabela LS/Artikel,
+Lieferschein bez „LS ”, firmowy e-mail w An, podpis niebieski/dünn.
