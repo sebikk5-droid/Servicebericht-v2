@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.18">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.19">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.18</title>
+  <title>Servicebericht v4.19</title>
 <script>
-window.SB_APP_VERSION="4.18";
+window.SB_APP_VERSION="4.19";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -298,7 +298,7 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
-#parts{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;white-space:nowrap}
+#parts{display:none!important}
 .remarks-page2-actions{margin-top:10px}
 .remarks-page2-actions button,.remarks-page2-head button{
   flex:none;width:auto;min-height:36px;padding:8px 12px;margin:0;
@@ -1258,7 +1258,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.18</span>
+      <span id="appCreditVer" class="app-ver">v4.19</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6995,7 +6995,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.18";
+  const APP_VERSION=window.SB_APP_VERSION||"4.19";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11332,15 +11332,19 @@ finally{ window.__pdfBuilding=false; }
     if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim(), menge:split.menge};
     return {nr:"", name:s, menge:split.menge};
   }
+  function cleanLsNr(v){
+    // Nur die Nummer – „LS“ kommt einmal im PDF-Text, nicht nochmal aus dem Feld.
+    return String(v||"").trim().replace(/^LS\s*[-/]?\s*(Nr\.?\s*)?/i,"").trim();
+  }
   function formatPartsRowLine(row){
-    const ls=String(row.ls||"").trim();
+    const ls=cleanLsNr(row.ls);
     const nr=String(row.nr||"").trim();
     const name=String(row.name||"").trim();
-    const menge=String(row.menge||"").trim();
+    const menge=String(row.menge||"").trim().replace(/\s*[x×]\s*$/i,"");
     if(!ls && !nr && !name && !menge) return "";
-    // Kein Komma vor Menge – Kommas trennen Positionen im PDF.
+    // Menge vor Artikel; Kommas trennen Positionen im PDF.
     let art=[nr, name].filter(Boolean).join(" ");
-    if(menge) art=art ? art+" "+menge+"x" : menge+"x";
+    if(menge) art=art ? (menge+"x "+art) : (menge+"x");
     if(ls && art) return "LS "+ls+" | "+art;
     if(ls) return "LS "+ls;
     return art;
@@ -11363,17 +11367,17 @@ finally{ window.__pdfBuilding=false; }
     let rest=raw;
     const pipe=raw.match(/^LS(?:-?\s*Nr\.?)?\s*([^|]*)\|\s*(.*)$/i);
     if(pipe){
-      ls=String(pipe[1]||"").trim();
+      ls=cleanLsNr(pipe[1]);
       rest=String(pipe[2]||"").trim();
     }else{
       const lsOnly=raw.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
       if(lsOnly){
         const bits=String(lsOnly[1]||"").trim().split(/\s+/);
         if(bits.length>=2 && /^\d/.test(bits[1])){
-          ls=bits[0];
+          ls=cleanLsNr(bits[0]);
           rest=bits.slice(1).join(" ");
         }else{
-          ls=String(lsOnly[1]||"").trim();
+          ls=cleanLsNr(lsOnly[1]);
           rest="";
         }
       }
@@ -11404,7 +11408,12 @@ finally{ window.__pdfBuilding=false; }
     if(el.value===next) return;
     partsTableLock=true;
     el.value=next;
-    el.dispatchEvent(new Event("input",{bubbles:true}));
+    // Kein bubbled input auf #parts – sonst scrollt keepFieldInView zur versteckten Box.
+    try{
+      el.dispatchEvent(new Event("change",{bubbles:true}));
+      if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
+      if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
+    }catch(e){}
     partsTableLock=false;
   }
   function makePartsRow(data){
@@ -11424,7 +11433,7 @@ finally{ window.__pdfBuilding=false; }
     const nr=row.querySelector('[data-parts="nr"]');
     const name=row.querySelector('[data-parts="name"]');
     const menge=row.querySelector('[data-parts="menge"]');
-    if(ls) ls.value=data.ls||"";
+    if(ls) ls.value=cleanLsNr(data.ls||"");
     if(nr) nr.value=data.nr||"";
     if(name) name.value=data.name||"";
     if(menge) menge.value=data.menge||"";
@@ -11462,7 +11471,7 @@ finally{ window.__pdfBuilding=false; }
       const nr=row.querySelector('[data-parts="nr"]');
       const name=row.querySelector('[data-parts="name"]');
       const menge=row.querySelector('[data-parts="menge"]');
-      if(ls) ls.value=d.ls||"";
+      if(ls) ls.value=cleanLsNr(d.ls||"");
       if(nr) nr.value=d.nr||"";
       if(name) name.value=d.name||"";
       if(menge) menge.value=d.menge||"";
@@ -11842,7 +11851,7 @@ finally{ window.__pdfBuilding=false; }
     setTimeout(keepKbInView, 320);
   }
   window.sbKeepKbInView=keepKbInView;
-  ["remarks","parts"].forEach(id=>{
+  ["remarks"].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
     el.addEventListener("focus",()=>{
