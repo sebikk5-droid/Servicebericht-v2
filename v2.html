@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.25">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.26">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.25</title>
+  <title>Servicebericht v4.26</title>
 <script>
-window.SB_APP_VERSION="4.25";
+window.SB_APP_VERSION="4.26";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1275,7 +1275,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.25</span>
+      <span id="appCreditVer" class="app-ver">v4.26</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -7020,7 +7020,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.25";
+  const APP_VERSION=window.SB_APP_VERSION||"4.26";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11357,9 +11357,16 @@ finally{ window.__pdfBuilding=false; }
     if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim(), menge:split.menge};
     return {nr:"", name:s, menge:split.menge};
   }
-  function cleanLsNr(v){
-    // Nur die Nummer – „LS“ kommt einmal im PDF-Text, nicht nochmal aus dem Feld.
-    return String(v||"").trim().replace(/^LS\s*[-/]?\s*(Nr\.?\s*)?/i,"").trim();
+  function lsFieldValue(v){
+    // Genau so wie getippt – kein automatisches „LS “ davor/weg.
+    return String(v||"").trim();
+  }
+  function looksLikePartsArtChunk(chunk){
+    const s=String(chunk||"").trim();
+    if(!s) return false;
+    if(/^\d+\s*[x×]\b/i.test(s)) return true;
+    if(/Art\.?\s*Nr/i.test(s)) return true;
+    return false;
   }
   function formatPartsArtOnly(row){
     const nr=String(row.nr||"").trim();
@@ -11378,13 +11385,15 @@ finally{ window.__pdfBuilding=false; }
     const lsBits=[];
     const artBits=[];
     list.forEach(function(row){
-      const ls=cleanLsNr(row.ls);
-      if(ls) lsBits.push("LS "+ls);
+      const ls=lsFieldValue(row.ls);
+      if(ls) lsBits.push(ls);
       const art=formatPartsArtOnly(row);
       if(art) artBits.push(art);
     });
-    // Immer zuerst alle Lieferscheine, danach Ersatzteile.
-    return lsBits.concat(artBits).join(", ");
+    // Zuerst Lieferscheine (wie getippt), dann Artikel.
+    if(lsBits.length && artBits.length) return lsBits.join(", ")+"; "+artBits.join(", ");
+    if(lsBits.length) return lsBits.join(", ");
+    return artBits.join(", ");
   }
   function parsePartsRowLine(line){
     const empty={ls:"", nr:"", name:"", menge:""};
@@ -11392,15 +11401,15 @@ finally{ window.__pdfBuilding=false; }
     if(!raw) return empty;
     let ls="";
     let rest=raw;
-    // „LS 123, Artikel…“ / „LS 123 | Artikel…“ (ältere Entwürfe)
+    // Ältere Entwürfe mit „LS …, Artikel…“ / „|“
     const sep=raw.match(/^LS(?:-?\s*Nr\.?)?\s*([^,|]*)\s*[,|]\s*(.*)$/i);
     if(sep){
-      ls=cleanLsNr(sep[1]);
+      ls=lsFieldValue(sep[1]);
       rest=String(sep[2]||"").trim();
     }else{
       const lsOnly=raw.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
       if(lsOnly){
-        ls=cleanLsNr(lsOnly[1]);
+        ls=lsFieldValue(lsOnly[1]);
         rest="";
       }
     }
@@ -11420,16 +11429,40 @@ finally{ window.__pdfBuilding=false; }
       return s.split(/\s*,\s*(?=LS\b)/i).map(function(chunk){ return parsePartsRowLine(chunk); })
         .filter(function(r){ return r.ls||r.nr||r.name||r.menge; });
     }
-    // Neu: zuerst alle LS, danach alle Artikel – zeilenweise wieder zusammenführen.
     const lsList=[];
-    let rest=s.replace(/\bLS\s+([^,]+)(?:,\s*)?/gi, function(_m, num){
-      const n=cleanLsNr(num);
-      if(n) lsList.push(n);
-      return "";
-    }).replace(/^[\s,]+|[\s,]+$/g,"").trim();
-    const arts=rest
-      ? rest.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean)
-      : [];
+    let arts=[];
+    // Neu: „78451, 10022; 2x Name Art. Nr. 3408, …“
+    if(s.indexOf(";")>=0){
+      const parts=s.split(/\s*;\s*/);
+      const lsPart=String(parts[0]||"").trim();
+      const artPart=parts.slice(1).join("; ").trim();
+      if(lsPart){
+        lsPart.split(/\s*,\s*/).forEach(function(x){
+          const v=lsFieldValue(x);
+          if(v) lsList.push(v);
+        });
+      }
+      if(artPart){
+        arts=artPart.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean);
+      }
+    }else{
+      // Ohne „;“: LS-Blöcke bis zum ersten Artikel-Chunk (oder Legacy „LS …“).
+      const chunks=s.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean);
+      let seenArt=false;
+      chunks.forEach(function(c){
+        if(!seenArt && looksLikePartsArtChunk(c)) seenArt=true;
+        if(!seenArt && /^LS\b/i.test(c) && !looksLikePartsArtChunk(c)){
+          const v=lsFieldValue(c.replace(/^LS\s*/i,""));
+          if(v) lsList.push(v);
+          return;
+        }
+        if(!seenArt){
+          lsList.push(lsFieldValue(c));
+          return;
+        }
+        arts.push(c);
+      });
+    }
     const n=Math.max(lsList.length, arts.length);
     const rows=[];
     for(let i=0;i<n;i++){
@@ -11516,7 +11549,7 @@ finally{ window.__pdfBuilding=false; }
     const nr=row.querySelector('[data-parts="nr"]');
     const name=row.querySelector('[data-parts="name"]');
     const menge=row.querySelector('[data-parts="menge"]');
-    if(ls) ls.value=cleanLsNr(data.ls||"");
+    if(ls) ls.value=lsFieldValue(data.ls||"");
     if(nr) nr.value=data.nr||"";
     if(name) name.value=data.name||"";
     if(menge) menge.value=data.menge||"";
@@ -11572,13 +11605,13 @@ finally{ window.__pdfBuilding=false; }
       const nr=row.querySelector('[data-parts="nr"]');
       const name=row.querySelector('[data-parts="name"]');
       const menge=row.querySelector('[data-parts="menge"]');
-      if(ls) ls.value=cleanLsNr(d.ls||"");
+      if(ls) ls.value=lsFieldValue(d.ls||"");
       if(nr) nr.value=d.nr||"";
       if(name) name.value=d.name||"";
       if(menge) menge.value=d.menge||"";
     });
     partsTableLock=false;
-    // Alte Entwürfe mit „|“ auf aktuelles Komma-Format normalisieren.
+    // Alte Entwürfe auf aktuelles Format normalisieren.
     writePartsTextareaFromTable({force:true, quiet:true});
   }
   window.syncPartsTableFromTextarea=syncPartsTableFromTextarea;
