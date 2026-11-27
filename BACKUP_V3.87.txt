@@ -1,0 +1,22 @@
+BACKUP V3.87
+=============
+Aktualna apka na main po scaleniu: v4.0
+
+Ten backup to pełna kopia plików z main przed scaleniem v4.0.
+Commit: 3472db661154c8cc04015db563d7c977147e7624
+Branch: cursor/backup-v387-6ee9
+Tag: backup-v3.87
+Plik: BACKUP_V3.87.zip
+
+Zawiera m.in.:
+- v2.html (SB_APP_VERSION=3.87)
+- manifest-v2.webmanifest, sw-v2.js
+- servicebericht-v2.html, v2/index.html, 404.html
+- Leer.pdf, vendor/, …
+
+Szybki powrót (Git):
+  git checkout main
+  git reset --hard backup-v3.87
+  git push --force-with-lease origin main
+
+Albo rozpakować BACKUP_V3.87.zip i podmienić pliki apki.
