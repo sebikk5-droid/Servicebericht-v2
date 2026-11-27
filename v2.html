@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v5.03">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.04">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,12 +14,12 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v5.03</title>
+  <title>Servicebericht v5.04</title>
 <script>
-window.SB_APP_VERSION="5.03";
+window.SB_APP_VERSION="5.04";
 /** Kurznotiz beim Start: neue Optionen, einfache Sprache. */
 window.SB_RELEASE_NOTES=[
-  {v:"5.03", items:[
+  {v:"5.04", items:[
     "Kundennummer neu speichern (Merken). Ändern nur unter Kundendaten ändern.",
     "Kundendaten ändern: Firma, Nummer, Adresse, km, Fahrzeit und E-Mails in einem Fenster.",
     "km und Fahrzeit für den Kunden direkt ändern.",
@@ -28,7 +28,7 @@ window.SB_RELEASE_NOTES=[
     "Unten: E-Mail kopieren oder per E-Mail schicken.",
     "App neu laden mit dem Aktualisieren-Knopf oben.",
     "Adresse in Google Maps öffnen mit dem Karten-Knopf.",
-    "Ersatzteile: neue Artikel wirklich für alle (GitHub). Ohne Token erscheint Hinweis. Alte lokale Artikel werden nachgeladen.",
+    "Ersatzteile-Liste: gemeinsame Artikel bei allen (GitHub), Auto-Abgleich alle 20 Sek., Hinweis wenn Token fehlt.",
     "Seiten-Tasten: Anfang, Text, Ende und Tag 1 / Tag 2 … (iPad hoch und quer; iPhone nur quer).",
     "Neues Feld Stau bei Anfahrt und Rückfahrt.",
     "Leere km oder Zeiten werden gelb markiert.",
@@ -1178,7 +1178,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v5.03</span>
+      <span id="appCreditVer" class="app-ver">v5.04</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6577,7 +6577,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"5.03";
+  const APP_VERSION=window.SB_APP_VERSION||"5.04";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -10473,7 +10473,7 @@ finally{ window.__pdfBuilding=false; }
       }).catch(function(){});
     }
     if(typeof window.pullCustomParts==="function")
-      window.pullCustomParts().catch(function(){});
+      window.pullCustomParts({allowPush:true}).catch(function(){});
   }
   function armCompanySync(){
     clearInterval(companySyncTimer);
@@ -10547,40 +10547,49 @@ finally{ window.__pdfBuilding=false; }
       seen.add(k);
       out.push(s);
     }
-    asPartsList(local).forEach(add);
+    // Remote first = Artikel von anderen erscheinen bei jedem Gerät.
     asPartsList(remote).forEach(add);
+    asPartsList(local).forEach(add);
     return out.slice(0,80);
   }
   function partsStatus(msg){
     const s=document.getElementById("status");
     if(s) s.textContent=msg;
   }
+  function notifyPartsChanged(){
+    try{ window.dispatchEvent(new Event("sb-parts-changed")); }catch(e){}
+  }
+  let partsPullFlight=null;
   async function pullCustomParts(opts){
     opts=opts||{};
-    if(!window.sbLists || typeof window.sbLists.pullFile!=="function") return loadCustomParts();
-    if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()) return loadCustomParts();
-    try{
-      const got=await window.sbLists.pullFile("parts");
-      const localBefore=loadCustomParts();
-      if(got && got.status===404){
-        // Datei fehlt noch: lokale Artikel einmalig hochladen, sonst sehen andere nichts.
-        if(localBefore.length && opts.allowPush!==false)
-          await pushCustomParts("Ersatzteile erstmalig gespeichert", null, {quiet:true});
+    if(partsPullFlight && !opts.force) return partsPullFlight;
+    const run=(async function(){
+      if(!window.sbLists || typeof window.sbLists.pullFile!=="function") return loadCustomParts();
+      if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()) return loadCustomParts();
+      try{
+        const got=await window.sbLists.pullFile("parts");
+        const localBefore=loadCustomParts();
+        if(got && got.status===404){
+          if(localBefore.length && opts.allowPush!==false)
+            await pushCustomParts("Ersatzteile erstmalig gespeichert", null, {quiet:true});
+          return loadCustomParts();
+        }
+        if(!got || got.data==null) return localBefore;
+        const remoteList=asPartsList(got.data);
+        const merged=mergePartsLists(remoteList, localBefore);
+        saveCustomParts(merged);
+        if(opts.allowPush!==false && localBefore.length){
+          const remoteSet=new Set(remoteList.map(x=>x.toLowerCase()));
+          const missing=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
+          if(missing) await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
+        }
+        return loadCustomParts();
+      }catch(e){
         return loadCustomParts();
       }
-      if(!got || got.data==null) return localBefore;
-      const merged=mergePartsLists(got.data, localBefore);
-      saveCustomParts(merged);
-      // Lokale Artikel, die remote noch fehlen, nachschieben.
-      if(opts.allowPush!==false && localBefore.length){
-        const remoteSet=new Set(asPartsList(got.data).map(x=>x.toLowerCase()));
-        const missing=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
-        if(missing) await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
-      }
-      return loadCustomParts();
-    }catch(e){
-      return loadCustomParts();
-    }
+    })();
+    partsPullFlight=run.finally(function(){ partsPullFlight=null; });
+    return partsPullFlight;
   }
   window.pullCustomParts=pullCustomParts;
   async function pushCustomParts(message, dropNames, opts){
@@ -10600,9 +10609,10 @@ finally{ window.__pdfBuilding=false; }
         local,
         message||"Ersatzteile aktualisiert",
         function(remote, loc){ return mergePartsLists(remote, loc, dropNames); },
-        {attempts:3, quiet:!!opts.quiet}
+        {attempts:4, quiet:!!opts.quiet, forcePut:!!opts.forcePut}
       );
       if(Array.isArray(merged)) saveCustomParts(merged);
+      if(result && result.ok) notifyPartsChanged();
       return result||{ok:false};
     }catch(e){
       return {ok:false, reason:"error"};
@@ -10617,14 +10627,17 @@ finally{ window.__pdfBuilding=false; }
     const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
     cur.unshift(v);
     saveCustomParts(cur);
-    return pushCustomParts("Ersatzteil hinzugefügt: "+v).then(function(res){
-      if(res && res.ok) partsStatus("Artikel gespeichert – für alle sichtbar.");
-      else if(res && res.reason==="no-token")
-        partsStatus("Artikel nur hier gespeichert. Token nötig, damit alle ihn sehen.");
-      else partsStatus("Artikel lokal gespeichert. GitHub-Abgleich fehlgeschlagen – später erneut versuchen.");
+    notifyPartsChanged();
+    return pushCustomParts("Ersatzteil hinzugefügt: "+v, null, {forcePut:true}).then(function(res){
+      if(res && res.ok){
+        const n=loadCustomParts().length;
+        partsStatus("Artikel für alle gespeichert ("+n+" gemeinsam).");
+      }else if(res && res.reason==="no-token")
+        partsStatus("Artikel nur hier. Oben „offline“ → Token, sonst sehen andere ihn nicht.");
+      else partsStatus("Artikel lokal. GitHub-Sync fehlgeschlagen – online prüfen, erneut tippen.");
       return res||{ok:false};
     }).catch(function(){
-      partsStatus("Artikel lokal gespeichert. GitHub-Abgleich fehlgeschlagen.");
+      partsStatus("Artikel lokal. GitHub-Sync fehlgeschlagen.");
       return {ok:false};
     });
   }
@@ -10640,12 +10653,13 @@ finally{ window.__pdfBuilding=false; }
     list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
     list[idx]=next;
     saveCustomParts(list);
+    notifyPartsChanged();
     const drop=lowPrev===lowNext ? [] : [prev];
-    return pushCustomParts("Ersatzteil geändert: "+next, drop).then(function(res){
-      if(res && res.ok) partsStatus("Artikel geändert – für alle aktualisiert.");
+    return pushCustomParts("Ersatzteil geändert: "+next, drop, {forcePut:true}).then(function(res){
+      if(res && res.ok) partsStatus("Artikel für alle geändert.");
       else if(res && res.reason==="no-token")
-        partsStatus("Änderung nur hier. Token nötig für alle Geräte.");
-      else partsStatus("Änderung lokal. GitHub-Abgleich fehlgeschlagen.");
+        partsStatus("Änderung nur hier. Token nötig (oben offline).");
+      else partsStatus("Änderung lokal. GitHub-Sync fehlgeschlagen.");
       return true;
     }).catch(function(){ return true; });
   }
@@ -10837,10 +10851,17 @@ finally{ window.__pdfBuilding=false; }
       return;
     }
     renderPartsList(results, box);
-    pullCustomParts().then(function(){
+    const hasToken=window.sbLists && typeof window.sbLists.hasToken==="function" && window.sbLists.hasToken();
+    if(!hasToken){
+      partsStatus("Gemeinsame Artikel: Token fehlt (oben offline) – nur dieses Gerät.");
+      return;
+    }
+    pullCustomParts({force:true, allowPush:true}).then(function(list){
       if(!results.isConnected || results.hidden) return;
       if(results.querySelector(".parts-new-input")) return;
       renderPartsList(results, box);
+      const n=(list||loadCustomParts()).length;
+      if(n) partsStatus("Gemeinsame Artikel aktualisiert ("+n+").");
     }).catch(function(){});
   }
   function bindPartsPlus(){
@@ -10854,10 +10875,35 @@ finally{ window.__pdfBuilding=false; }
       if(box && !box.contains(e.target)) closePartsList();
     });
     function syncPartsCloud(){
-      pullCustomParts({allowPush:true}).catch(function(){});
+      pullCustomParts({allowPush:true, force:true}).then(function(){
+        const results=$("partsResults");
+        if(!results || results.hidden) return;
+        if(results.querySelector(".parts-new-input")) return;
+        renderPartsList(results, $("partsBox"));
+      }).catch(function(){});
     }
     window.addEventListener("sb-lists-ready", syncPartsCloud);
     window.addEventListener("sb-token-change", syncPartsCloud);
+    window.addEventListener("sb-parts-changed", function(){
+      const results=$("partsResults");
+      if(results && !results.hidden && !results.querySelector(".parts-new-input"))
+        renderPartsList(results, $("partsBox"));
+    });
+    document.addEventListener("visibilitychange", function(){
+      if(!document.hidden) syncPartsCloud();
+    });
+    window.addEventListener("online", syncPartsCloud);
+    // Alle 20s nachziehen, damit andere Geräte neue Artikel sehen.
+    setInterval(function(){
+      if(document.hidden) return;
+      if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken()) return;
+      pullCustomParts({allowPush:true}).then(function(){
+        const results=$("partsResults");
+        if(!results || results.hidden) return;
+        if(results.querySelector(".parts-new-input")) return;
+        renderPartsList(results, $("partsBox"));
+      }).catch(function(){});
+    }, 20000);
     if(window.sbLists) syncPartsCloud();
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPartsPlus);
