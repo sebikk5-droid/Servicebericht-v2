@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.0">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v5.0">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,11 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.0</title>
+  <title>Servicebericht v5.0</title>
 <script>
-window.SB_APP_VERSION="4.0";
+window.SB_APP_VERSION="5.0";
+/** Firmen-E-Mail – immer in CC / Empfänger-Liste bei PDF-Mail. */
+window.SB_FIRM_EMAIL="Service@Maschinenservice-LG.de";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -238,7 +240,8 @@ window.sbReloadHeld=function(){
       "vendor/pdf-lib.min.js",
       "vendor/pdf.min.js",
       "vendor/pdf.worker.min.js",
-      "Leer.pdf"
+      "Leer.pdf",
+      "Leer-bemerkungen.pdf"
     ];
     files.forEach(function(u){
       try{ fetch(u+"?v="+(window.SB_APP_VERSION||""), {cache:"reload"}).catch(function(){}); }catch(e){}
@@ -291,25 +294,140 @@ input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;b
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
 input:read-only,textarea:read-only,input[readonly],textarea[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
-#remarks,#parts{
+#remarks,#remarksPage2{
   max-height:min(240px,38vh);
   overflow-y:auto;
   overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
+#parts{display:none!important}
+.remarks-page2-actions{margin-top:10px}
+.remarks-page2-actions button,.remarks-page2-head button{
+  flex:none;width:auto;min-height:36px;padding:8px 12px;margin:0;
+  font-size:13px;font-weight:700;border-radius:10px;
+}
+#remarksPage2Add{background:#163a5c;color:#fff;border:0}
+#remarksPage2Remove{background:#e5e5ea;color:#111;border:0}
+.remarks-page2-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;
+}
+.remarks-page2-head h2{margin:0}
+.remarks-page2-hint{margin:0 0 8px;font-size:13px;line-height:1.35;color:#555}
 .parts-box{position:relative}
-.parts-box #parts{display:block;padding-bottom:34px}
+.parts-table{
+  width:100%;
+  border:1px solid #c9c9ce;
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+}
+.parts-table-head,.parts-table-subhead,.parts-table-row{
+  display:grid;
+  grid-template-columns:minmax(0,.9fr) minmax(0,1.7fr);
+  gap:0;
+}
+.parts-table-head{
+  background:#eef1f5;
+  border-bottom:1px solid #c9c9ce;
+}
+.parts-table-head > div{
+  padding:8px 10px 4px;
+  font-size:13px;font-weight:800;letter-spacing:.02em;
+  color:#163a5c;text-transform:none;
+}
+.parts-table-head .parts-art-title{
+  border-left:1px solid #c9c9ce;
+  text-align:left;
+}
+.parts-table-subhead{
+  background:#f6f7f9;
+  border-bottom:1px solid #c9c9ce;
+}
+.parts-table-subhead > div:first-child{
+  padding:0 10px 6px;
+  font-size:11px;font-weight:700;color:#555;
+}
+.parts-col-art-head{
+  display:grid;
+  grid-template-columns:minmax(64px,.75fr) minmax(0,1.35fr) minmax(58px,.55fr);
+  gap:0;
+  border-left:1px solid #c9c9ce;
+}
+.parts-col-art-head span{
+  padding:0 10px 6px;
+  font-size:11px;font-weight:700;color:#555;
+  border-left:1px solid #d7d7dc;
+}
+.parts-col-art-head span:first-child{border-left:0}
+.parts-table-row{
+  border-top:1px solid #ddd;
+  align-items:stretch;
+}
+.parts-table-row:first-of-type{border-top:0}
+.parts-ls-cell,.parts-art-cell{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;
+  min-width:0;
+}
+.parts-ls-cell > input{flex:1;min-width:0}
+.parts-art-cell{
+  border-left:1px solid #c9c9ce;
+  padding:6px 8px;
+}
+.parts-art-fields{
+  flex:1;min-width:0;
+  display:grid;
+  grid-template-columns:minmax(64px,.75fr) minmax(0,1.35fr) minmax(58px,.55fr);
+  gap:6px;
+}
+.parts-table input{
+  width:100%;min-width:0;margin:0;
+  font-size:14px;padding:8px 9px;border-radius:8px;
+  background:#e8e8ed;border:1px solid #d0d0d6;
+}
+.parts-table input[data-parts="menge"]{
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.parts-clear-ls,.parts-clear-art{
+  flex:none;width:28px;height:28px;min-width:28px;min-height:28px;padding:0;margin:0;
+  border:0;border-radius:8px;
+  background:#f3e8e8;color:#8b1e1e;
+  font-size:18px;font-weight:700;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.parts-clear-ls:active,.parts-clear-art:active{background:#e8d0d0}
+.parts-table-tools{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:8px;
+}
+.parts-table-tools-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.parts-table-tools .parts-row-add,
+.parts-table-tools .parts-row-clear{
+  flex:none;width:auto;min-height:34px;padding:7px 12px;margin:0;
+  font-size:13px;font-weight:700;border-radius:10px;
+  background:#e5e5ea;color:#111;
+}
+.parts-table-tools .parts-row-clear{background:#f3e8e8;color:#8b1e1e}
 .parts-plus{
-  position:absolute;right:6px;bottom:6px;z-index:3;
-  flex:none;width:28px;height:28px;min-height:28px;padding:0;margin:0;
+  position:static;z-index:3;
+  flex:none;width:34px;height:34px;min-height:34px;padding:0;margin:0 0 0 auto;
   border:0;border-radius:50%;
   background:#163a5c;color:#fff;
-  font-size:20px;font-weight:600;line-height:1;
+  font-size:22px;font-weight:600;line-height:1;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 1px 3px rgba(0,0,0,.16);
   cursor:pointer;
 }
 .parts-plus:active{transform:scale(.96)}
+@media (max-width:420px){
+  .parts-table-head,.parts-table-subhead,.parts-table-row{grid-template-columns:1fr}
+  .parts-table-head .parts-art-title,.parts-col-art-head,.parts-art-cell{border-left:0;border-top:1px solid #ddd}
+  .parts-table-subhead > div:first-child{display:none}
+  .parts-ls-cell{padding-bottom:2px}
+}
 #partsResults.combo-results{
   border-radius:8px;
   padding:5px;
@@ -381,7 +499,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfPreviewModal.is-open{display:flex}
 .pdf-preview-top{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 8px;
   background:#fff;border-bottom:1px solid #ccc;flex:0 0 auto;
 }
 .pdf-preview-top h3{margin:0;font-size:17px;font-weight:750}
@@ -390,6 +508,15 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .pdf-preview-zoom{display:flex;gap:6px}
 .pdf-preview-zoom button{min-width:40px;background:#e5e5ea;color:#111;padding:8px 10px}
+.pdf-preview-tabs{
+  display:none;gap:8px;padding:0 12px 10px;background:#fff;border-bottom:1px solid #ccc;flex:0 0 auto;
+}
+.pdf-preview-tabs.is-on{display:flex}
+.pdf-preview-tabs button{
+  flex:1;min-height:40px;border:1px solid #c5c5cc;border-radius:10px;
+  background:#eef5fb;color:#163a5c;font-size:14px;font-weight:750;padding:8px 10px;
+}
+.pdf-preview-tabs button.is-on{background:#163a5c;color:#fff;border-color:#163a5c}
 .pdf-preview-body{
   flex:1 1 auto;min-height:0;min-width:0;overflow:auto;-webkit-overflow-scrolling:touch;
   padding:12px;background:#c5c5ca;
@@ -398,6 +525,11 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .pdf-preview-page{
   margin:0 auto 10px;background:#fff;border-radius:4px;
   box-shadow:0 2px 10px rgba(0,0,0,.18);overflow:hidden;
+}
+.pdf-preview-part-label{
+  margin:14px auto 10px;padding:8px 12px;max-width:420px;
+  text-align:center;font-size:14px;font-weight:750;color:#163a5c;
+  background:#eef5fb;border:1px solid #c5d6e8;border-radius:10px;
 }
 #pdfPreviewPages canvas{
   width:100% !important;height:100% !important;display:block;margin:0;background:#fff;
@@ -903,16 +1035,16 @@ select.is-nudge,input.is-nudge{
 }
 #sigModal.open{display:flex}
 .sig-modal-top{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
   padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
   background:#fff;border-bottom:1px solid #ccc;
 }
 .sig-modal-title{font-size:17px;font-weight:750}
-.sig-modal-top button,.sig-modal-bottom button{
+.sig-modal-bottom button{
   border:0;border-radius:10px;padding:10px 14px;font-size:15px;font-weight:700;min-height:40px;cursor:pointer;
 }
-.sig-modal-cancel{background:#e5e5ea}
-.sig-modal-done{background:#163a5c;color:#fff}
+.sig-modal-cancel{background:#e5e5ea;flex:1}
+.sig-modal-done{background:#163a5c;color:#fff;flex:1}
 .sig-modal-canvas-wrap{
   position:relative;flex:1;margin:10px 12px;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #c5c5ca;min-height:220px;
   touch-action:none;-webkit-user-select:none;user-select:none;
@@ -925,14 +1057,12 @@ select.is-nudge,input.is-nudge{
 .sig-modal-bottom{
   display:flex;flex-direction:column;gap:8px;padding:8px 12px calc(12px + env(safe-area-inset-bottom));
 }
+.sig-modal-actions{display:flex;gap:8px;width:100%}
 .sig-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.sig-color-dot{
-  width:32px;height:32px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #bbb;padding:0;min-height:32px;flex:0 0 auto;
-}
-.sig-color-dot.is-on{box-shadow:0 0 0 3px #163a5c}
-.sig-thick-btn{flex:1;background:#e5e5ea;border:0;border-radius:8px;padding:8px 6px;font-size:13px;font-weight:700;min-height:36px}
-.sig-thick-btn.is-on{background:#163a5c;color:#fff}
+.sig-thick-btn{flex:0 0 auto;background:#163a5c;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;min-height:36px;pointer-events:none}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
+.sig-preview{cursor:pointer}
+.sig-actions .sig-clear{width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
 .machine-bar button{flex:1 1 0;min-width:0;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff;text-align:center}
 #machineSave.is-listed,#machineSave.is-listed:disabled{background:#16a34a;color:#fff;cursor:default;opacity:1}
@@ -1145,7 +1275,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.0</span>
+      <span id="appCreditVer" class="app-ver">v5.0</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1283,12 +1413,40 @@ select.is-nudge,input.is-nudge{
 
 <section class="card" id="remarksCard"><h2>Bemerkungen</h2>
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
+<div class="remarks-page2-actions">
+  <button type="button" id="remarksPage2Add">Bemerkungen-Seite hinzufügen</button>
+</div>
+</section>
+<section class="card" id="remarksPage2Card" hidden>
+  <div class="remarks-page2-head">
+    <h2>Bemerkungen (Seite 2)</h2>
+    <button type="button" id="remarksPage2Remove">Entfernen</button>
+  </div>
+  <p class="remarks-page2-hint">Nur Bemerkungen – als zweites PDF (Blatt 2). Seite 1 bleibt der normale Servicebericht.</p>
+  <textarea id="remarksPage2" placeholder="- Fortsetzung …&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
 <div class="parts-box" id="partsBox">
-<textarea id="parts" placeholder="- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
-<button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen">+</button>
-<div id="partsResults" class="combo-results" hidden></div>
+  <textarea id="parts" hidden aria-hidden="true" tabindex="-1" autocomplete="off"></textarea>
+  <div class="parts-table" id="partsTable" aria-label="Lieferschein und Artikel">
+    <div class="parts-table-head">
+      <div>Lieferschein</div>
+      <div class="parts-art-title">Artikel</div>
+    </div>
+    <div class="parts-table-subhead">
+      <div>Nr.</div>
+      <div class="parts-col-art-head"><span>Nr.</span><span>Name</span><span>menge</span></div>
+    </div>
+    <div class="parts-table-body" id="partsTableBody"></div>
+  </div>
+  <div class="parts-table-tools">
+    <div class="parts-table-tools-left">
+      <button type="button" class="parts-row-add" id="partsRowAdd">+ Zeile</button>
+      <button type="button" class="parts-row-clear" id="partsRowClear" title="Alles leeren und extra Zeilen schließen">Alles leeren</button>
+    </div>
+    <button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen" title="Artikel aus Liste">+</button>
+  </div>
+  <div id="partsResults" class="combo-results" hidden></div>
 </div>
 </section>
 
@@ -1354,17 +1512,15 @@ select.is-nudge,input.is-nudge{
 <div class="sig-grid">
   <div class="sig-box">
     <label>Unterschrift Techniker</label>
-    <div class="sig-preview" id="sigTechPreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-preview" id="sigTechPreview" role="button" tabindex="0" aria-label="Unterschrift Techniker"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
     <div class="sig-actions">
-      <button type="button" class="sig-open" data-sig-open="sigTech">Unterschreiben</button>
       <button type="button" class="sig-clear" data-sig-clear="sigTech">Löschen</button>
     </div>
   </div>
   <div class="sig-box">
     <label>Unterschrift Kunde</label>
-    <div class="sig-preview" id="sigKundePreview"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
+    <div class="sig-preview" id="sigKundePreview" role="button" tabindex="0" aria-label="Unterschrift Kunde"><span class="sig-hint">Tippen zum Unterschreiben</span><img alt=""></div>
     <div class="sig-actions">
-      <button type="button" class="sig-open" data-sig-open="sigKunde">Unterschreiben</button>
       <button type="button" class="sig-clear" data-sig-clear="sigKunde">Löschen</button>
     </div>
   </div>
@@ -1466,6 +1622,9 @@ select.is-nudge,input.is-nudge{
     const d=parseInt(box.getAttribute("data-daybox"),10);
     if(!d) return false;
     if(d>1 && box.getAttribute("data-day-active")!=="1") return false;
+    // Gleich wie dayRouteGaps: ausgeschaltete Anfahrt/Rückfahrt nicht als fehlend zählen.
+    const anfahrtOff=box.getAttribute("data-anfahrt-off")==="1";
+    const rueckfahrtOff=box.getAttribute("data-rueckfahrt-off")==="1";
     function drive(dir){
       const row=dir==="out" ? d*2-1 : d*2;
       const ov=box.querySelector(`[data-route-override="${dir}"]`);
@@ -1474,13 +1633,19 @@ select.is-nudge,input.is-nudge{
       const b=box.querySelector(`[data-k="RZende${row}"]`);
       if(!clockFilled(a&&a.value) || !clockFilled(b&&b.value)) return 0;
       const pause=(box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value;
+      if(typeof driveNettoFromClocks==="function")
+        return driveNettoFromClocks(a.value, b.value, pause);
       return Math.max(0, clockMinutes(a.value, b.value) - (parseInt(pause,10)||0));
     }
-    const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
-    if(!String((kmOut&&kmOut.value)||"").trim() || drive("out")<=0) return true;
-    const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
-    const end=box.querySelector(`[data-k="RZende${d*2}"]`);
-    if(!String((kmBack&&kmBack.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
+    if(!anfahrtOff){
+      const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+      if(!String((kmOut&&kmOut.value)||"").trim() || drive("out")<=0) return true;
+    }
+    if(!rueckfahrtOff){
+      const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+      const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+      if(!String((kmBack&&kmBack.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
+    }
     return false;
   }
   function paintDayJumps(){
@@ -1490,6 +1655,7 @@ select.is-nudge,input.is-nudge{
     });
   }
   window.syncDayJumps=syncDayJumps;
+  window.paintDayJumps=paintDayJumps;
   function jump(id){
     const now=Date.now();
     if(id===lockId && now-lockAt<400) return;
@@ -1567,9 +1733,9 @@ select.is-nudge,input.is-nudge{
 <div id="historySaveModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Historie speichern?</h3>
-    <p class="muted" id="historySaveHint">Als Bericht (.json) speichern – später in der App über Öffnen weiterbearbeiten. Danach E-Mail mit PDF.</p>
+    <p class="muted" id="historySaveHint">Als Bericht (.json) speichern – später in der App über Öffnen weiterbearbeiten. Oder ohne Speichern direkt zur E-Mail.</p>
     <div class="email-actions">
-      <button type="button" class="clear" id="historySaveLater">Abbrechen</button>
+      <button type="button" class="clear" id="historySaveLater">Ohne Speichern</button>
       <button type="button" class="go" id="historySaveNow">Speichern</button>
     </div>
   </div>
@@ -1582,6 +1748,10 @@ select.is-nudge,input.is-nudge{
       <button type="button" id="pdfPreviewZoomOut" aria-label="Verkleinern">−</button>
       <button type="button" id="pdfPreviewZoomIn" aria-label="Vergrößern">+</button>
     </div>
+  </div>
+  <div class="pdf-preview-tabs" id="pdfPreviewTabs" hidden>
+    <button type="button" id="pdfPreviewTab1" class="is-on">1 · Servicebericht</button>
+    <button type="button" id="pdfPreviewTab2">2 · Bemerkungen</button>
   </div>
   <div class="pdf-preview-body"><div id="pdfPreviewPages"></div></div>
   <div class="pdf-preview-bottom">
@@ -1703,21 +1873,15 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="sigModal" aria-hidden="true">
   <div class="sig-modal-top">
-    <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
     <div class="sig-modal-title" id="sigModalTitle">Unterschrift</div>
-    <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
   </div>
   <div class="sig-modal-canvas-wrap"><canvas id="sigModalCanvas" tabindex="0"></canvas></div>
   <div class="sig-modal-bottom">
-    <div class="sig-tools">
-      <button type="button" class="sig-color-dot is-on" data-sig-color="#111111" style="background:#111" aria-label="Schwarz"></button>
-      <button type="button" class="sig-color-dot" data-sig-color="#1a4a9e" style="background:#1a4a9e" aria-label="Blau"></button>
-      <button type="button" class="sig-color-dot" data-sig-color="#b42318" style="background:#b42318" aria-label="Rot"></button>
-      <button type="button" class="sig-thick-btn" data-sig-thick="0.7">Dünn</button>
-      <button type="button" class="sig-thick-btn is-on" data-sig-thick="1">Mittel</button>
-      <button type="button" class="sig-thick-btn" data-sig-thick="1.55">Dick</button>
-    </div>
     <button type="button" class="sig-modal-clear" id="sigModalClear">Löschen</button>
+    <div class="sig-modal-actions">
+      <button type="button" class="sig-modal-cancel" id="sigModalCancel">Abbrechen</button>
+      <button type="button" class="sig-modal-done" id="sigModalDone">Fertig</button>
+    </div>
   </div>
 </div>
 <script>
@@ -1742,7 +1906,7 @@ document.querySelectorAll('#choices input').forEach(el=>{
 });
 </script>
 <script>
-const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
+const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let lastPdfBemBlob=null; let pdfFitFont=null;
 window.sbOffline=function(){ return navigator.onLine===false; };
 window.sbCachedFile=async function(name, timeoutMs){
   const urls=[name, "./"+String(name||"").replace(/^\.\//,"")];
@@ -2659,7 +2823,10 @@ function resetOpenForm(){
     if(b) b.classList.remove("has-value");
   });
   lastPdfBlob=null;
+  lastPdfBemBlob=null;
+  window.lastPdfBemBlob=null;
   window.lastPdfFormFingerprint="";
+  if(typeof setRemarksPage2Visible==="function") setRemarksPage2Visible(false);
   if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
   else if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
@@ -2671,6 +2838,7 @@ function resetOpenForm(){
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
   if(typeof window.finishFormReset==="function") window.finishFormReset();
+  if(typeof window.syncPartsTableFromTextarea==="function") window.syncPartsTableFromTextarea();
   const s=$("status");
   if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
   const scroller=document.querySelector("main");
@@ -3721,6 +3889,11 @@ function pdfFileName(){
   return ["Servicebericht", fileDatePart(iso), initials, nr, firma].filter(Boolean).join("_")+".pdf";
 }
 window.pdfFileName=pdfFileName;
+function pdfFileNameBemerkungen(){
+  const base=String(typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf").replace(/\.pdf$/i,"");
+  return base+"_Bemerkungen.pdf";
+}
+window.pdfFileNameBemerkungen=pdfFileNameBemerkungen;
 function pdfEmailLabel(){
   // Same format as saved PDF (without .pdf) – subject, share title, attachment basename.
   const name=typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf";
@@ -3932,22 +4105,28 @@ function packFieldLines(font, paragraphs, widths, size){
   for(let p=0;p<paragraphs.length;p++){
     const words=paragraphs[p].split(/\s+/).filter(Boolean);
     while(words.length){
-      if(lines.length>=widths.length)
-        return {lines, leftover:words};
+      if(lines.length>=widths.length){
+        const rest=[words.join(" ")].concat(paragraphs.slice(p+1)).map(x=>String(x||"").trim()).filter(Boolean);
+        return {lines, leftover:rest};
+      }
       const line=consumeLine(font, words, size, widths[lines.length]);
-      if(line===null) return {lines, leftover:words, tooWide:true};
+      if(line===null){
+        const rest=[words.join(" ")].concat(paragraphs.slice(p+1)).map(x=>String(x||"").trim()).filter(Boolean);
+        return {lines, leftover:rest, tooWide:true};
+      }
       lines.push(line);
     }
   }
   return {lines, leftover:[]};
 }
+/** Fills text into named fields. Returns leftover paragraphs that did not fit. */
 function wrapIntoFields(form, names, text, font){
   const MIN=7;
   const raw=String(text||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  if(!raw.length) return;
+  if(!raw.length) return [];
   if(!font){
     names.forEach((n,i)=>setIf(form,n, raw[i]||""));
-    return;
+    return raw.slice(names.length);
   }
   const meta=names.map(n=>{
     const r=fieldRectOf(form,n);
@@ -3986,7 +4165,217 @@ function wrapIntoFields(form, names, text, font){
     const line=out[i]||"";
     if(line) setFit(form,n,line,size);
   });
+  return leftover.slice();
 }
+const BEMERKUNG_PDF_FIELDS=["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"];
+function remarksPage2Enabled(){
+  const card=$("remarksPage2Card");
+  return !!(card && !card.hidden);
+}
+window.remarksPage2Enabled=remarksPage2Enabled;
+function setRemarksPage2Visible(on){
+  const card=$("remarksPage2Card");
+  const add=$("remarksPage2Add");
+  if(!card) return;
+  const was=!(card.hidden);
+  card.hidden=!on;
+  if(add) add.hidden=!!on;
+  if(!on){
+    const ta=$("remarksPage2");
+    if(ta) ta.value="";
+  }
+  try{ if($("blattVon")) $("blattVon").value=on ? "2" : "1"; }catch(e){}
+  try{ if($("blattNr")) $("blattNr").value="1"; }catch(e){}
+  if(was!==!!on && typeof window.invalidateStashedPdf==="function")
+    window.invalidateStashedPdf();
+}
+window.setRemarksPage2Visible=setRemarksPage2Visible;
+function bindRemarksPage2Ui(){
+  const add=$("remarksPage2Add");
+  const rem=$("remarksPage2Remove");
+  if(add && add.dataset.bound!=="1"){
+    add.dataset.bound="1";
+    add.addEventListener("click",function(e){
+      e.preventDefault();
+      setRemarksPage2Visible(true);
+      try{ $("remarksPage2")?.focus(); }catch(err){}
+      const s=$("status");
+      if(s) s.textContent="Bemerkungen-Seite 2 aktiv – PDF hat 2 Seiten in einer Datei.";
+    });
+  }
+  if(rem && rem.dataset.bound!=="1"){
+    rem.dataset.bound="1";
+    rem.addEventListener("click",function(e){
+      e.preventDefault();
+      setRemarksPage2Visible(false);
+      const s=$("status");
+      if(s) s.textContent="Bemerkungen-Seite 2 entfernt.";
+    });
+  }
+  // Restore: if draft already has text, show the card.
+  const ta=$("remarksPage2");
+  if(ta && String(ta.value||"").trim()) setRemarksPage2Visible(true);
+  else setRemarksPage2Visible(remarksPage2Enabled());
+}
+if(document.readyState==="loading")
+  document.addEventListener("DOMContentLoaded", bindRemarksPage2Ui, {once:true});
+else bindRemarksPage2Ui();
+/** Second PDF: only Firma + Bemerkungen (Fortsetzung). */
+const BEMERKUNG_PAGE2_FIELDS=["text_0","text_1","text_2","text_3","text_4","text_5","text_6","text_7","text_8","text_9","text_10","text_11","text_12","text_13"];
+async function loadBemerkungenTemplateBytes(fallbackLeerBytes){
+  const tryLoad=async (url)=>{
+    try{
+      if(typeof window.sbCachedFile==="function"){
+        const cached=await window.sbCachedFile(url, 2500);
+        if(cached && cached.ok) return await cached.arrayBuffer();
+      }
+    }catch(e){}
+    try{
+      const res=await fetch(url);
+      if(res && res.ok) return await res.arrayBuffer();
+    }catch(e){}
+    try{
+      const hit=await caches.match("./"+url) || await caches.match(url);
+      if(hit && hit.ok) return await hit.arrayBuffer();
+    }catch(e){}
+    return null;
+  };
+  const bytes=await tryLoad("Leer-bemerkungen.pdf");
+  if(bytes) return bytes;
+  return fallbackLeerBytes ? fallbackLeerBytes.slice(0) : null;
+}
+function drawBemerkungenHeaderText(page, font, opts){
+  if(!page || !font) return;
+  const ink=PDFLib.rgb(0.102,0.101,0.095);
+  const put=(s,x,y,size)=>{
+    const t=String(s||"").trim();
+    if(!t) return;
+    try{ page.drawText(t,{x,y:y+2,size:size||9,font,color:ink}); }catch(e){}
+  };
+  // Techniker wie Formular-Beschriftung (AcroForm text_14 war zu klein).
+  put(opts.tech, 472, 782.2, 11);
+  // Blatt-Kästchen (im bearbeiteten Formular wieder leer/korrekt).
+  put(opts.blattNr||"2", 458, 765, 8);
+  put(opts.blattVon||"2", 507, 765, 8);
+  // Gleiche Position/Größe wie PDF 1 (Feld „Datum Einsatzbeginn“).
+  put(opts.einsatzdatum, 478.2, 733.65, 7.5);
+  put(opts.firma, 95, 694, 9);
+  put(opts.street, 95, 676, 9);
+  put(opts.city, 101, 658, 9);
+  put(opts.contact, 132, 640, 9);
+  put(opts.fault, 138, 622, 9);
+  put(opts.manufacturer, 370, 695, 9);
+  put(opts.type, 348, 676, 9);
+  put(opts.machineNo, 474, 676, 9);
+  put(opts.control, 389, 658, 9);
+  put(opts.nc, 360, 640, 9);
+  put(opts.plc, 473, 640, 9);
+  put(opts.hours, 394, 622, 9);
+}
+/** Häkchen zentriert in der Box – kein „X“. */
+function drawPdfCheckmark(page, boxX, boxY, boxW, boxH, color){
+  if(!page) return;
+  const ink=color||PDFLib.rgb(0.102,0.101,0.095);
+  const w=Math.max(5, Number(boxW)||7);
+  const h=Math.max(5, Number(boxH)||7);
+  const x=Number(boxX)||0;
+  const y=Number(boxY)||0;
+  // Innenrand, damit die Fajka mittig sitzt (nicht am Rand).
+  const pad=w*0.16;
+  const ix=x+pad, iy=y+pad, iw=w-2*pad, ih=h-2*pad;
+  const t=Math.max(0.95, Math.min(iw,ih)*0.22);
+  try{
+    page.drawLine({
+      start:{x:ix+iw*0.08, y:iy+ih*0.48},
+      end:{x:ix+iw*0.38, y:iy+ih*0.12},
+      thickness:t, color:ink, lineCap:PDFLib.LineCapStyle.Round
+    });
+    page.drawLine({
+      start:{x:ix+iw*0.35, y:iy+ih*0.12},
+      end:{x:ix+iw*0.92, y:iy+ih*0.88},
+      thickness:t, color:ink, lineCap:PDFLib.LineCapStyle.Round
+    });
+  }catch(e){}
+}
+/** Checkbox-/Unterschriftsdaten auf Leer-bemerkungen.pdf (Zeile nach unten verschoben). */
+function drawBemerkungenChoicesAndSign(page, font, opts){
+  if(!page || !font) return;
+  const ink=PDFLib.rgb(0.102,0.101,0.095);
+  // Original-Kontrollkästchen ~y450 → Bemerkungen-Formular (Offset -239).
+  const dy=-239;
+  const tick=(on,x,y,w,h)=>{
+    if(!on) return;
+    drawPdfCheckmark(page, x, y+dy, w, h, ink);
+  };
+  // Boxen = Leer.pdf-Widgets, Y um dy verschoben.
+  tick(!!opts.betIo, 116.13, 450.37, 7.19, 6.91);
+  tick(!!opts.betBed, 140.74, 450.37, 7.19, 6.64);
+  tick(!!opts.betNicht, 192.17, 450.37, 7.19, 6.91);
+  tick(!!opts.einNein, 412.81, 450.65, 6.64, 6.64);
+  tick(!!opts.einJa, 441.84, 450.65, 6.91, 6.64);
+  tick(!!opts.artEl, 469.77, 437.93, 6.91, 6.91);
+  tick(!!opts.artMech, 497.42, 437.93, 6.91, 6.64);
+  tick(!!opts.artAnw, 534.75, 437.93, 6.91, 6.91);
+  // Fuß übernommen: Original-Y (nicht verschoben).
+  if(opts.maschineOk) drawPdfCheckmark(page, 289.53, 73.67, 6.98, 6.55, ink);
+  const put=(s,x,y,size)=>{
+    const t=String(s||"").trim();
+    if(!t) return;
+    try{ page.drawText(t,{x,y,size:size||9,font,color:ink}); }catch(e){}
+  };
+  put(opts.signDate, 103.9, 58.6, 7.5);
+  put(opts.customerSign, 87.9, 38.4, 9);
+}
+async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
+  opts=opts||{};
+  const tplBytes=await loadBemerkungenTemplateBytes(leerBytes);
+  if(!tplBytes) throw new Error("Leer-bemerkungen.pdf fehlt");
+  const cont=await PDFLib.PDFDocument.load(tplBytes.slice(0));
+  const contFont=await cont.embedFont(PDFLib.StandardFonts.Helvetica);
+  forceWinAnsiHelvetica(cont);
+  const contForm=cont.getForm();
+  bindPdfFormFont(contForm, contFont);
+  clearPdfForm(contForm);
+  // text_14 nur leeren – Techniker wird größer per drawText gesetzt.
+  try{ contForm.getTextField("text_14").setText(""); }catch(e){}
+  // Bemerkungen in die Linien (ohne Ersatzteile/Zeiten).
+  const bemFields=BEMERKUNG_PAGE2_FIELDS.filter(n=>{
+    try{ contForm.getTextField(n); return true; }catch(e){ return false; }
+  });
+  if(bemFields.length) wrapIntoFields(contForm, bemFields, text, contFont);
+  else wrapIntoFields(contForm, BEMERKUNG_PDF_FIELDS, text, contFont);
+  if(contFont) contForm.updateFieldAppearances(contFont);
+  else contForm.updateFieldAppearances();
+  try{ contForm.flatten({updateFieldAppearances:false}); }catch(e){}
+  const page=cont.getPages()[0];
+  drawBemerkungenHeaderText(page, contFont, opts);
+  drawBemerkungenChoicesAndSign(page, contFont, opts);
+  try{ await embedSignatures(cont, signatureFieldBoxes(null)); }catch(e){}
+  forceWinAnsiHelvetica(cont);
+  scrubPdfForAdobePrint(cont);
+  const out=await cont.save({useObjectStreams:false, updateFieldAppearances:false});
+  return new Blob([out],{type:"application/pdf"});
+}
+async function mergePdfBlobs(blobs){
+  const docs=(blobs||[]).filter(b=>b && (b.size||b.byteLength));
+  if(!docs.length) return null;
+  if(docs.length===1){
+    const only=docs[0];
+    return only instanceof Blob ? only : new Blob([only],{type:"application/pdf"});
+  }
+  const out=await PDFLib.PDFDocument.create();
+  for(let i=0;i<docs.length;i++){
+    const srcBytes=docs[i] instanceof Blob
+      ? new Uint8Array(await docs[i].arrayBuffer())
+      : new Uint8Array(docs[i]);
+    const src=await PDFLib.PDFDocument.load(srcBytes.slice(0));
+    const pages=await out.copyPages(src, src.getPageIndices());
+    pages.forEach(p=>out.addPage(p));
+  }
+  const saved=await out.save({useObjectStreams:false, updateFieldAppearances:false});
+  return new Blob([saved],{type:"application/pdf"});
+}
+window.mergePdfBlobs=mergePdfBlobs;
 function pdfFieldFontName(){
   return (pdfFitFont && pdfFitFont.name) ? pdfFitFont.name : "Helvetica";
 }
@@ -4032,7 +4421,7 @@ function setFit(form,n,v,size){
     if(pdfFitFont){
       const r=field.acroField.getWidgets()[0].getRectangle();
       const maxW=fieldInnerWidth(r);
-      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 6.5 : 4.2;
+      const minSz=(/^Bemerkung\d+$/.test(n) || /^Ersatzteile/.test(n)) ? 6.5 : 4.3;
       while(sz>minSz && pdfFitFont.widthOfTextAtSize(s, sz)>maxW) sz-=0.15;
     }
     field.setFontSize(Math.round(sz*10)/10);
@@ -4516,7 +4905,7 @@ function initSignaturePads(){
   if(!modal||!canvas||!wrap||modal.dataset.bound==="1") return;
   modal.dataset.bound="1";
   let drawing=false, pts=[], liveForce=0.18, activeId=null, inkBounds=null;
-  let inkColor="#111111", widthMul=1;
+  let inkColor="#1a4a9e", widthMul=0.7;
   const backup=document.createElement("canvas");
   const useRawUpdate=window.PointerEvent && "onpointerrawupdate" in window;
   const posFrom=ev=>{
@@ -4714,39 +5103,25 @@ function initSignaturePads(){
     activeId=null;
     endStroke();
   }
-  document.querySelectorAll("[data-sig-open]").forEach(btn=>{
-    btn.addEventListener("click",()=>openModal(btn.getAttribute("data-sig-open")));
-  });
   document.querySelectorAll(".sig-preview").forEach(box=>{
-    box.addEventListener("click",()=>{
+    const open=()=>{
       const id=box.id.replace("Preview","");
       openModal(id);
+    };
+    box.addEventListener("click", open);
+    box.addEventListener("keydown", e=>{
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); open(); }
     });
   });
   $("sigModalCancel").addEventListener("click",closeModal);
   $("sigModalClear").addEventListener("click",()=>{ inkBounds=null; sizeModalCanvas(); });
+  // Fest: blau + dünn (keine Farb-/Dickenwahl mehr).
+  inkColor="#1a4a9e";
+  widthMul=0.7;
   try{
-    const savedC=localStorage.getItem("sig_ink_color");
-    const savedW=parseFloat(localStorage.getItem("sig_ink_thick")||"");
-    if(savedC) inkColor=savedC;
-    if(savedW>0.3 && savedW<3) widthMul=savedW;
+    localStorage.setItem("sig_ink_color", inkColor);
+    localStorage.setItem("sig_ink_thick", String(widthMul));
   }catch(e){}
-  document.querySelectorAll("[data-sig-color]").forEach(btn=>{
-    btn.classList.toggle("is-on", btn.getAttribute("data-sig-color").toLowerCase()===inkColor.toLowerCase());
-    btn.addEventListener("click",()=>{
-      inkColor=btn.getAttribute("data-sig-color");
-      document.querySelectorAll("[data-sig-color]").forEach(b=>b.classList.toggle("is-on", b===btn));
-      try{ localStorage.setItem("sig_ink_color", inkColor); }catch(e){}
-    });
-  });
-  document.querySelectorAll("[data-sig-thick]").forEach(btn=>{
-    btn.classList.toggle("is-on", Math.abs(parseFloat(btn.getAttribute("data-sig-thick"))-widthMul)<0.05);
-    btn.addEventListener("click",()=>{
-      widthMul=parseFloat(btn.getAttribute("data-sig-thick"))||1;
-      document.querySelectorAll("[data-sig-thick]").forEach(b=>b.classList.toggle("is-on", b===btn));
-      try{ localStorage.setItem("sig_ink_thick", String(widthMul)); }catch(e){}
-    });
-  });
   $("sigModalDone").addEventListener("click",()=>{
     const id=activeId;
     if(!id){ closeModal(); return; }
@@ -5231,15 +5606,24 @@ setIf(form,"Kundennummer",$("kundennummer")?.value||"");
 setIf(form,"Kunden-Nr",$("kundennummer")?.value||"");
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
-setFit(form,"Text2", String($("blattNr")?.value||"").trim()||"1", 8);
-setFit(form,"Text3", String($("blattVon")?.value||"").trim()||"1", 8);
 setIf(form,"Hersteller",$("manufacturer").value);setIf(form,"Typ",$("type").value);setIf(form,"Maschinennummer",$("machineNo").value);
 setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value);setIf(form,"PLC Version",$("plc").value);
 setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
 setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
-wrapIntoFields(form,["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"],$("remarks").value,pdfFitFont);
-wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],$("parts").value,pdfFitFont);
+const twoPdfs=typeof remarksPage2Enabled==="function" && remarksPage2Enabled();
+const bemerkungLeftover=wrapIntoFields(form,BEMERKUNG_PDF_FIELDS,$("remarks").value,pdfFitFont)||[];
+const totalBlatt=twoPdfs ? 2 : 1;
+const blattNrUi=String($("blattNr")?.value||"").trim()||"1";
+setFit(form,"Text2", blattNrUi, 8);
+setFit(form,"Text3", String(totalBlatt), 8);
+try{ if($("blattVon")) $("blattVon").value=String(totalBlatt); }catch(e){}
+{
+  const partsText=(typeof window.syncPartsTextFromTable==="function")
+    ? window.syncPartsTextFromTable()
+    : String($("parts")?.value||"");
+  wrapIntoFields(form,["Ersatzteile 1","Ersatzteile 2","Ersatzteile 3","Ersatzteile 4"],partsText,pdfFitFont);
+}
 let km=0, travel=0, work=0, all=0, pauseRzSum=0, pauseAzSum=0;
 const dayBoxes=[...document.querySelectorAll("[data-daybox]")];
 for(let d=1;d<=dayBoxes.length;d++){
@@ -5379,10 +5763,61 @@ scrubPdfForAdobePrint(pdf);
 forceWinAnsiHelvetica(pdf);
 let out=await pdf.save({useObjectStreams:false, updateFieldAppearances:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
+lastPdfBemBlob=null;
+window.lastPdfBemBlob=null;
+if(twoPdfs){
+  let page2Text=String($("remarksPage2")?.value||"").trim();
+  if(!page2Text && bemerkungLeftover.length)
+    page2Text=bemerkungLeftover.join("\n");
+  const signIso=typeof signDateValue==="function" ? signDateValue() : String($("signdate")?.value||"");
+  const page2Blob=await buildBemerkungenOnlyPdfBlob(bytes, page2Text, {
+    firma:firmaName(),
+    street:$("street")?.value||"",
+    city:$("city")?.value||"",
+    contact:$("contact")?.value||"",
+    fault:$("fault")?.value||"",
+    manufacturer:$("manufacturer")?.value||"",
+    type:$("type")?.value||"",
+    machineNo:$("machineNo")?.value||"",
+    control:$("control")?.value||"",
+    nc:$("nc")?.value||"",
+    plc:$("plc")?.value||"",
+    hours:$("hours")?.value||"",
+    tech:$("tech")?.value||"",
+    einsatzdatum:typeof pdfDate==="function" ? pdfDate($("einsatzdatum")?.value||$("date")?.value||"") : ($("einsatzdatum")?.value||""),
+    kundennr:$("kundennummer")?.value||"",
+    blattNr:"2",
+    blattVon:"2",
+    betIo:bet==="io",
+    betBed:bet==="bedingt",
+    betNicht:bet==="nicht",
+    einNein:ein==="nein",
+    einJa:ein==="ja",
+    artEl:artOn("el"),
+    artMech:artOn("mech"),
+    artAnw:artOn("anw"),
+    maschineOk:!!document.getElementById("maschine_ok")?.checked,
+    customerSign:$("customersign")?.value||"",
+    signDate:signIso && typeof pdfDate==="function" ? pdfDate(signIso) : ""
+  });
+  // Ein PDF zum Speichern/Mailen: Seite 1 + Bemerkungen als Blatt 2.
+  lastPdfBlob=await mergePdfBlobs([lastPdfBlob, page2Blob]);
+  lastPdfBemBlob=null;
+  window.lastPdfBemBlob=null;
+}
+window.lastPdfPageCount=twoPdfs ? 2 : 1;
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
 }
-$("status").textContent="Fertig – das PDF ist vorbereitet.";
+if(twoPdfs && bemerkungLeftover.length && !String($("remarksPage2")?.value||"").trim()){
+  $("status").textContent="Fertig – 1 PDF mit 2 Seiten (Rest von Seite 1 auf Blatt 2).";
+}else if(twoPdfs){
+  $("status").textContent="Fertig – 1 PDF mit 2 Seiten (Servicebericht + Bemerkungen).";
+}else if(bemerkungLeftover.length){
+  $("status").textContent="Fertig – Hinweis: Bemerkungen zu lang. „Bemerkungen-Seite hinzufügen“ für Blatt 2.";
+}else{
+  $("status").textContent="Fertig – das PDF ist vorbereitet.";
+}
 if(!window.__pdfBuildQuiet && typeof window.afterPdfBuilt==="function"){
   try{ await window.afterPdfBuilt(); }catch(e){}
 }
@@ -5512,6 +5947,11 @@ finally{ window.__pdfBuilding=false; }
         norm[k]=v;
       });
       if(typeof selectedPdfKind==="function") norm.__pdfKind=selectedPdfKind();
+      if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
+        norm.__remarksPage2=1;
+        // v4.13+: Seite 1+2 in einem PDF – alte 1-Seiten-Stashes ungültig machen.
+        norm.__pdfMergedPages=2;
+      }
       const raw=JSON.stringify(norm);
       let h=2166136261>>>0;
       for(let i=0;i<raw.length;i++){
@@ -5656,6 +6096,14 @@ finally{ window.__pdfBuilding=false; }
     if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
+    if(typeof window.setRemarksPage2Visible==="function"){
+      const hasPage2=String($("remarksPage2")?.value||"").trim()!=="";
+      window.setRemarksPage2Visible(hasPage2);
+    }
+    // Nach Restore: rote Tag-Buttons neu bewerten (input-Events feuern bei .value= nicht).
+    if(typeof window.syncDayJumps==="function") window.syncDayJumps();
+    else if(typeof window.paintDayJumps==="function") window.paintDayJumps();
+    if(typeof window.syncPartsTableFromTextarea==="function") window.syncPartsTableFromTextarea();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -6318,8 +6766,14 @@ finally{ window.__pdfBuilding=false; }
     window.addEventListener("pageshow",ev=>{
       if(ev.persisted) return;
       restoreLiveDraft(false);
+      if(typeof window.paintDayJumps==="function") window.paintDayJumps();
     });
     restoreLiveDraft(false);
+    if(typeof window.paintDayJumps==="function") window.paintDayJumps();
+    // Spät noch einmal: KM/Zeiten können nach Firmen-Select nachgezogen werden.
+    setTimeout(function(){
+      if(typeof window.paintDayJumps==="function") window.paintDayJumps();
+    }, 400);
     syncComboValue(combo, input);
   }
 
@@ -6544,7 +6998,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.0";
+  const APP_VERSION=window.SB_APP_VERSION||"5.0";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8548,14 +9002,31 @@ finally{ window.__pdfBuilding=false; }
   function currentFormFingerprint(){
     return typeof window.currentPdfFingerprint==="function" ? window.currentPdfFingerprint() : "";
   }
+  async function countPdfPages(blob){
+    if(!blob || !window.PDFLib) return 0;
+    try{
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      const doc=await PDFLib.PDFDocument.load(bytes.slice(0), {ignoreEncryption:true});
+      return doc.getPageCount()||0;
+    }catch(e){ return 0; }
+  }
+  window.countPdfPages=countPdfPages;
   window.pdfMatchesCurrentForm=function(){
     const fp=currentFormFingerprint();
     const stored=window.lastPdfFormFingerprint || (getMeta()&&getMeta().fingerprint) || "";
-    return !!(lastPdfBlob && fp && stored && stored===fp);
+    if(!(lastPdfBlob && fp && stored && stored===fp)) return false;
+    // Bei Blatt 2 muss das gemergte PDF wirklich 2 Seiten haben (alte Stashes = 1 Seite).
+    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
+      if((window.lastPdfPageCount||0) < 2) return false;
+    }
+    return true;
   };
   window.invalidateStashedPdf=function(){
     lastPdfBlob=null;
+    lastPdfBemBlob=null;
+    window.lastPdfBemBlob=null;
     window.lastPdfFormFingerprint="";
+    window.lastPdfPageCount=0;
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
   window.stashGeneratedPdf=async function(blob, filename){
@@ -8564,6 +9035,9 @@ finally{ window.__pdfBuilding=false; }
     const name=filename||"Servicebericht.pdf";
     const fp=currentFormFingerprint();
     window.lastPdfFormFingerprint=fp;
+    if(!(window.lastPdfPageCount>0)){
+      window.lastPdfPageCount=await countPdfPages(copy);
+    }
     setMeta(name, true, fp);
     try{ await idbPut(copy, name, true, fp); }catch(e){}
     try{ await opfsFile(copy, name); }catch(e){}
@@ -8577,6 +9051,15 @@ finally{ window.__pdfBuilding=false; }
     const cur=currentFormFingerprint();
     if(!storedFp || !cur || storedFp!==cur) return false;
     lastPdfBlob=rec.blob instanceof Blob ? rec.blob : new Blob([rec.blob],{type:"application/pdf"});
+    window.lastPdfPageCount=await countPdfPages(lastPdfBlob);
+    // Alte 1-Seiten-Stashes bei aktiver Seite 2 verwerfen.
+    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()
+      && (window.lastPdfPageCount||0) < 2){
+      lastPdfBlob=null;
+      window.lastPdfPageCount=0;
+      window.lastPdfFormFingerprint="";
+      return false;
+    }
     window.lastPdfFormFingerprint=storedFp;
     setMeta(rec.filename||"Servicebericht.pdf", rec.pending!==false, storedFp);
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
@@ -8656,6 +9139,35 @@ finally{ window.__pdfBuilding=false; }
   }
   function customerPdfEmail(){
     return String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
+  }
+  function firmPdfEmail(){
+    return String(window.SB_FIRM_EMAIL||"Service@Maschinenservice-LG.de").trim();
+  }
+  function emailsForMailto(customerEmail){
+    const cust=String(customerEmail||"").trim();
+    const firm=firmPdfEmail();
+    const same=cust && firm && cust.toLowerCase()===firm.toLowerCase();
+    // Firma zawsze w „An“ (razem z klientem) – nie tylko CC, żeby od razu widać.
+    if(cust && firm && !same) return {to:cust+", "+firm, cc:""};
+    if(cust) return {to:cust, cc:""};
+    if(firm) return {to:firm, cc:""};
+    return {to:"", cc:""};
+  }
+  function emailsForClipboard(customerEmail){
+    const m=emailsForMailto(customerEmail);
+    return m.to || "";
+  }
+  function buildPdfMailtoHref(customerEmail, label, body){
+    const m=emailsForMailto(customerEmail);
+    // Adresy z przecinkiem: nie kodować całego „An“, tylko pojedyncze części.
+    const toParts=String(m.to||"").split(/\s*,\s*/).map(function(a){ return a.trim(); }).filter(Boolean);
+    const toPath=toParts.map(function(a){ return encodeURIComponent(a); }).join(",");
+    let href="mailto:"+toPath;
+    const q=[];
+    if(m.cc) q.push("cc="+encodeURIComponent(m.cc));
+    q.push("subject="+encodeURIComponent(label||""));
+    q.push("body="+encodeURIComponent(body||""));
+    return href+"?"+q.join("&");
   }
   window.syncPdfEmailUi=function(){
     const btn=$("emailPdfBtn");
@@ -8740,14 +9252,12 @@ finally{ window.__pdfBuilding=false; }
     historySaveThenEmail=false;
     closeHistorySaveSheet();
     if(!go) return;
-    if(!doSave){
-      setStatus("E-Mail abgebrochen. Zuerst Historie speichern.");
-      return;
-    }
-    if(typeof window.saveCurrentHistory==="function"){
+    if(doSave && typeof window.saveCurrentHistory==="function"){
       try{ await window.saveCurrentHistory({requireFile:true}); }catch(e){}
+      setStatus("Bericht als .json gespeichert. Jetzt E-Mail mit PDF senden.");
+    }else{
+      setStatus("Ohne Historie – E-Mail mit PDF.");
     }
-    setStatus("Bericht als .json gespeichert. Jetzt E-Mail mit PDF senden.");
     window.openPdfEmailSheet();
   }
   window.openPdfEmailSheet=function(){
@@ -8758,10 +9268,11 @@ finally{ window.__pdfBuilding=false; }
     const modal=$("pdfEmailModal");
     const hint=$("pdfEmailHint");
     const email=customerPdfEmail();
+    const firm=firmPdfEmail();
     if(hint){
       hint.textContent=email
-        ? "An "+email+" senden? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger liegt in der Zwischenablage."
-        : "Keine Kunden-E-Mail. In der Freigabe „Mail“ wählen – PDF wird angehängt; Empfänger selbst eintragen.";
+        ? ("An "+email+" + "+firm+" senden?")
+        : ("An "+firm+" senden?");
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -8847,8 +9358,24 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
   }
+  function currentBemBlob(){
+    return window.lastPdfBemBlob || (typeof lastPdfBemBlob!=="undefined" ? lastPdfBemBlob : null) || null;
+  }
+  function bemerkungenPdfFile(){
+    const bem=currentBemBlob();
+    if(!bem) return null;
+    const name=(typeof window.pdfFileNameBemerkungen==="function")
+      ? window.pdfFileNameBemerkungen()
+      : "Servicebericht_Bemerkungen.pdf";
+    try{
+      return new File([bem], name, {type:"application/pdf", lastModified:Date.now()});
+    }catch(e){
+      return null;
+    }
+  }
   async function sharePdfFile(file, label){
     if(!navigator.share || !file) return null;
+    // Immer eine Datei: Seite 1+2 sind bereits in lastPdfBlob gemerged.
     const files=[file];
     // Outlook nimmt den Share-title als Betreff. text weglassen: auf iOS
     // scheitert files+title+text oft und dann bleibt der Betreff leer.
@@ -8888,14 +9415,14 @@ finally{ window.__pdfBuilding=false; }
   window.sendPdfByEmail=async function(opts){
     opts=opts||{};
     const email=customerPdfEmail();
+    const firm=firmPdfEmail();
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
       ? window.pdfFileName()
       : (String(label).replace(/[\\/:*?"<>|]+/g,"_").trim()+".pdf");
     const body=label+"\n\n"+emailName;
-    const mailtoHref="mailto:"+(email?encodeURIComponent(email):"")
-      +"?subject="+encodeURIComponent(label)
-      +"&body="+encodeURIComponent(body);
+    const mailtoHref=buildPdfMailtoHref(email, label, body);
+    const clipEmails=emailsForClipboard(email);
     closePdfEmailSheet();
 
     const matches=typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm();
@@ -8914,17 +9441,10 @@ finally{ window.__pdfBuilding=false; }
       const shared=emailFile ? await sharePdfFile(emailFile, label) : null;
       if(shared){
         const usedTitle=!!shared.title;
-        if(email) await copyTextQuiet(email);
+        if(clipEmails) await copyTextQuiet(clipEmails);
         else if(!usedTitle) await copyTextQuiet(label);
-        if(email){
-          setStatus(usedTitle
-            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger in Zwischenablage: "+email
-            : "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen: "+email);
-        }else if(usedTitle){
-          setStatus("Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
-        }else{
-          setStatus("Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
-        }
+        if(usedTitle) setStatus("Mail: PDF angehängt, Betreff gesetzt.");
+        else setStatus("Mail: PDF angehängt.");
         return true;
       }
     }catch(e){
@@ -8933,7 +9453,7 @@ finally{ window.__pdfBuilding=false; }
 
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
-      ? "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen."
+      ? "Mail geöffnet. PDF ist gespeichert, bitte anhängen."
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
     return opened;
   };
@@ -8952,6 +9472,7 @@ finally{ window.__pdfBuilding=false; }
       if(!lastPdfBlob) return false;
       shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
     }
+    const shareFiles=[shareFile];
     const afterShare=function(){
       const offline=navigator.onLine===false;
       if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
@@ -8960,8 +9481,8 @@ finally{ window.__pdfBuilding=false; }
       return true;
     };
     try{
-      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
-        await navigator.share({files:[shareFile]});
+      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:shareFiles})){
+        await navigator.share({files:shareFiles});
         return afterShare();
       }
     }catch(e){
@@ -9010,9 +9531,35 @@ finally{ window.__pdfBuilding=false; }
   let previewZoom=1;
   let previewObjectUrl="";
   let previewPdf=null;
+  let previewPdfs=[];
   let previewGen=0;
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
+  let previewMainBlob=null;
+  let previewHasPage2=false;
+  let previewActiveTab=1;
+  function syncPdfPreviewTabs(hasPage2, active){
+    const tabs=$("pdfPreviewTabs");
+    const t1=$("pdfPreviewTab1");
+    const t2=$("pdfPreviewTab2");
+    if(!tabs) return;
+    tabs.hidden=!hasPage2;
+    tabs.classList.toggle("is-on", !!hasPage2);
+    if(t1) t1.classList.toggle("is-on", active===1);
+    if(t2) t2.classList.toggle("is-on", active===2);
+  }
+  function scrollPreviewToPart(which){
+    const host=$("pdfPreviewPages");
+    const body=host&&host.parentElement;
+    if(!host||!body) return;
+    const labels=host.querySelectorAll(".pdf-preview-part-label");
+    const lab=which===2 ? labels[1] : labels[0];
+    const target=lab || host.querySelector(".pdf-preview-page");
+    if(!target) return;
+    try{ target.scrollIntoView({behavior:"smooth", block:"start"}); }catch(e){
+      body.scrollTop=target.offsetTop||0;
+    }
+  }
   function previewStartZoom(){
     const shortSide=Math.min(window.innerWidth||0, window.innerHeight||0);
     // iPad: the fitted page is a bit small. Two taps on plus is 1.4.
@@ -9077,10 +9624,14 @@ finally{ window.__pdfBuilding=false; }
       try{ task.cancel(); }catch(e){}
     });
     previewRenderTasks=[];
-    if(previewPdf){
-      try{ await previewPdf.cleanup(); }catch(e){}
-      try{ await previewPdf.destroy(); }catch(e){}
-      previewPdf=null;
+    const docs=previewPdfs.slice();
+    if(previewPdf && docs.indexOf(previewPdf)<0) docs.push(previewPdf);
+    previewPdfs=[];
+    previewPdf=null;
+    for(let i=0;i<docs.length;i++){
+      const doc=docs[i];
+      try{ await doc.cleanup(); }catch(e){}
+      try{ await doc.destroy(); }catch(e){}
     }
   }
   function closePdfPreview(){
@@ -9097,6 +9648,10 @@ finally{ window.__pdfBuilding=false; }
       try{ URL.revokeObjectURL(previewObjectUrl); }catch(e){}
       previewObjectUrl="";
     }
+    previewMainBlob=null;
+    previewHasPage2=false;
+    previewActiveTab=1;
+    syncPdfPreviewTabs(false, 1);
     previewZoom=1;
     previewZoomApply();
   }
@@ -9166,7 +9721,8 @@ finally{ window.__pdfBuilding=false; }
     p.textContent=msg||"Vorschau fehlgeschlagen. Bitte erneut tippen.";
     host.appendChild(p);
   }
-  async function renderPdfPagesToHost(pdfjs, blob, host, gen){
+  async function renderPdfPagesToHost(pdfjs, blob, host, gen, opts){
+    opts=opts||{};
     const buf=await blob.arrayBuffer();
     if(gen!==previewGen) return false;
     const data=new Uint8Array(buf.slice(0));
@@ -9183,11 +9739,26 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
     previewPdf=pdf;
-    host.innerHTML="";
+    previewPdfs.push(pdf);
+    if(opts.clear!==false) host.innerHTML="";
+    if(opts.label){
+      const lab=document.createElement("div");
+      lab.className="pdf-preview-part-label";
+      lab.textContent=opts.label;
+      host.appendChild(lab);
+    }
+    const pageLabels=opts.pageLabels||null;
     const avail=previewAvail();
     const dpr=Math.min(2, window.devicePixelRatio||1);
+    let painted=0;
     for(let i=1;i<=pdf.numPages;i++){
       if(gen!==previewGen) return false;
+      if(pageLabels && pageLabels[i]){
+        const lab=document.createElement("div");
+        lab.className="pdf-preview-part-label";
+        lab.textContent=pageLabels[i];
+        host.appendChild(lab);
+      }
       const page=await pdf.getPage(i);
       if(gen!==previewGen) return false;
       const base=page.getViewport({scale:1});
@@ -9209,7 +9780,6 @@ finally{ window.__pdfBuilding=false; }
       frame.dataset.fitH=String(Math.round(cssH));
       frame.style.width=frame.dataset.fitW+"px";
       frame.style.height=frame.dataset.fitH+"px";
-      if(i===pdf.numPages) frame.style.marginBottom="0px";
       canvas.style.width="100%";
       canvas.style.height="100%";
       frame.appendChild(canvas);
@@ -9223,11 +9793,12 @@ finally{ window.__pdfBuilding=false; }
       }
       if(gen!==previewGen) return false;
       host.appendChild(frame);
+      painted++;
       try{ page.cleanup(); }catch(e){}
     }
-    return host.querySelectorAll("canvas").length>0;
+    return painted>0;
   }
-  async function renderPdfPreview(blob){
+  async function renderPdfPreview(blob, hasPage2){
     const host=$("pdfPreviewPages");
     if(!host || !blob) return;
     const gen=++previewGen;
@@ -9236,13 +9807,20 @@ finally{ window.__pdfBuilding=false; }
     host.innerHTML="";
     previewZoom=previewStartZoom();
     previewZoomApply();
+    const pageLabels=hasPage2
+      ? {1:"1 · Servicebericht", 2:"2 · Bemerkungen"}
+      : null;
     try{
       const pdfjs=await loadPdfJs();
       if(gen!==previewGen) return;
-      const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
+      const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
+        clear:true,
+        pageLabels:pageLabels
+      });
       if(gen!==previewGen) return;
-      if(ok){ previewZoomApply(); return; }
-      throw new Error("empty");
+      if(!ok) throw new Error("empty");
+      previewZoomApply();
+      return;
     }catch(e){
       if(gen!==previewGen) return;
       const msg=String((e&&e.message)||e||"");
@@ -9250,7 +9828,10 @@ finally{ window.__pdfBuilding=false; }
       try{
         const pdfjs=await loadPdfJs();
         if(gen!==previewGen) return;
-        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen);
+        const ok=await renderPdfPagesToHost(pdfjs, blob, host, gen, {
+          clear:true,
+          pageLabels:pageLabels
+        });
         if(gen!==previewGen) return;
         if(ok){ previewZoomApply(); return; }
       }catch(e2){}
@@ -9279,14 +9860,33 @@ finally{ window.__pdfBuilding=false; }
   }
   window.showPdfPreview=async function(){
     setStatus("Vorschau wird erstellt…");
+    const wantPage2=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
+    if(wantPage2 && (window.lastPdfPageCount||0) < 2 && typeof window.invalidateStashedPdf==="function")
+      window.invalidateStashedPdf();
     const ready=await window.ensurePdfForCurrentForm();
     if(!ready || !lastPdfBlob){
       setStatus("PDF-Vorschau konnte nicht erstellt werden.");
       return false;
     }
+    // Nach Build nochmal prüfen: gemergtes PDF muss 2 Seiten haben.
+    let pages=window.lastPdfPageCount||0;
+    if(wantPage2 && pages < 2 && typeof window.countPdfPages==="function"){
+      pages=await window.countPdfPages(lastPdfBlob);
+      window.lastPdfPageCount=pages;
+    }
+    const hasPage2=wantPage2 && pages>=2;
+    if(wantPage2 && !hasPage2){
+      setStatus("Blatt 2 fehlt – bitte Vorschau noch einmal tippen.");
+    }
+    previewMainBlob=lastPdfBlob;
+    previewHasPage2=hasPage2;
+    previewActiveTab=1;
     openPdfPreviewSheet();
-    await renderPdfPreview(lastPdfBlob);
-    setStatus("Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
+    syncPdfPreviewTabs(hasPage2, 1);
+    await renderPdfPreview(lastPdfBlob, hasPage2);
+    setStatus(hasPage2
+      ? "Vorschau: 1 PDF, 2 Seiten – Tab „2 · Bemerkungen“ oder nach unten scrollen."
+      : "Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
     return true;
   };
   function startPdfPreview(){
@@ -9300,24 +9900,23 @@ finally{ window.__pdfBuilding=false; }
       ask.then(function(ok){
         if(!ok) return;
         const email=customerPdfEmail();
-        if(email) copyTextNow(email);
-        setStatus(email
-          ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
-          : "PDF wird erstellt…");
+        const clip=emailsForClipboard(email);
+        if(clip) copyTextNow(clip);
+        setStatus("PDF wird erstellt…");
         window.ensurePdfForCurrentForm().then(ready=>{
           if(!ready){
             setStatus("PDF konnte nicht erstellt werden.");
             return;
           }
-          if(email) copyTextNow(email);
+          if(clip) copyTextNow(clip);
           offerHistorySaveBeforeEmail();
         });
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
     $("pdfEmailSend")?.addEventListener("click",()=>{
-      const email=customerPdfEmail();
-      if(email) copyTextNow(email);
+      const clip=emailsForClipboard(customerPdfEmail());
+      if(clip) copyTextNow(clip);
       window.sendPdfByEmail({keepBlob:true});
     });
     $("pdfEmailModal")?.addEventListener("click",e=>{
@@ -9325,8 +9924,8 @@ finally{ window.__pdfBuilding=false; }
     });
     $("historySaveLater")?.addEventListener("click",()=>finishHistorySaveThenEmail(false));
     $("historySaveNow")?.addEventListener("click",()=>{
-      const email=customerPdfEmail();
-      if(email) copyTextNow(email);
+      const clip=emailsForClipboard(customerPdfEmail());
+      if(clip) copyTextNow(clip);
       finishHistorySaveThenEmail(true);
     });
     $("historySaveModal")?.addEventListener("click",e=>{
@@ -9335,6 +9934,21 @@ finally{ window.__pdfBuilding=false; }
     $("pdfPreviewBottom")?.addEventListener("click", startPdfPreview);
     $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
     $("pdfPreviewBack")?.addEventListener("click", closePdfPreview);
+    $("pdfPreviewTab1")?.addEventListener("click",()=>{
+      previewActiveTab=1;
+      syncPdfPreviewTabs(previewHasPage2, 1);
+      if(previewHasPage2) scrollPreviewToPart(1);
+      else if(previewMainBlob) renderPdfPreview(previewMainBlob, false);
+    });
+    $("pdfPreviewTab2")?.addEventListener("click",()=>{
+      if(!previewHasPage2){
+        setStatus("Kein Blatt 2 – zuerst „Bemerkungen-Seite hinzufügen“.");
+        return;
+      }
+      previewActiveTab=2;
+      syncPdfPreviewTabs(true, 2);
+      scrollPreviewToPart(2);
+    });
     $("pdfPreviewSave")?.addEventListener("click",()=>{
       const ask=typeof window.confirmPdfMissingChoices==="function"
         ? window.confirmPdfMissingChoices()
@@ -10486,7 +11100,7 @@ finally{ window.__pdfBuilding=false; }
   ];
   const CUSTOM_KEY="servicebericht_parts_custom_v1";
   const TOMB_KEY="servicebericht_parts_tomb_v1";
-  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.3 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   const DEL_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M10 7V5h4v2m-6 3v8m4-8v8M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function asPartsList(data){
     if(Array.isArray(data)) return data.map(x=>String(x||"").trim()).filter(Boolean);
@@ -10716,59 +11330,366 @@ finally{ window.__pdfBuilding=false; }
     delete results.dataset.place;
   }
   window.closePartsList=closePartsList;
-  function partsTrailingQty(line){
-    const s=String(line||"");
-    const m=s.match(/^(.*?)(\d+[ \t]*[x×])[ \t]*$/i);
-    if(!m) return null;
-    const before=m[1], qty=m[2];
-    if(!String(before).replace(/[-–•\s]/g,"")) return {before: before, qty: qty};
-    if(/[,\s]$/.test(before)) return {before: before, qty: qty};
-    return null;
+  const PARTS_MAX_ROWS=24;
+  let partsTableLock=false;
+  let partsFocusRow=0;
+  function splitPartsQty(text){
+    let s=String(text||"").trim();
+    let menge="";
+    const lead=s.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+    if(lead){ menge=lead[1]; s=String(lead[2]||"").trim(); }
+    else{
+      const trail=s.match(/^(.*?)(?:[, ]+)?(\d+)\s*[x×]\s*$/i);
+      if(trail && String(trail[1]||"").trim()){
+        s=String(trail[1]||"").trim();
+        menge=trail[2];
+      }
+    }
+    return {text:s, menge:menge};
   }
-  function partsLineIndexAt(text, caret){
-    const n=String(text||"");
-    const i=Math.max(0, Math.min(Number(caret)||0, n.length));
-    return n.slice(0, i).split("\n").length-1;
+  function parsePartsCatalogLabel(label){
+    const split=splitPartsQty(label);
+    const s=split.text;
+    if(!s) return {nr:"", name:"", menge:split.menge};
+    const m=s.match(/^(.*?)(?:\s*[,;]?\s*)Art\.?\s*Nr\.?\s*:?\s*(\S+)\s*$/i);
+    if(m) return {nr:String(m[2]||"").trim(), name:String(m[1]||"").trim(), menge:split.menge};
+    const m2=s.match(/^(\S+)\s+(.+)$/);
+    if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim(), menge:split.menge};
+    return {nr:"", name:s, menge:split.menge};
   }
-  function appendPart(line){
+  function lsFieldValue(v){
+    // Wie getippt; altes „LS …“ aus Entwürfen nur für die Anzeige/PDF abstreifen.
+    let s=String(v||"").trim();
+    s=s.replace(/^LS(?:-?\s*Nr\.?)?\s+/i,"").trim();
+    return s;
+  }
+  function looksLikePartsArtChunk(chunk){
+    const s=String(chunk||"").trim();
+    if(!s) return false;
+    if(/^\d+\s*[x×]\b/i.test(s)) return true;
+    if(/Art\.?\s*Nr/i.test(s)) return true;
+    return false;
+  }
+  function formatPartsArtOnly(row){
+    const nr=String(row.nr||"").trim();
+    const name=String(row.name||"").trim();
+    const menge=String(row.menge||"").trim().replace(/\s*[x×]\s*$/i,"");
+    if(!nr && !name && !menge) return "";
+    // PDF: „2x Metaflux Art. Nr. 3408“
+    let art="";
+    if(menge) art=menge+"x";
+    if(name) art=art ? art+" "+name : name;
+    if(nr) art=art ? art+" Art. Nr. "+nr : "Art. Nr. "+nr;
+    return art;
+  }
+  function formatPartsPdfText(rows){
+    const list=rows||[];
+    const lsBits=[];
+    const artBits=[];
+    list.forEach(function(row){
+      const ls=lsFieldValue(row.ls);
+      if(ls) lsBits.push(ls);
+      const art=formatPartsArtOnly(row);
+      if(art) artBits.push(art);
+    });
+    // Zuerst Lieferscheine (wie getippt), dann Artikel.
+    if(lsBits.length && artBits.length) return lsBits.join(", ")+"; "+artBits.join(", ");
+    if(lsBits.length) return lsBits.join(", ");
+    return artBits.join(", ");
+  }
+  function parsePartsRowLine(line){
+    const empty={ls:"", nr:"", name:"", menge:""};
+    const raw=String(line||"").trim();
+    if(!raw) return empty;
+    let ls="";
+    let rest=raw;
+    // Ältere Entwürfe mit „LS …, Artikel…“ / „|“
+    const sep=raw.match(/^LS(?:-?\s*Nr\.?)?\s*([^,|]*)\s*[,|]\s*(.*)$/i);
+    if(sep){
+      ls=lsFieldValue(sep[1]);
+      rest=String(sep[2]||"").trim();
+    }else{
+      const lsOnly=raw.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
+      if(lsOnly){
+        ls=lsFieldValue(lsOnly[1]);
+        rest="";
+      }
+    }
+    const art=parsePartsCatalogLabel(rest);
+    if(!ls && !rest) return empty;
+    return {ls:ls, nr:art.nr, name:art.name||(!art.nr?rest:""), menge:art.menge};
+  }
+  function parsePartsBlobToRows(text){
+    const s=String(text||"").trim();
+    if(!s) return [];
+    // Alt: eine Zeile = eine Position
+    if(/\n/.test(s))
+      return s.split(/\r?\n/).map(function(line){ return parsePartsRowLine(line); })
+        .filter(function(r){ return r.ls||r.nr||r.name||r.menge; });
+    // Alt verschachtelt: „LS …, Art…, LS …, Art…“
+    if(/Art\.?\s*Nr\.[^,|]*,\s*LS\b/i.test(s) || /\|\s*/.test(s)){
+      return s.split(/\s*,\s*(?=LS\b)/i).map(function(chunk){ return parsePartsRowLine(chunk); })
+        .filter(function(r){ return r.ls||r.nr||r.name||r.menge; });
+    }
+    const lsList=[];
+    let arts=[];
+    // Neu: „78451, 10022; 2x Name Art. Nr. 3408, …“
+    if(s.indexOf(";")>=0){
+      const parts=s.split(/\s*;\s*/);
+      const lsPart=String(parts[0]||"").trim();
+      const artPart=parts.slice(1).join("; ").trim();
+      if(lsPart){
+        lsPart.split(/\s*,\s*/).forEach(function(x){
+          const v=lsFieldValue(x);
+          if(v) lsList.push(v);
+        });
+      }
+      if(artPart){
+        arts=artPart.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean);
+      }
+    }else{
+      // Ohne „;“: LS-Blöcke bis zum ersten Artikel-Chunk (oder Legacy „LS …“).
+      const chunks=s.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean);
+      let seenArt=false;
+      chunks.forEach(function(c){
+        if(!seenArt && looksLikePartsArtChunk(c)) seenArt=true;
+        if(!seenArt && /^LS\b/i.test(c) && !looksLikePartsArtChunk(c)){
+          const v=lsFieldValue(c.replace(/^LS\s*/i,""));
+          if(v) lsList.push(v);
+          return;
+        }
+        if(!seenArt){
+          lsList.push(lsFieldValue(c));
+          return;
+        }
+        arts.push(c);
+      });
+    }
+    const n=Math.max(lsList.length, arts.length);
+    const rows=[];
+    for(let i=0;i<n;i++){
+      const art=arts[i] ? parsePartsCatalogLabel(arts[i]) : {nr:"", name:"", menge:""};
+      rows.push({
+        ls:lsList[i]||"",
+        nr:art.nr||"",
+        name:art.name||"",
+        menge:art.menge||""
+      });
+    }
+    return rows;
+  }
+  function readPartsTableRows(){
+    const body=$("partsTableBody");
+    if(!body) return [];
+    return [...body.querySelectorAll(".parts-table-row")].map(row=>{
+      return {
+        ls:row.querySelector('[data-parts="ls"]')?.value||"",
+        nr:row.querySelector('[data-parts="nr"]')?.value||"",
+        name:row.querySelector('[data-parts="name"]')?.value||"",
+        menge:row.querySelector('[data-parts="menge"]')?.value||""
+      };
+    });
+  }
+  function writePartsTextareaFromTable(opts){
+    opts=opts||{};
+    if(partsTableLock && !opts.force) return;
     const el=$("parts");
     if(!el) return;
-    let article=String(line||"").trim();
-    if(!article) return;
-    if(!/,$/.test(article)) article+=",";
-    const cur=String(el.value||"");
-    const lines=cur.split("\n");
-    const caret=el.selectionStart==null?cur.length:el.selectionStart;
-    let idx=partsLineIndexAt(cur, caret);
-    if(String(lines[idx]||"").trim()==="" && idx>0) idx=idx-1;
-    if(String(lines[idx]||"").trim()===""){
-      idx=-1;
-      for(let i=lines.length-1;i>=0;i--){
-        if(String(lines[i]||"").trim()!==""){ idx=i; break; }
+    // PDF-Text: Lieferscheine zuerst, dann Ersatzteile.
+    const next=formatPartsPdfText(readPartsTableRows());
+    if(el.value===next) return;
+    partsTableLock=true;
+    el.value=next;
+    // Kein bubbled input auf #parts – sonst scrollt keepFieldInView zur versteckten Box.
+    if(!opts.quiet){
+      try{
+        el.dispatchEvent(new Event("change",{bubbles:true}));
+        if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
+        if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
+      }catch(e){}
+    }
+    partsTableLock=false;
+  }
+  window.syncPartsTextFromTable=function(){
+    writePartsTextareaFromTable({force:true, quiet:true});
+    return String(($("parts")&&$("parts").value)||"");
+  };
+  function partsRowIsEmpty(row){
+    if(!row) return true;
+    return !String(row.querySelector('[data-parts="ls"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="nr"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="name"]')?.value||"").trim()
+      && !String(row.querySelector('[data-parts="menge"]')?.value||"").trim();
+  }
+  function pruneEmptyPartsRows(){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const rows=[...body.querySelectorAll(".parts-table-row")];
+    // Extra leere Zeilen schließen, mind. 2 behalten.
+    for(let i=rows.length-1;i>=2;i--){
+      if(partsRowIsEmpty(rows[i])) rows[i].remove();
+    }
+  }
+  function makePartsRow(data){
+    data=data||{};
+    const row=document.createElement("div");
+    row.className="parts-table-row";
+    row.innerHTML=
+      '<div class="parts-ls-cell">'+
+        '<input type="text" data-parts="ls" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Lieferschein Nr.">'+
+        '<button type="button" class="parts-clear-ls" title="Nur Lieferschein löschen" aria-label="Lieferschein löschen">×</button>'+
+      '</div>'+
+      '<div class="parts-art-cell">'+
+        '<div class="parts-art-fields">'+
+          '<input type="text" data-parts="nr" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Artikel Nr.">'+
+          '<input type="text" data-parts="name" inputmode="text" autocomplete="off" placeholder="Name" aria-label="Artikel Name">'+
+          '<input type="text" data-parts="menge" inputmode="decimal" autocomplete="off" placeholder="×" aria-label="Menge">'+
+        '</div>'+
+        '<button type="button" class="parts-clear-art" title="Nur Artikel löschen" aria-label="Artikel löschen">×</button>'+
+      '</div>';
+    const ls=row.querySelector('[data-parts="ls"]');
+    const nr=row.querySelector('[data-parts="nr"]');
+    const name=row.querySelector('[data-parts="name"]');
+    const menge=row.querySelector('[data-parts="menge"]');
+    if(ls) ls.value=lsFieldValue(data.ls||"");
+    if(nr) nr.value=data.nr||"";
+    if(name) name.value=data.name||"";
+    if(menge) menge.value=data.menge||"";
+    row.querySelectorAll("input").forEach(inp=>{
+      inp.addEventListener("input", writePartsTextareaFromTable);
+      inp.addEventListener("change", writePartsTextareaFromTable);
+      inp.addEventListener("focus", function(){
+        const body=$("partsTableBody");
+        if(!body) return;
+        partsFocusRow=Math.max(0, [...body.children].indexOf(row));
+      });
+    });
+    row.querySelector(".parts-clear-ls")?.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(ls) ls.value="";
+      writePartsTextareaFromTable({force:true});
+      pruneEmptyPartsRows();
+      writePartsTextareaFromTable({force:true, quiet:true});
+    });
+    row.querySelector(".parts-clear-art")?.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(nr) nr.value="";
+      if(name) name.value="";
+      if(menge) menge.value="";
+      writePartsTextareaFromTable({force:true});
+      pruneEmptyPartsRows();
+      writePartsTextareaFromTable({force:true, quiet:true});
+    });
+    return row;
+  }
+  function ensurePartsRowCount(n){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const want=Math.max(1, Math.min(PARTS_MAX_ROWS, n|0));
+    while(body.children.length < want) body.appendChild(makePartsRow());
+    while(body.children.length > want) body.removeChild(body.lastElementChild);
+  }
+  function syncPartsTableFromTextarea(){
+    const el=$("parts");
+    const body=$("partsTableBody");
+    if(!el || !body) return;
+    partsTableLock=true;
+    const rows=parsePartsBlobToRows(el.value);
+    while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name && !rows[rows.length-1].menge)
+      rows.pop();
+    const count=Math.max(2, Math.min(PARTS_MAX_ROWS, rows.length||2));
+    ensurePartsRowCount(count);
+    [...body.querySelectorAll(".parts-table-row")].forEach((row,i)=>{
+      const d=rows[i]||{ls:"",nr:"",name:"",menge:""};
+      const ls=row.querySelector('[data-parts="ls"]');
+      const nr=row.querySelector('[data-parts="nr"]');
+      const name=row.querySelector('[data-parts="name"]');
+      const menge=row.querySelector('[data-parts="menge"]');
+      if(ls) ls.value=lsFieldValue(d.ls||"");
+      if(nr) nr.value=d.nr||"";
+      if(name) name.value=d.name||"";
+      if(menge) menge.value=d.menge||"";
+    });
+    partsTableLock=false;
+    // Alte Entwürfe auf aktuelles Format normalisieren.
+    writePartsTextareaFromTable({force:true, quiet:true});
+  }
+  window.syncPartsTableFromTextarea=syncPartsTableFromTextarea;
+  function appendPart(line){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const parsed=parsePartsCatalogLabel(line);
+    if(!parsed.nr && !parsed.name) return;
+    let rows=[...body.querySelectorAll(".parts-table-row")];
+    let target=rows[partsFocusRow];
+    function rowEmpty(r){
+      if(!r) return true;
+      return !String(r.querySelector('[data-parts="nr"]')?.value||"").trim()
+        && !String(r.querySelector('[data-parts="name"]')?.value||"").trim()
+        && !String(r.querySelector('[data-parts="menge"]')?.value||"").trim();
+    }
+    if(!rowEmpty(target)){
+      target=rows.find(rowEmpty) || null;
+      if(!target && rows.length < PARTS_MAX_ROWS){
+        body.appendChild(makePartsRow());
+        rows=[...body.querySelectorAll(".parts-table-row")];
+        target=rows[rows.length-1];
       }
     }
-    let caretAt;
-    if(idx<0){
-      el.value=article;
-      caretAt=el.value.length;
-    }else{
-      const tq=partsTrailingQty(lines[idx]);
-      if(tq) lines[idx]=tq.before+tq.qty+" "+article;
-      else{
-        const base=String(lines[idx]||"").replace(/\s+$/,"");
-        const sep=!base ? "" : /,$/.test(base) ? " " : ", ";
-        lines[idx]=base+sep+article;
-      }
-      if(idx<lines.length-1 && lines.slice(idx+1).every(x=>String(x||"").trim()===""))
-        lines.length=idx+1;
-      el.value=lines.join("\n");
-      caretAt=lines.slice(0, idx+1).join("\n").length;
+    if(!target) target=rows[rows.length-1];
+    if(!target) return;
+    const nr=target.querySelector('[data-parts="nr"]');
+    const name=target.querySelector('[data-parts="name"]');
+    const menge=target.querySelector('[data-parts="menge"]');
+    if(nr && parsed.nr) nr.value=parsed.nr;
+    if(name){
+      const cur=String(name.value||"").trim();
+      name.value=parsed.name ? (cur && cur!==parsed.name ? cur+", "+parsed.name : parsed.name) : cur;
     }
-    el.dispatchEvent(new Event("input",{bubbles:true}));
-    try{
-      el.focus();
-      el.setSelectionRange(caretAt, caretAt);
-    }catch(e){}
+    if(menge && parsed.menge && !String(menge.value||"").trim()) menge.value=parsed.menge;
+    partsFocusRow=Math.max(0, [...body.children].indexOf(target));
+    writePartsTextareaFromTable();
+    try{ (menge||name||nr)?.focus(); }catch(e){}
+  }
+  function clearPartsTable(){
+    const body=$("partsTableBody");
+    if(!body) return;
+    if(typeof closePartsList==="function") closePartsList();
+    // Extra Zeilen schließen, Felder leeren – zurück auf 2 leere Zeilen.
+    while(body.firstChild) body.removeChild(body.firstChild);
+    ensurePartsRowCount(2);
+    partsFocusRow=0;
+    writePartsTextareaFromTable({force:true});
+    partsStatus("Ersatzteile-Tabelle geleert.");
+  }
+  window.clearPartsTable=clearPartsTable;
+  function bindPartsTableUi(){
+    const add=$("partsRowAdd");
+    add?.addEventListener("click", function(e){
+      e.preventDefault();
+      const body=$("partsTableBody");
+      if(!body) return;
+      if(body.children.length >= PARTS_MAX_ROWS){
+        partsStatus("Max. "+PARTS_MAX_ROWS+" Zeilen.");
+        return;
+      }
+      body.appendChild(makePartsRow());
+      writePartsTextareaFromTable();
+    });
+    $("partsRowClear")?.addEventListener("click", function(e){
+      e.preventDefault();
+      const body=$("partsTableBody");
+      const hasData=body && [...body.querySelectorAll("input")].some(function(inp){
+        return String(inp.value||"").trim()!=="";
+      });
+      const many=body && body.children.length>2;
+      if((hasData || many) && !window.confirm("Ersatzteile-Tabelle leeren und extra Zeilen schließen?"))
+        return;
+      clearPartsTable();
+    });
+    syncPartsTableFromTextarea();
   }
   function bindPartsInput(bar, results, opts){
     opts=opts||{};
@@ -10925,6 +11846,7 @@ finally{ window.__pdfBuilding=false; }
     }).catch(function(){});
   }
   function bindPartsPlus(){
+    bindPartsTableUi();
     $("partsPlus")?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
@@ -11090,7 +12012,7 @@ finally{ window.__pdfBuilding=false; }
     setTimeout(keepKbInView, 320);
   }
   window.sbKeepKbInView=keepKbInView;
-  ["remarks","parts"].forEach(id=>{
+  ["remarks"].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
     el.addEventListener("focus",()=>{

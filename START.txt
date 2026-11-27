@@ -1,7 +1,7 @@
-Servicebericht – aktualnie v4.0 (main).
-Kopia zapasowa v3.87: BACKUP_V3.87.zip / branch cursor/backup-v387-6ee9 / tag backup-v3.87.
-Szybki powrót: git reset --hard backup-v3.87 && git push --force-with-lease origin main
-  (albo rozpakować BACKUP_V3.87.zip i podmienić pliki apki).
+Servicebericht – aktualnie v5.0 (main).
+Kopia zapasowa v4.0: BACKUP_V4.0.zip (stan main przed scalam v5.0).
+Przywrócenie v4.0: rozpakować BACKUP_V4.0.zip i podmienić pliki apki.
+Kopia v3.87: BACKUP_V3.87.zip / tag backup-v3.87.
 Kopia v3.08: BACKUP_V3.08.zip (starsza).
 
 Servicebericht – V27.6.50

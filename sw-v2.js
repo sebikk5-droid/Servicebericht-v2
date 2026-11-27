@@ -1,4 +1,4 @@
-const CACHE_NAME = "servicebericht-v4-0";
+const CACHE_NAME = "servicebericht-v5-0";
 // companies.json is intentionally omitted — it is not on GitHub Pages and
 // cache.addAll() fails the whole install if any URL 404s (broke offline cold start).
 const APP_SHELL = [
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./vendor/pdf.worker.min.js",
   "./machine-catalog.json",
   "./Leer.pdf",
+  "./Leer-bemerkungen.pdf",
   "./favicon.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
@@ -41,6 +42,7 @@ function isAppAsset(url) {
     path.endsWith("/vendor/pdf.worker.min.js") ||
     path.endsWith("/machine-catalog.json") ||
     path.endsWith("/Leer.pdf") ||
+    path.endsWith("/Leer-bemerkungen.pdf") ||
     path.endsWith("/favicon.png") ||
     /\/icons\/icon-\d+\.png$/.test(path)
   );
@@ -62,7 +64,8 @@ function isPdfAsset(url) {
     path.endsWith("/vendor/pdf-lib.min.js") ||
     path.endsWith("/vendor/pdf.min.js") ||
     path.endsWith("/vendor/pdf.worker.min.js") ||
-    path.endsWith("/Leer.pdf")
+    path.endsWith("/Leer.pdf") ||
+    path.endsWith("/Leer-bemerkungen.pdf")
   );
 }
 
