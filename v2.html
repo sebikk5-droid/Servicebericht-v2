@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.1">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.2">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.1</title>
+  <title>Servicebericht v4.2</title>
 <script>
-window.SB_APP_VERSION="4.1";
+window.SB_APP_VERSION="4.2";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -291,12 +291,24 @@ input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;b
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
 input:read-only,textarea:read-only,input[readonly],textarea[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
-#remarks,#parts{
+#remarks,#remarksPage2,#parts{
   max-height:min(240px,38vh);
   overflow-y:auto;
   overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
+.remarks-page2-actions{margin-top:10px}
+.remarks-page2-actions button,.remarks-page2-head button{
+  flex:none;width:auto;min-height:36px;padding:8px 12px;margin:0;
+  font-size:13px;font-weight:700;border-radius:10px;
+}
+#remarksPage2Add{background:#163a5c;color:#fff;border:0}
+#remarksPage2Remove{background:#e5e5ea;color:#111;border:0}
+.remarks-page2-head{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;
+}
+.remarks-page2-head h2{margin:0}
+.remarks-page2-hint{margin:0 0 8px;font-size:13px;line-height:1.35;color:#555}
 .parts-box{position:relative}
 .parts-box #parts{display:block;padding-bottom:34px}
 .parts-plus{
@@ -1145,7 +1157,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.1</span>
+      <span id="appCreditVer" class="app-ver">v4.2</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1283,6 +1295,17 @@ select.is-nudge,input.is-nudge{
 
 <section class="card" id="remarksCard"><h2>Bemerkungen</h2>
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
+<div class="remarks-page2-actions">
+  <button type="button" id="remarksPage2Add">Bemerkungen-Seite hinzufügen</button>
+</div>
+</section>
+<section class="card" id="remarksPage2Card" hidden>
+  <div class="remarks-page2-head">
+    <h2>Bemerkungen (Seite 2)</h2>
+    <button type="button" id="remarksPage2Remove">Entfernen</button>
+  </div>
+  <p class="remarks-page2-hint">Nur Bemerkungen – als zweites PDF (Blatt 2). Seite 1 bleibt der normale Servicebericht.</p>
+  <textarea id="remarksPage2" placeholder="- Fortsetzung …&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
 <div class="parts-box" id="partsBox">
@@ -1742,7 +1765,7 @@ document.querySelectorAll('#choices input').forEach(el=>{
 });
 </script>
 <script>
-const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let pdfFitFont=null;
+const $=id=>document.getElementById(id); let companies=[]; let lastPdfBlob=null; let lastPdfBemBlob=null; let pdfFitFont=null;
 window.sbOffline=function(){ return navigator.onLine===false; };
 window.sbCachedFile=async function(name, timeoutMs){
   const urls=[name, "./"+String(name||"").replace(/^\.\//,"")];
@@ -2659,7 +2682,9 @@ function resetOpenForm(){
     if(b) b.classList.remove("has-value");
   });
   lastPdfBlob=null;
+  lastPdfBemBlob=null;
   window.lastPdfFormFingerprint="";
+  if(typeof setRemarksPage2Visible==="function") setRemarksPage2Visible(false);
   if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
   else if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   if(typeof applyTodayEinsatzdatum==="function") applyTodayEinsatzdatum();
@@ -3721,6 +3746,11 @@ function pdfFileName(){
   return ["Servicebericht", fileDatePart(iso), initials, nr, firma].filter(Boolean).join("_")+".pdf";
 }
 window.pdfFileName=pdfFileName;
+function pdfFileNameBemerkungen(){
+  const base=String(typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf").replace(/\.pdf$/i,"");
+  return base+"_Bemerkungen.pdf";
+}
+window.pdfFileNameBemerkungen=pdfFileNameBemerkungen;
 function pdfEmailLabel(){
   // Same format as saved PDF (without .pdf) – subject, share title, attachment basename.
   const name=typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf";
@@ -3995,86 +4025,85 @@ function wrapIntoFields(form, names, text, font){
   return leftover.slice();
 }
 const BEMERKUNG_PDF_FIELDS=["Bemerkung1","Bemerkung2","Bemerkung3","Bemerkung4","Bemerkung5","Bemerkung6","Bemerkung7"];
-function countBemerkungExtraPages(font, leftover, form){
-  let left=(leftover||[]).slice();
-  if(!left.length || !font) return 0;
-  const widths=BEMERKUNG_PDF_FIELDS.map(n=>fieldInnerWidth(fieldRectOf(form,n)));
-  let extra=0;
-  while(left.length && extra<8){
-    let size=9;
-    let packed=packFieldLines(font, left, widths, size);
-    while((packed.leftover.length || packed.tooWide) && size>7){
-      size=Math.round((size-0.25)*4)/4;
-      packed=packFieldLines(font, left, widths, size);
-    }
-    let out=packed.lines.slice();
-    let rest=(packed.leftover||[]).slice();
-    while(rest.length && out.length<widths.length){
-      const line=consumeLine(font, rest, size, widths[out.length]);
-      if(line===null) out.push(rest.shift());
-      else out.push(line);
-    }
-    if(rest.length && out.length){
-      const maxW=widths[Math.min(out.length-1, widths.length-1)];
-      let line=out[out.length-1]||"";
-      while(rest.length){
-        const trial=line?line+" "+rest[0]:rest[0];
-        if(font.widthOfTextAtSize(trial, 7)>maxW) break;
-        line=trial;
-        rest.shift();
-      }
-      out[out.length-1]=line;
-    }
-    if(!out.length && rest.length){
-      // Safety: force at least one field so we never spin forever.
-      out.push(rest.shift());
-    }
-    left=rest;
-    extra++;
-  }
-  return extra;
+function remarksPage2Enabled(){
+  const card=$("remarksPage2Card");
+  return !!(card && !card.hidden);
 }
-async function appendBemerkungenFortsetzungPages(mainPdf, leerBytes, leftover, opts){
+window.remarksPage2Enabled=remarksPage2Enabled;
+function setRemarksPage2Visible(on){
+  const card=$("remarksPage2Card");
+  const add=$("remarksPage2Add");
+  if(!card) return;
+  card.hidden=!on;
+  if(add) add.hidden=!!on;
+  if(!on){
+    const ta=$("remarksPage2");
+    if(ta) ta.value="";
+  }
+  try{ if($("blattVon")) $("blattVon").value=on ? "2" : "1"; }catch(e){}
+  try{ if($("blattNr")) $("blattNr").value="1"; }catch(e){}
+}
+window.setRemarksPage2Visible=setRemarksPage2Visible;
+function bindRemarksPage2Ui(){
+  const add=$("remarksPage2Add");
+  const rem=$("remarksPage2Remove");
+  if(add && add.dataset.bound!=="1"){
+    add.dataset.bound="1";
+    add.addEventListener("click",function(e){
+      e.preventDefault();
+      setRemarksPage2Visible(true);
+      try{ $("remarksPage2")?.focus(); }catch(err){}
+      const s=$("status");
+      if(s) s.textContent="Bemerkungen-Seite 2 aktiv – PDF speichert zwei Dateien.";
+    });
+  }
+  if(rem && rem.dataset.bound!=="1"){
+    rem.dataset.bound="1";
+    rem.addEventListener("click",function(e){
+      e.preventDefault();
+      setRemarksPage2Visible(false);
+      const s=$("status");
+      if(s) s.textContent="Bemerkungen-Seite 2 entfernt.";
+    });
+  }
+  // Restore: if draft already has text, show the card.
+  const ta=$("remarksPage2");
+  if(ta && String(ta.value||"").trim()) setRemarksPage2Visible(true);
+  else setRemarksPage2Visible(remarksPage2Enabled());
+}
+if(document.readyState==="loading")
+  document.addEventListener("DOMContentLoaded", bindRemarksPage2Ui, {once:true});
+else bindRemarksPage2Ui();
+/** Second PDF: only Firma + Bemerkungen (Fortsetzung). */
+async function buildBemerkungenOnlyPdfBlob(leerBytes, text, opts){
   opts=opts||{};
-  let left=(leftover||[]).slice();
-  if(!left.length) return 0;
-  const font=opts.font||null;
+  const cont=await PDFLib.PDFDocument.load(leerBytes.slice(0));
+  const contFont=await cont.embedFont(PDFLib.StandardFonts.Helvetica);
+  forceWinAnsiHelvetica(cont);
+  const contForm=cont.getForm();
+  bindPdfFormFont(contForm, contFont);
+  clearPdfForm(contForm);
   const firma=String(opts.firma||"").trim();
   const kundennr=String(opts.kundennr||"").trim();
-  const totalSheets=Math.max(2, Number(opts.totalSheets)||2);
-  let added=0;
-  let pageNo=2;
-  while(left.length && added<8){
-    const cont=await PDFLib.PDFDocument.load(leerBytes.slice(0));
-    const contFont=await cont.embedFont(PDFLib.StandardFonts.Helvetica);
-    forceWinAnsiHelvetica(cont);
-    const contForm=cont.getForm();
-    bindPdfFormFont(contForm, contFont);
-    clearPdfForm(contForm);
-    if(firma) setFit(contForm,"Firma",firma,9);
-    if(kundennr){
-      setIf(contForm,"Kundennummer",kundennr);
-      setIf(contForm,"Kunden-Nr",kundennr);
-    }
-    setFit(contForm,"Text2", String(pageNo), 8);
-    setFit(contForm,"Text3", String(totalSheets), 8);
-    // Mark continuation so the sheet is clearly only remarks overflow.
-    try{ setFit(contForm,"Störung", "Fortsetzung Bemerkungen", 8); }catch(e){}
-    left=wrapIntoFields(contForm, BEMERKUNG_PDF_FIELDS, left.join("\n"), contFont)||[];
-    if(contFont) contForm.updateFieldAppearances(contFont);
-    else contForm.updateFieldAppearances();
-    ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
-      try{ contForm.removeField(contForm.getTextField(name)); }catch(e){}
-    });
-    contForm.flatten({updateFieldAppearances:false});
-    forceWinAnsiHelvetica(cont);
-    scrubPdfForAdobePrint(cont);
-    const pages=await mainPdf.copyPages(cont, cont.getPageIndices());
-    pages.forEach(function(p){ mainPdf.addPage(p); });
-    added++;
-    pageNo++;
+  if(firma) setFit(contForm,"Firma",firma,9);
+  if(kundennr){
+    setIf(contForm,"Kundennummer",kundennr);
+    setIf(contForm,"Kunden-Nr",kundennr);
   }
-  return added;
+  setFit(contForm,"Text2", String(opts.blattNr||"2"), 8);
+  setFit(contForm,"Text3", String(opts.blattVon||"2"), 8);
+  try{ setFit(contForm,"Störung", "Fortsetzung Bemerkungen", 8); }catch(e){}
+  wrapIntoFields(contForm, BEMERKUNG_PDF_FIELDS, text, contFont);
+  if(contFont) contForm.updateFieldAppearances(contFont);
+  else contForm.updateFieldAppearances();
+  ["Unterschrift Servicetechniker","Unterschrift Techniker","Unterschrift Kunde"].forEach(name=>{
+    try{ contForm.removeField(contForm.getTextField(name)); }catch(e){}
+  });
+  contForm.flatten({updateFieldAppearances:false});
+  forceWinAnsiHelvetica(cont);
+  scrubPdfForAdobePrint(cont);
+  const out=await cont.save({useObjectStreams:false, updateFieldAppearances:false});
+  return new Blob([out],{type:"application/pdf"});
 }
 function pdfFieldFontName(){
   return (pdfFitFont && pdfFitFont.name) ? pdfFitFont.name : "Helvetica";
@@ -5325,9 +5354,9 @@ setIf(form,"Steuerung",$("control").value);setIf(form,"NC Version",$("nc").value
 setIf(form,"Störung",$("fault").value);setIf(form,"Betriebsstunden",$("hours").value);
 setIf(form,"Name Servicetechniker",$("tech").value);
 setIf(form,"Name Unterschrift Kunde",$("customersign").value);
+const twoPdfs=typeof remarksPage2Enabled==="function" && remarksPage2Enabled();
 const bemerkungLeftover=wrapIntoFields(form,BEMERKUNG_PDF_FIELDS,$("remarks").value,pdfFitFont)||[];
-const bemerkungExtraPages=countBemerkungExtraPages(pdfFitFont, bemerkungLeftover, form);
-const totalBlatt=1+bemerkungExtraPages;
+const totalBlatt=twoPdfs ? 2 : 1;
 const blattNrUi=String($("blattNr")?.value||"").trim()||"1";
 setFit(form,"Text2", blattNrUi, 8);
 setFit(form,"Text3", String(totalBlatt), 8);
@@ -5470,25 +5499,32 @@ drawPdfTotalsRow(page, pdfFitFont, {
 await embedSignatures(pdf, sigBoxes);
 scrubPdfForAdobePrint(pdf);
 forceWinAnsiHelvetica(pdf);
-if(bemerkungLeftover.length){
-  const added=await appendBemerkungenFortsetzungPages(pdf, bytes, bemerkungLeftover, {
-    font:pdfFitFont,
-    firma:firmaName(),
-    kundennr:$("kundennummer")?.value||"",
-    totalSheets:totalBlatt
-  });
-  if(added){
-    try{ if($("blattVon")) $("blattVon").value=String(1+added); }catch(e){}
-  }
-}
 let out=await pdf.save({useObjectStreams:false, updateFieldAppearances:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
+lastPdfBemBlob=null;
+if(twoPdfs){
+  let page2Text=String($("remarksPage2")?.value||"").trim();
+  if(!page2Text && bemerkungLeftover.length)
+    page2Text=bemerkungLeftover.join("\n");
+  lastPdfBemBlob=await buildBemerkungenOnlyPdfBlob(bytes, page2Text, {
+    firma:firmaName(),
+    kundennr:$("kundennummer")?.value||"",
+    blattNr:"2",
+    blattVon:"2"
+  });
+}
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
 }
-$("status").textContent=bemerkungLeftover.length
-  ? "Fertig – PDF mit Fortsetzung Bemerkungen."
-  : "Fertig – das PDF ist vorbereitet.";
+if(twoPdfs && bemerkungLeftover.length && !String($("remarksPage2")?.value||"").trim()){
+  $("status").textContent="Fertig – 2 PDFs (Rest von Seite 1 steht in Bemerkungen-PDF).";
+}else if(twoPdfs){
+  $("status").textContent="Fertig – 2 PDFs: Servicebericht + Bemerkungen.";
+}else if(bemerkungLeftover.length){
+  $("status").textContent="Fertig – Hinweis: Bemerkungen zu lang. „Bemerkungen-Seite hinzufügen“ für 2. PDF.";
+}else{
+  $("status").textContent="Fertig – das PDF ist vorbereitet.";
+}
 if(!window.__pdfBuildQuiet && typeof window.afterPdfBuilt==="function"){
   try{ await window.afterPdfBuilt(); }catch(e){}
 }
@@ -5618,6 +5654,8 @@ finally{ window.__pdfBuilding=false; }
         norm[k]=v;
       });
       if(typeof selectedPdfKind==="function") norm.__pdfKind=selectedPdfKind();
+      if(typeof window.remarksPage2Enabled==="function")
+        norm.__remarksPage2=window.remarksPage2Enabled()?1:0;
       const raw=JSON.stringify(norm);
       let h=2166136261>>>0;
       for(let i=0;i<raw.length;i++){
@@ -5762,6 +5800,10 @@ finally{ window.__pdfBuilding=false; }
     if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
+    if(typeof window.setRemarksPage2Visible==="function"){
+      const hasPage2=String($("remarksPage2")?.value||"").trim()!=="";
+      window.setRemarksPage2Visible(hasPage2);
+    }
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -6650,7 +6692,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.1";
+  const APP_VERSION=window.SB_APP_VERSION||"4.2";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8661,6 +8703,7 @@ finally{ window.__pdfBuilding=false; }
   };
   window.invalidateStashedPdf=function(){
     lastPdfBlob=null;
+    lastPdfBemBlob=null;
     window.lastPdfFormFingerprint="";
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
@@ -8953,9 +8996,22 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
   }
+  function bemerkungenPdfFile(){
+    if(!lastPdfBemBlob) return null;
+    const name=(typeof window.pdfFileNameBemerkungen==="function")
+      ? window.pdfFileNameBemerkungen()
+      : "Servicebericht_Bemerkungen.pdf";
+    try{
+      return new File([lastPdfBemBlob], name, {type:"application/pdf", lastModified:Date.now()});
+    }catch(e){
+      return null;
+    }
+  }
   async function sharePdfFile(file, label){
     if(!navigator.share || !file) return null;
     const files=[file];
+    const bem=bemerkungenPdfFile();
+    if(bem) files.push(bem);
     // Outlook nimmt den Share-title als Betreff. text weglassen: auf iOS
     // scheitert files+title+text oft und dann bleibt der Betreff leer.
     const attempts=isIosPdfDevice()
@@ -9058,16 +9114,20 @@ finally{ window.__pdfBuilding=false; }
       if(!lastPdfBlob) return false;
       shareFile=new File([lastPdfBlob],filename,{type:"application/pdf",lastModified:Date.now()});
     }
+    const bemFile=bemerkungenPdfFile();
+    const shareFiles=bemFile ? [shareFile, bemFile] : [shareFile];
     const afterShare=function(){
       const offline=navigator.onLine===false;
       if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(offline);
-      setStatus(typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet.");
+      setStatus(bemFile
+        ? "2 PDFs zum Speichern/Teilen bereit (Servicebericht + Bemerkungen)."
+        : (typeof window.offlinePdfShareHint==="function" ? window.offlinePdfShareHint() : "PDF zum Speichern geöffnet."));
       offerPdfEmailAfterSave();
       return true;
     };
     try{
-      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:[shareFile]})){
-        await navigator.share({files:[shareFile]});
+      if(isIosPdfDevice() && navigator.share && navigator.canShare && navigator.canShare({files:shareFiles})){
+        await navigator.share({files:shareFiles});
         return afterShare();
       }
     }catch(e){
@@ -9087,8 +9147,21 @@ finally{ window.__pdfBuilding=false; }
         const writable=await handle.createWritable();
         await writable.write(shareFile);
         await writable.close();
+        if(bemFile){
+          try{
+            const handle2=await window.showSaveFilePicker({
+              suggestedName:bemFile.name||"Servicebericht_Bemerkungen.pdf",
+              types:[{description:"PDF-Datei", accept:{"application/pdf":[".pdf"]}}]
+            });
+            const w2=await handle2.createWritable();
+            await w2.write(bemFile);
+            await w2.close();
+          }catch(e2){
+            if(e2 && e2.name==="AbortError"){ /* main already saved */ }
+          }
+        }
         if(typeof window.markPdfSharePending==="function") window.markPdfSharePending(false);
-        setStatus("PDF wurde gespeichert.");
+        setStatus(bemFile ? "2 PDFs wurden gespeichert." : "PDF wurde gespeichert.");
         offerPdfEmailAfterSave();
         return true;
       }
