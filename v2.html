@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.27">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.28">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.27</title>
+  <title>Servicebericht v4.28</title>
 <script>
-window.SB_APP_VERSION="4.27";
+window.SB_APP_VERSION="4.28";
 /** Firmen-E-Mail – immer in CC / Empfänger-Liste bei PDF-Mail. */
 window.SB_FIRM_EMAIL="Service@Maschinenservice-LG.de";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
@@ -1277,7 +1277,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.27</span>
+      <span id="appCreditVer" class="app-ver">v4.28</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -7022,7 +7022,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.27";
+  const APP_VERSION=window.SB_APP_VERSION||"4.28";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -9168,19 +9168,25 @@ finally{ window.__pdfBuilding=false; }
     return String(window.SB_FIRM_EMAIL||"Service@Maschinenservice-LG.de").trim();
   }
   function emailsForMailto(customerEmail){
-    const to=String(customerEmail||"").trim();
+    const cust=String(customerEmail||"").trim();
     const firm=firmPdfEmail();
-    const same=to && firm && to.toLowerCase()===firm.toLowerCase();
-    return {to:to, cc:(firm && !same) ? firm : ""};
+    const same=cust && firm && cust.toLowerCase()===firm.toLowerCase();
+    // Firma zawsze w „An“ (razem z klientem) – nie tylko CC, żeby od razu widać.
+    if(cust && firm && !same) return {to:cust+", "+firm, cc:""};
+    if(cust) return {to:cust, cc:""};
+    if(firm) return {to:firm, cc:""};
+    return {to:"", cc:""};
   }
   function emailsForClipboard(customerEmail){
     const m=emailsForMailto(customerEmail);
-    if(m.to && m.cc) return m.to+", "+m.cc;
-    return m.to || m.cc || "";
+    return m.to || "";
   }
   function buildPdfMailtoHref(customerEmail, label, body){
     const m=emailsForMailto(customerEmail);
-    let href="mailto:"+(m.to ? encodeURIComponent(m.to) : "");
+    // Adresy z przecinkiem: nie kodować całego „An“, tylko pojedyncze części.
+    const toParts=String(m.to||"").split(/\s*,\s*/).map(function(a){ return a.trim(); }).filter(Boolean);
+    const toPath=toParts.map(function(a){ return encodeURIComponent(a); }).join(",");
+    let href="mailto:"+toPath;
     const q=[];
     if(m.cc) q.push("cc="+encodeURIComponent(m.cc));
     q.push("subject="+encodeURIComponent(label||""));
@@ -9289,8 +9295,8 @@ finally{ window.__pdfBuilding=false; }
     const firm=firmPdfEmail();
     if(hint){
       hint.textContent=email
-        ? ("An "+email+" senden (CC: "+firm+")? In der Freigabe „Mail“ wählen – PDF wird angehängt. Empfänger inkl. Firmen-Mail in der Zwischenablage.")
-        : ("Keine Kunden-E-Mail. Firmen-Mail "+firm+" wird mitgegeben. In der Freigabe „Mail“ wählen – PDF wird angehängt.");
+        ? ("An "+email+" + "+firm+"? In der Freigabe „Mail“ wählen – PDF wird angehängt. Beide Adressen sind in der Zwischenablage.")
+        : ("Keine Kunden-E-Mail – An: "+firm+". In der Freigabe „Mail“ wählen – PDF wird angehängt.");
     }
     if(!modal) return;
     modal.classList.add("is-open");
@@ -9483,7 +9489,7 @@ finally{ window.__pdfBuilding=false; }
     const opened=openMailtoSafe(mailtoHref);
     setStatus(opened
       ? (firm
-        ? "Mail geöffnet – Betreff + CC "+firm+". PDF ist gespeichert, bitte anhängen."
+        ? "Mail geöffnet – Empfänger inkl. Firma, Betreff gesetzt. PDF ist gespeichert, bitte anhängen."
         : "Mail geöffnet – Betreff ausgefüllt. PDF ist gespeichert, bitte anhängen.")
       : "Mail konnte nicht geöffnet werden. PDF ist gespeichert.");
     return opened;
