@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.23">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.24">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.23</title>
+  <title>Servicebericht v4.24</title>
 <script>
-window.SB_APP_VERSION="4.23";
+window.SB_APP_VERSION="4.24";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -387,11 +387,14 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   margin-top:8px;
 }
-.parts-table-tools .parts-row-add{
+.parts-table-tools-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.parts-table-tools .parts-row-add,
+.parts-table-tools .parts-row-clear{
   flex:none;width:auto;min-height:34px;padding:7px 12px;margin:0;
   font-size:13px;font-weight:700;border-radius:10px;
   background:#e5e5ea;color:#111;
 }
+.parts-table-tools .parts-row-clear{background:#f3e8e8;color:#8b1e1e}
 .parts-plus{
   position:static;z-index:3;
   flex:none;width:34px;height:34px;min-height:34px;padding:0;margin:0 0 0 auto;
@@ -1258,7 +1261,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.23</span>
+      <span id="appCreditVer" class="app-ver">v4.24</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1423,7 +1426,10 @@ select.is-nudge,input.is-nudge{
     <div class="parts-table-body" id="partsTableBody"></div>
   </div>
   <div class="parts-table-tools">
-    <button type="button" class="parts-row-add" id="partsRowAdd">+ Zeile</button>
+    <div class="parts-table-tools-left">
+      <button type="button" class="parts-row-add" id="partsRowAdd">+ Zeile</button>
+      <button type="button" class="parts-row-clear" id="partsRowClear" title="Tabelle leeren und extra Zeilen schließen">Leeren</button>
+    </div>
     <button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen" title="Artikel aus Liste">+</button>
   </div>
   <div id="partsResults" class="combo-results" hidden></div>
@@ -7000,7 +7006,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.23";
+  const APP_VERSION=window.SB_APP_VERSION||"4.24";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11560,6 +11566,18 @@ finally{ window.__pdfBuilding=false; }
     writePartsTextareaFromTable();
     try{ (menge||name||nr)?.focus(); }catch(e){}
   }
+  function clearPartsTable(){
+    const body=$("partsTableBody");
+    if(!body) return;
+    if(typeof closePartsList==="function") closePartsList();
+    // Extra Zeilen schließen, Felder leeren – zurück auf 2 leere Zeilen.
+    while(body.firstChild) body.removeChild(body.firstChild);
+    ensurePartsRowCount(2);
+    partsFocusRow=0;
+    writePartsTextareaFromTable({force:true});
+    partsStatus("Ersatzteile-Tabelle geleert.");
+  }
+  window.clearPartsTable=clearPartsTable;
   function bindPartsTableUi(){
     const add=$("partsRowAdd");
     add?.addEventListener("click", function(e){
@@ -11572,6 +11590,17 @@ finally{ window.__pdfBuilding=false; }
       }
       body.appendChild(makePartsRow());
       writePartsTextareaFromTable();
+    });
+    $("partsRowClear")?.addEventListener("click", function(e){
+      e.preventDefault();
+      const body=$("partsTableBody");
+      const hasData=body && [...body.querySelectorAll("input")].some(function(inp){
+        return String(inp.value||"").trim()!=="";
+      });
+      const many=body && body.children.length>2;
+      if((hasData || many) && !window.confirm("Ersatzteile-Tabelle leeren und extra Zeilen schließen?"))
+        return;
+      clearPartsTable();
     });
     syncPartsTableFromTextarea();
   }
