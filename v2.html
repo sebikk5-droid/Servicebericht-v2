@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.3">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.4">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.3</title>
+  <title>Servicebericht v4.4</title>
 <script>
-window.SB_APP_VERSION="4.3";
+window.SB_APP_VERSION="4.4";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -393,7 +393,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfPreviewModal.is-open{display:flex}
 .pdf-preview-top{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 8px;
   background:#fff;border-bottom:1px solid #ccc;flex:0 0 auto;
 }
 .pdf-preview-top h3{margin:0;font-size:17px;font-weight:750}
@@ -402,6 +402,15 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 }
 .pdf-preview-zoom{display:flex;gap:6px}
 .pdf-preview-zoom button{min-width:40px;background:#e5e5ea;color:#111;padding:8px 10px}
+.pdf-preview-tabs{
+  display:none;gap:8px;padding:0 12px 10px;background:#fff;border-bottom:1px solid #ccc;flex:0 0 auto;
+}
+.pdf-preview-tabs.is-on{display:flex}
+.pdf-preview-tabs button{
+  flex:1;min-height:40px;border:1px solid #c5c5cc;border-radius:10px;
+  background:#eef5fb;color:#163a5c;font-size:14px;font-weight:750;padding:8px 10px;
+}
+.pdf-preview-tabs button.is-on{background:#163a5c;color:#fff;border-color:#163a5c}
 .pdf-preview-body{
   flex:1 1 auto;min-height:0;min-width:0;overflow:auto;-webkit-overflow-scrolling:touch;
   padding:12px;background:#c5c5ca;
@@ -1162,7 +1171,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.3</span>
+      <span id="appCreditVer" class="app-ver">v4.4</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1610,6 +1619,10 @@ select.is-nudge,input.is-nudge{
       <button type="button" id="pdfPreviewZoomOut" aria-label="Verkleinern">−</button>
       <button type="button" id="pdfPreviewZoomIn" aria-label="Vergrößern">+</button>
     </div>
+  </div>
+  <div class="pdf-preview-tabs" id="pdfPreviewTabs" hidden>
+    <button type="button" id="pdfPreviewTab1" class="is-on">1 · Servicebericht</button>
+    <button type="button" id="pdfPreviewTab2">2 · Bemerkungen</button>
   </div>
   <div class="pdf-preview-body"><div id="pdfPreviewPages"></div></div>
   <div class="pdf-preview-bottom">
@@ -2688,6 +2701,7 @@ function resetOpenForm(){
   });
   lastPdfBlob=null;
   lastPdfBemBlob=null;
+  window.lastPdfBemBlob=null;
   window.lastPdfFormFingerprint="";
   if(typeof setRemarksPage2Visible==="function") setRemarksPage2Visible(false);
   if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
@@ -5507,6 +5521,7 @@ forceWinAnsiHelvetica(pdf);
 let out=await pdf.save({useObjectStreams:false, updateFieldAppearances:false});
 lastPdfBlob=new Blob([out],{type:"application/pdf"});
 lastPdfBemBlob=null;
+window.lastPdfBemBlob=null;
 if(twoPdfs){
   let page2Text=String($("remarksPage2")?.value||"").trim();
   if(!page2Text && bemerkungLeftover.length)
@@ -5517,6 +5532,7 @@ if(twoPdfs){
     blattNr:"2",
     blattVon:"2"
   });
+  window.lastPdfBemBlob=lastPdfBemBlob;
 }
 if(typeof window.stashGeneratedPdf==="function"){
   await window.stashGeneratedPdf(lastPdfBlob, typeof pdfFileName==="function"?pdfFileName():"Servicebericht.pdf");
@@ -6697,7 +6713,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.3";
+  const APP_VERSION=window.SB_APP_VERSION||"4.4";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -8704,11 +8720,18 @@ finally{ window.__pdfBuilding=false; }
   window.pdfMatchesCurrentForm=function(){
     const fp=currentFormFingerprint();
     const stored=window.lastPdfFormFingerprint || (getMeta()&&getMeta().fingerprint) || "";
-    return !!(lastPdfBlob && fp && stored && stored===fp);
+    if(!(lastPdfBlob && fp && stored && stored===fp)) return false;
+    // Wenn Seite 2 aktiv ist, muss auch das Bemerkungen-PDF da sein.
+    if(typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled()){
+      const bem=window.lastPdfBemBlob || (typeof lastPdfBemBlob!=="undefined" ? lastPdfBemBlob : null);
+      if(!bem) return false;
+    }
+    return true;
   };
   window.invalidateStashedPdf=function(){
     lastPdfBlob=null;
     lastPdfBemBlob=null;
+    window.lastPdfBemBlob=null;
     window.lastPdfFormFingerprint="";
     if(typeof window.syncPdfEmailUi==="function") window.syncPdfEmailUi();
   };
@@ -9001,13 +9024,17 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
   }
+  function currentBemBlob(){
+    return window.lastPdfBemBlob || (typeof lastPdfBemBlob!=="undefined" ? lastPdfBemBlob : null) || null;
+  }
   function bemerkungenPdfFile(){
-    if(!lastPdfBemBlob) return null;
+    const bem=currentBemBlob();
+    if(!bem) return null;
     const name=(typeof window.pdfFileNameBemerkungen==="function")
       ? window.pdfFileNameBemerkungen()
       : "Servicebericht_Bemerkungen.pdf";
     try{
-      return new File([lastPdfBemBlob], name, {type:"application/pdf", lastModified:Date.now()});
+      return new File([bem], name, {type:"application/pdf", lastModified:Date.now()});
     }catch(e){
       return null;
     }
@@ -9198,6 +9225,31 @@ finally{ window.__pdfBuilding=false; }
   let previewGen=0;
   let previewRenderTasks=[];
   let pdfWorkerScriptReady=null;
+  let previewMainBlob=null;
+  let previewBemBlob=null;
+  let previewActiveTab=1;
+  function syncPdfPreviewTabs(hasBem, active){
+    const tabs=$("pdfPreviewTabs");
+    const t1=$("pdfPreviewTab1");
+    const t2=$("pdfPreviewTab2");
+    if(!tabs) return;
+    tabs.hidden=!hasBem;
+    tabs.classList.toggle("is-on", !!hasBem);
+    if(t1) t1.classList.toggle("is-on", active===1);
+    if(t2) t2.classList.toggle("is-on", active===2);
+  }
+  function scrollPreviewToPart(which){
+    const host=$("pdfPreviewPages");
+    const body=host&&host.parentElement;
+    if(!host||!body) return;
+    const labels=host.querySelectorAll(".pdf-preview-part-label");
+    const lab=which===2 ? labels[1] : labels[0];
+    const target=lab || host.querySelector(".pdf-preview-page");
+    if(!target) return;
+    try{ target.scrollIntoView({behavior:"smooth", block:"start"}); }catch(e){
+      body.scrollTop=target.offsetTop||0;
+    }
+  }
   function previewStartZoom(){
     const shortSide=Math.min(window.innerWidth||0, window.innerHeight||0);
     // iPad: the fitted page is a bit small. Two taps on plus is 1.4.
@@ -9286,6 +9338,10 @@ finally{ window.__pdfBuilding=false; }
       try{ URL.revokeObjectURL(previewObjectUrl); }catch(e){}
       previewObjectUrl="";
     }
+    previewMainBlob=null;
+    previewBemBlob=null;
+    previewActiveTab=1;
+    syncPdfPreviewTabs(false, 1);
     previewZoom=1;
     previewZoomApply();
   }
@@ -9500,15 +9556,28 @@ finally{ window.__pdfBuilding=false; }
   }
   window.showPdfPreview=async function(){
     setStatus("Vorschau wird erstellt…");
+    const needBem=typeof window.remarksPage2Enabled==="function" && window.remarksPage2Enabled();
+    let bem=currentBemBlob();
+    if(needBem && !bem && typeof window.invalidateStashedPdf==="function"){
+      window.invalidateStashedPdf();
+    }
     const ready=await window.ensurePdfForCurrentForm();
+    bem=currentBemBlob();
     if(!ready || !lastPdfBlob){
       setStatus("PDF-Vorschau konnte nicht erstellt werden.");
       return false;
     }
+    if(needBem && !bem){
+      setStatus("Bemerkungen-PDF fehlt – bitte noch einmal Vorschau tippen.");
+    }
+    previewMainBlob=lastPdfBlob;
+    previewBemBlob=bem;
+    previewActiveTab=1;
     openPdfPreviewSheet();
-    await renderPdfPreview(lastPdfBlob, lastPdfBemBlob||null);
-    setStatus(lastPdfBemBlob
-      ? "Vorschau: PDF 1 + PDF 2 (Bemerkungen) – nach unten scrollen."
+    syncPdfPreviewTabs(!!bem, 1);
+    await renderPdfPreview(lastPdfBlob, bem||null);
+    setStatus(bem
+      ? "Vorschau: oben Tab „2 · Bemerkungen“ oder nach unten scrollen."
       : "Vorschau – vor der Unterschrift prüfen, dann PDF speichern.");
     return true;
   };
@@ -9558,6 +9627,21 @@ finally{ window.__pdfBuilding=false; }
     $("pdfPreviewBottom")?.addEventListener("click", startPdfPreview);
     $("pdfPreviewClose")?.addEventListener("click", closePdfPreview);
     $("pdfPreviewBack")?.addEventListener("click", closePdfPreview);
+    $("pdfPreviewTab1")?.addEventListener("click",()=>{
+      previewActiveTab=1;
+      syncPdfPreviewTabs(!!previewBemBlob, 1);
+      if(previewBemBlob) scrollPreviewToPart(1);
+      else if(previewMainBlob) renderPdfPreview(previewMainBlob, null);
+    });
+    $("pdfPreviewTab2")?.addEventListener("click",()=>{
+      if(!previewBemBlob){
+        setStatus("Kein Bemerkungen-PDF – zuerst „Bemerkungen-Seite hinzufügen“.");
+        return;
+      }
+      previewActiveTab=2;
+      syncPdfPreviewTabs(true, 2);
+      scrollPreviewToPart(2);
+    });
     $("pdfPreviewSave")?.addEventListener("click",()=>{
       const ask=typeof window.confirmPdfMissingChoices==="function"
         ? window.confirmPdfMissingChoices()
