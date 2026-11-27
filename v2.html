@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.17">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.18">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.17</title>
+  <title>Servicebericht v4.18</title>
 <script>
-window.SB_APP_VERSION="4.17";
+window.SB_APP_VERSION="4.18";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1258,7 +1258,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.17</span>
+      <span id="appCreditVer" class="app-ver">v4.18</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -6995,7 +6995,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.17";
+  const APP_VERSION=window.SB_APP_VERSION||"4.18";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11305,7 +11305,7 @@ finally{ window.__pdfBuilding=false; }
     delete results.dataset.place;
   }
   window.closePartsList=closePartsList;
-  const PARTS_MAX_ROWS=4;
+  const PARTS_MAX_ROWS=24;
   let partsTableLock=false;
   let partsFocusRow=0;
   function splitPartsQty(text){
@@ -11338,11 +11338,22 @@ finally{ window.__pdfBuilding=false; }
     const name=String(row.name||"").trim();
     const menge=String(row.menge||"").trim();
     if(!ls && !nr && !name && !menge) return "";
+    // Kein Komma vor Menge – Kommas trennen Positionen im PDF.
     let art=[nr, name].filter(Boolean).join(" ");
-    if(menge) art=art ? art+", "+menge+"x" : menge+"x";
+    if(menge) art=art ? art+" "+menge+"x" : menge+"x";
     if(ls && art) return "LS "+ls+" | "+art;
     if(ls) return "LS "+ls;
     return art;
+  }
+  function splitPartsStoredText(text){
+    const s=String(text||"").trim();
+    if(!s) return [];
+    // Alt: eine Zeile = eine PDF-Zeile.
+    if(/\n/.test(s)) return s.split(/\r?\n/).map(x=>String(x||"").trim()).filter(Boolean);
+    // Neu: Positionen durch Komma, PDF bricht automatisch um.
+    if(/\bLS\b/i.test(s))
+      return s.split(/\s*,\s*(?=LS\b)/i).map(x=>String(x||"").trim()).filter(Boolean);
+    return s.split(/\s*,\s*/).map(x=>String(x||"").trim()).filter(Boolean);
   }
   function parsePartsRowLine(line){
     const empty={ls:"", nr:"", name:"", menge:""};
@@ -11387,9 +11398,9 @@ finally{ window.__pdfBuilding=false; }
     if(partsTableLock) return;
     const el=$("parts");
     if(!el) return;
-    const lines=readPartsTableRows().map(formatPartsRowLine);
-    while(lines.length && !String(lines[lines.length-1]||"").trim()) lines.pop();
-    const next=lines.join("\n");
+    const lines=readPartsTableRows().map(formatPartsRowLine).filter(Boolean);
+    // Ein Fließtext mit Kommas → wrapIntoFields füllt Ersatzteile 1–4.
+    const next=lines.join(", ");
     if(el.value===next) return;
     partsTableLock=true;
     el.value=next;
@@ -11440,12 +11451,7 @@ finally{ window.__pdfBuilding=false; }
     const body=$("partsTableBody");
     if(!el || !body) return;
     partsTableLock=true;
-    const lines=String(el.value||"").split(/\n/);
-    const rows=[];
-    lines.forEach(line=>{
-      if(!String(line||"").trim() && !rows.length) return;
-      rows.push(parsePartsRowLine(line));
-    });
+    const rows=splitPartsStoredText(el.value).map(parsePartsRowLine);
     while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name && !rows[rows.length-1].menge)
       rows.pop();
     const count=Math.max(2, Math.min(PARTS_MAX_ROWS, rows.length||2));
@@ -11507,7 +11513,7 @@ finally{ window.__pdfBuilding=false; }
       const body=$("partsTableBody");
       if(!body) return;
       if(body.children.length >= PARTS_MAX_ROWS){
-        partsStatus("Max. 4 Zeilen (wie im PDF).");
+        partsStatus("Max. "+PARTS_MAX_ROWS+" Zeilen.");
         return;
       }
       body.appendChild(makePartsRow());
