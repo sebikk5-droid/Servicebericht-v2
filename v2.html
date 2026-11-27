@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.15">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.16">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.15</title>
+  <title>Servicebericht v4.16</title>
 <script>
-window.SB_APP_VERSION="4.15";
+window.SB_APP_VERSION="4.16";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -292,12 +292,13 @@ input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;b
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
 input:read-only,textarea:read-only,input[readonly],textarea[readonly]{background:#f3f3f6;border-color:#d8d8de;color:#444}
 textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
-#remarks,#remarksPage2,#parts{
+#remarks,#remarksPage2{
   max-height:min(240px,38vh);
   overflow-y:auto;
   overscroll-behavior:auto;
   -webkit-overflow-scrolling:touch;
 }
+#parts{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;white-space:nowrap}
 .remarks-page2-actions{margin-top:10px}
 .remarks-page2-actions button,.remarks-page2-head button{
   flex:none;width:auto;min-height:36px;padding:8px 12px;margin:0;
@@ -311,18 +312,102 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
 .remarks-page2-head h2{margin:0}
 .remarks-page2-hint{margin:0 0 8px;font-size:13px;line-height:1.35;color:#555}
 .parts-box{position:relative}
-.parts-box #parts{display:block;padding-bottom:34px}
+.parts-table{
+  width:100%;
+  border:1px solid #c9c9ce;
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+}
+.parts-table-head,.parts-table-subhead,.parts-table-row{
+  display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(0,1.55fr);
+  gap:0;
+}
+.parts-table-head{
+  background:#eef1f5;
+  border-bottom:1px solid #c9c9ce;
+}
+.parts-table-head > div{
+  padding:8px 10px 4px;
+  font-size:13px;font-weight:800;letter-spacing:.02em;
+  color:#163a5c;text-transform:none;
+}
+.parts-table-head .parts-art-title{
+  border-left:1px solid #c9c9ce;
+  text-align:left;
+}
+.parts-table-subhead{
+  background:#f6f7f9;
+  border-bottom:1px solid #c9c9ce;
+}
+.parts-table-subhead > div:first-child{
+  padding:0 10px 6px;
+  font-size:11px;font-weight:700;color:#666;
+}
+.parts-col-art-head{
+  display:grid;
+  grid-template-columns:minmax(72px,.7fr) minmax(0,1.4fr);
+  gap:0;
+  border-left:1px solid #c9c9ce;
+}
+.parts-col-art-head span{
+  padding:0 10px 6px;
+  font-size:11px;font-weight:700;color:#555;
+  border-left:1px solid #d7d7dc;
+}
+.parts-col-art-head span:first-child{border-left:0}
+.parts-table-row{
+  border-top:1px solid #ddd;
+  align-items:stretch;
+}
+.parts-table-row:first-of-type{border-top:0}
+.parts-ls-cell,.parts-art-cell{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;
+  min-width:0;
+}
+.parts-art-cell{
+  border-left:1px solid #c9c9ce;
+  display:grid;
+  grid-template-columns:minmax(72px,.7fr) minmax(0,1.4fr);
+  gap:6px;
+  padding:6px 8px;
+}
+.parts-ls-prefix{
+  flex:none;font-size:13px;font-weight:800;color:#333;min-width:1.6em;
+}
+.parts-table input{
+  width:100%;min-width:0;margin:0;
+  font-size:14px;padding:8px 9px;border-radius:8px;
+  background:#e8e8ed;border:1px solid #d0d0d6;
+}
+.parts-table-tools{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:8px;
+}
+.parts-table-tools .parts-row-add{
+  flex:none;width:auto;min-height:34px;padding:7px 12px;margin:0;
+  font-size:13px;font-weight:700;border-radius:10px;
+  background:#e5e5ea;color:#111;
+}
 .parts-plus{
-  position:absolute;right:6px;bottom:6px;z-index:3;
-  flex:none;width:28px;height:28px;min-height:28px;padding:0;margin:0;
+  position:static;z-index:3;
+  flex:none;width:34px;height:34px;min-height:34px;padding:0;margin:0 0 0 auto;
   border:0;border-radius:50%;
   background:#163a5c;color:#fff;
-  font-size:20px;font-weight:600;line-height:1;
+  font-size:22px;font-weight:600;line-height:1;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 1px 3px rgba(0,0,0,.16);
   cursor:pointer;
 }
 .parts-plus:active{transform:scale(.96)}
+@media (max-width:420px){
+  .parts-table-head,.parts-table-subhead,.parts-table-row{grid-template-columns:1fr}
+  .parts-table-head .parts-art-title,.parts-col-art-head,.parts-art-cell{border-left:0;border-top:1px solid #ddd}
+  .parts-table-subhead > div:first-child{display:none}
+  .parts-ls-cell{padding-bottom:2px}
+}
 #partsResults.combo-results{
   border-radius:8px;
   padding:5px;
@@ -1172,7 +1257,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.15</span>
+      <span id="appCreditVer" class="app-ver">v4.16</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -1324,9 +1409,23 @@ select.is-nudge,input.is-nudge{
 </section>
 <section class="card"><h2>Ersatzteile</h2>
 <div class="parts-box" id="partsBox">
-<textarea id="parts" placeholder="- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
-<button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen">+</button>
-<div id="partsResults" class="combo-results" hidden></div>
+  <textarea id="parts" hidden aria-hidden="true" tabindex="-1" autocomplete="off"></textarea>
+  <div class="parts-table" id="partsTable" aria-label="Lieferschein und Artikel">
+    <div class="parts-table-head">
+      <div>Lieferschein</div>
+      <div class="parts-art-title">Artikel</div>
+    </div>
+    <div class="parts-table-subhead">
+      <div></div>
+      <div class="parts-col-art-head"><span>Nr.</span><span>Name</span></div>
+    </div>
+    <div class="parts-table-body" id="partsTableBody"></div>
+  </div>
+  <div class="parts-table-tools">
+    <button type="button" class="parts-row-add" id="partsRowAdd">+ Zeile</button>
+    <button type="button" class="parts-plus" id="partsPlus" aria-label="Ersatzteil aus der Liste wählen" title="Artikel aus Liste">+</button>
+  </div>
+  <div id="partsResults" class="combo-results" hidden></div>
 </div>
 </section>
 
@@ -2726,6 +2825,7 @@ function resetOpenForm(){
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
   if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
   if(typeof window.finishFormReset==="function") window.finishFormReset();
+  if(typeof window.syncPartsTableFromTextarea==="function") window.syncPartsTableFromTextarea();
   const s=$("status");
   if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
   const scroller=document.querySelector("main");
@@ -5999,6 +6099,7 @@ finally{ window.__pdfBuilding=false; }
     // Nach Restore: rote Tag-Buttons neu bewerten (input-Events feuern bei .value= nicht).
     if(typeof window.syncDayJumps==="function") window.syncDayJumps();
     else if(typeof window.paintDayJumps==="function") window.paintDayJumps();
+    if(typeof window.syncPartsTableFromTextarea==="function") window.syncPartsTableFromTextarea();
   }
   function historyItemData(item){
     if(!item || typeof item!=="object") return null;
@@ -6893,7 +6994,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.15";
+  const APP_VERSION=window.SB_APP_VERSION||"4.16";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11203,59 +11304,184 @@ finally{ window.__pdfBuilding=false; }
     delete results.dataset.place;
   }
   window.closePartsList=closePartsList;
-  function partsTrailingQty(line){
-    const s=String(line||"");
-    const m=s.match(/^(.*?)(\d+[ \t]*[x×])[ \t]*$/i);
-    if(!m) return null;
-    const before=m[1], qty=m[2];
-    if(!String(before).replace(/[-–•\s]/g,"")) return {before: before, qty: qty};
-    if(/[,\s]$/.test(before)) return {before: before, qty: qty};
-    return null;
+  const PARTS_MAX_ROWS=4;
+  let partsTableLock=false;
+  let partsFocusRow=0;
+  function parsePartsCatalogLabel(label){
+    const s=String(label||"").trim();
+    if(!s) return {nr:"", name:""};
+    const m=s.match(/^(.*?)(?:\s*[,;]?\s*)Art\.?\s*Nr\.?\s*:?\s*(\S+)\s*$/i);
+    if(m) return {nr:String(m[2]||"").trim(), name:String(m[1]||"").trim()};
+    const m2=s.match(/^(\S+)\s+(.+)$/);
+    if(m2 && /^\d[\w.\-\/]*$/.test(m2[1])) return {nr:m2[1], name:m2[2].trim()};
+    return {nr:"", name:s};
   }
-  function partsLineIndexAt(text, caret){
-    const n=String(text||"");
-    const i=Math.max(0, Math.min(Number(caret)||0, n.length));
-    return n.slice(0, i).split("\n").length-1;
+  function formatPartsRowLine(row){
+    const ls=String(row.ls||"").trim();
+    const nr=String(row.nr||"").trim();
+    const name=String(row.name||"").trim();
+    if(!ls && !nr && !name) return "";
+    const art=[nr, name].filter(Boolean).join(" ");
+    if(ls && art) return "LS "+ls+" | "+art;
+    if(ls) return "LS "+ls;
+    return art;
   }
-  function appendPart(line){
+  function parsePartsRowLine(line){
+    const s=String(line||"").trim();
+    if(!s) return {ls:"", nr:"", name:""};
+    const pipe=s.match(/^LS(?:-?\s*Nr\.?)?\s*([^|]*)\|\s*(.*)$/i);
+    if(pipe){
+      const ls=String(pipe[1]||"").trim();
+      const art=parsePartsCatalogLabel(String(pipe[2]||"").trim());
+      return {ls:ls, nr:art.nr, name:art.name||String(pipe[2]||"").trim()};
+    }
+    const lsOnly=s.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
+    if(lsOnly){
+      const rest=String(lsOnly[1]||"").trim();
+      const bits=rest.split(/\s+/);
+      if(bits.length>=2 && /^\d/.test(bits[1])){
+        return {ls:bits[0], nr:bits[1], name:bits.slice(2).join(" ")};
+      }
+      return {ls:rest, nr:"", name:""};
+    }
+    const art=parsePartsCatalogLabel(s);
+    return {ls:"", nr:art.nr, name:art.name||s};
+  }
+  function readPartsTableRows(){
+    const body=$("partsTableBody");
+    if(!body) return [];
+    return [...body.querySelectorAll(".parts-table-row")].map(row=>{
+      return {
+        ls:row.querySelector('[data-parts="ls"]')?.value||"",
+        nr:row.querySelector('[data-parts="nr"]')?.value||"",
+        name:row.querySelector('[data-parts="name"]')?.value||""
+      };
+    });
+  }
+  function writePartsTextareaFromTable(){
+    if(partsTableLock) return;
     const el=$("parts");
     if(!el) return;
-    let article=String(line||"").trim();
-    if(!article) return;
-    if(!/,$/.test(article)) article+=",";
-    const cur=String(el.value||"");
-    const lines=cur.split("\n");
-    const caret=el.selectionStart==null?cur.length:el.selectionStart;
-    let idx=partsLineIndexAt(cur, caret);
-    if(String(lines[idx]||"").trim()==="" && idx>0) idx=idx-1;
-    if(String(lines[idx]||"").trim()===""){
-      idx=-1;
-      for(let i=lines.length-1;i>=0;i--){
-        if(String(lines[i]||"").trim()!==""){ idx=i; break; }
-      }
-    }
-    let caretAt;
-    if(idx<0){
-      el.value=article;
-      caretAt=el.value.length;
-    }else{
-      const tq=partsTrailingQty(lines[idx]);
-      if(tq) lines[idx]=tq.before+tq.qty+" "+article;
-      else{
-        const base=String(lines[idx]||"").replace(/\s+$/,"");
-        const sep=!base ? "" : /,$/.test(base) ? " " : ", ";
-        lines[idx]=base+sep+article;
-      }
-      if(idx<lines.length-1 && lines.slice(idx+1).every(x=>String(x||"").trim()===""))
-        lines.length=idx+1;
-      el.value=lines.join("\n");
-      caretAt=lines.slice(0, idx+1).join("\n").length;
-    }
+    const lines=readPartsTableRows().map(formatPartsRowLine);
+    while(lines.length && !String(lines[lines.length-1]||"").trim()) lines.pop();
+    const next=lines.join("\n");
+    if(el.value===next) return;
+    partsTableLock=true;
+    el.value=next;
     el.dispatchEvent(new Event("input",{bubbles:true}));
-    try{
-      el.focus();
-      el.setSelectionRange(caretAt, caretAt);
-    }catch(e){}
+    partsTableLock=false;
+  }
+  function makePartsRow(data){
+    data=data||{};
+    const row=document.createElement("div");
+    row.className="parts-table-row";
+    row.innerHTML=
+      '<div class="parts-ls-cell">'+
+        '<span class="parts-ls-prefix">LS</span>'+
+        '<input type="text" data-parts="ls" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Lieferschein Nr.">'+
+      '</div>'+
+      '<div class="parts-art-cell">'+
+        '<input type="text" data-parts="nr" inputmode="text" autocomplete="off" placeholder="Nr." aria-label="Artikel Nr.">'+
+        '<input type="text" data-parts="name" inputmode="text" autocomplete="off" placeholder="Name" aria-label="Artikel Name">'+
+      '</div>';
+    const ls=row.querySelector('[data-parts="ls"]');
+    const nr=row.querySelector('[data-parts="nr"]');
+    const name=row.querySelector('[data-parts="name"]');
+    if(ls) ls.value=data.ls||"";
+    if(nr) nr.value=data.nr||"";
+    if(name) name.value=data.name||"";
+    row.querySelectorAll("input").forEach(inp=>{
+      inp.addEventListener("input", writePartsTextareaFromTable);
+      inp.addEventListener("change", writePartsTextareaFromTable);
+      inp.addEventListener("focus", function(){
+        const body=$("partsTableBody");
+        if(!body) return;
+        partsFocusRow=Math.max(0, [...body.children].indexOf(row));
+      });
+    });
+    return row;
+  }
+  function ensurePartsRowCount(n){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const want=Math.max(1, Math.min(PARTS_MAX_ROWS, n|0));
+    while(body.children.length < want) body.appendChild(makePartsRow());
+    while(body.children.length > want) body.removeChild(body.lastElementChild);
+  }
+  function syncPartsTableFromTextarea(){
+    const el=$("parts");
+    const body=$("partsTableBody");
+    if(!el || !body) return;
+    partsTableLock=true;
+    const lines=String(el.value||"").split(/\n/);
+    const rows=[];
+    lines.forEach(line=>{
+      if(!String(line||"").trim() && !rows.length) return;
+      rows.push(parsePartsRowLine(line));
+    });
+    while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name)
+      rows.pop();
+    const count=Math.max(2, Math.min(PARTS_MAX_ROWS, rows.length||2));
+    ensurePartsRowCount(count);
+    [...body.querySelectorAll(".parts-table-row")].forEach((row,i)=>{
+      const d=rows[i]||{ls:"",nr:"",name:""};
+      const ls=row.querySelector('[data-parts="ls"]');
+      const nr=row.querySelector('[data-parts="nr"]');
+      const name=row.querySelector('[data-parts="name"]');
+      if(ls) ls.value=d.ls||"";
+      if(nr) nr.value=d.nr||"";
+      if(name) name.value=d.name||"";
+    });
+    partsTableLock=false;
+  }
+  window.syncPartsTableFromTextarea=syncPartsTableFromTextarea;
+  function appendPart(line){
+    const body=$("partsTableBody");
+    if(!body) return;
+    const parsed=parsePartsCatalogLabel(line);
+    if(!parsed.nr && !parsed.name) return;
+    let rows=[...body.querySelectorAll(".parts-table-row")];
+    let target=rows[partsFocusRow];
+    function rowEmpty(r){
+      if(!r) return true;
+      return !String(r.querySelector('[data-parts="nr"]')?.value||"").trim()
+        && !String(r.querySelector('[data-parts="name"]')?.value||"").trim();
+    }
+    if(!rowEmpty(target)){
+      target=rows.find(rowEmpty) || null;
+      if(!target && rows.length < PARTS_MAX_ROWS){
+        body.appendChild(makePartsRow());
+        rows=[...body.querySelectorAll(".parts-table-row")];
+        target=rows[rows.length-1];
+      }
+    }
+    if(!target) target=rows[rows.length-1];
+    if(!target) return;
+    const nr=target.querySelector('[data-parts="nr"]');
+    const name=target.querySelector('[data-parts="name"]');
+    if(nr && parsed.nr) nr.value=parsed.nr;
+    if(name){
+      const cur=String(name.value||"").trim();
+      name.value=parsed.name ? (cur && cur!==parsed.name ? cur+", "+parsed.name : parsed.name) : cur;
+    }
+    partsFocusRow=Math.max(0, [...body.children].indexOf(target));
+    writePartsTextareaFromTable();
+    try{ (name||nr)?.focus(); }catch(e){}
+  }
+  function bindPartsTableUi(){
+    const add=$("partsRowAdd");
+    add?.addEventListener("click", function(e){
+      e.preventDefault();
+      const body=$("partsTableBody");
+      if(!body) return;
+      if(body.children.length >= PARTS_MAX_ROWS){
+        partsStatus("Max. 4 Zeilen (wie im PDF).");
+        return;
+      }
+      body.appendChild(makePartsRow());
+      writePartsTextareaFromTable();
+    });
+    syncPartsTableFromTextarea();
   }
   function bindPartsInput(bar, results, opts){
     opts=opts||{};
@@ -11412,6 +11638,7 @@ finally{ window.__pdfBuilding=false; }
     }).catch(function(){});
   }
   function bindPartsPlus(){
+    bindPartsTableUi();
     $("partsPlus")?.addEventListener("click",e=>{
       e.preventDefault();
       e.stopPropagation();
