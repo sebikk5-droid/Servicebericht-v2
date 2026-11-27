@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v3.87">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.0">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,17 +14,86 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v3.87</title>
+  <title>Servicebericht v4.0</title>
 <script>
-window.SB_APP_VERSION="3.87";
+window.SB_APP_VERSION="4.0";
+/** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
+window.SB_RELEASE_NOTES=[];
+window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
+(function(){
+  try{
+    var ua=navigator.userAgent||"";
+    var shortSide=Math.min(screen.width||0, screen.height||0);
+    var iphone=/iPhone|iPod/i.test(ua);
+    var phone=iphone || (!/iPad/i.test(ua) && shortSide>0 && shortSide<600 && (navigator.maxTouchPoints||0)>0);
+    if(phone) document.documentElement.classList.add("is-iphone");
+  }catch(e){}
+})();
+window.SB_HOLD_RELOAD_UNTIL=0;
+window.sbHoldReload=function(ms){
+  const until=Date.now()+(ms||120000);
+  if(until>(window.SB_HOLD_RELOAD_UNTIL||0)) window.SB_HOLD_RELOAD_UNTIL=until;
+};
+window.sbReloadHeld=function(){
+  return Date.now()<(window.SB_HOLD_RELOAD_UNTIL||0);
+};
 (function(){
   function remoteVersion(m){
     const s=String((m&&(m.short_name||m.name))||"");
     const x=s.match(/v(\d+(?:\.\d+)*)/i);
     return x?x[1]:"";
   }
+  function compareVer(a,b){
+    const pa=String(a||"").split(".").map(function(n){ return parseInt(n,10)||0; });
+    const pb=String(b||"").split(".").map(function(n){ return parseInt(n,10)||0; });
+    const n=Math.max(pa.length, pb.length);
+    for(let i=0;i<n;i++){
+      const x=pa[i]||0, y=pb[i]||0;
+      if(x>y) return 1;
+      if(x<y) return -1;
+    }
+    return 0;
+  }
+  function paintVersionStatus(remote){
+    window.SB_LIVE_VERSION=remote||"";
+    const credit=document.getElementById("appCredit");
+    const verEl=document.getElementById("appCreditVer");
+    const btn=document.getElementById("appReloadBtn");
+    if(!credit){
+      if(document.readyState==="loading"){
+        document.addEventListener("DOMContentLoaded", function(){ paintVersionStatus(remote); }, {once:true});
+      }
+      return;
+    }
+    const local=window.SB_APP_VERSION||"";
+    credit.classList.remove("is-current","is-stale","is-unknown");
+    if(verEl) verEl.textContent="v"+local;
+    if(!remote){
+      credit.classList.add("is-unknown");
+      credit.title="Neueste Version laden";
+      if(btn) btn.title="Neueste Version laden";
+      return;
+    }
+    if(compareVer(remote, local)>0){
+      credit.classList.add("is-stale");
+      credit.title="Neue Version v"+remote+" – tippen zum Laden";
+      if(btn){
+        btn.title="Neue Version v"+remote+" laden";
+        btn.setAttribute("aria-label","Neue Version v"+remote+" laden");
+      }
+    }else{
+      credit.classList.add("is-current");
+      credit.title="Aktuell v"+local;
+      if(btn){
+        btn.title="Neueste Version laden";
+        btn.setAttribute("aria-label","Neueste Version laden");
+      }
+    }
+  }
+  window.SB_PAINT_VERSION=paintVersionStatus;
   function go(ver){
     if(!ver || ver===window.SB_APP_VERSION) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
     try{
       // Prevent endless replace when SW still serves a stale HTML shell.
       if(sessionStorage.getItem("sb_ver_go")==="1") return;
@@ -44,11 +113,14 @@ window.SB_APP_VERSION="3.87";
       return r&&r.ok?r.json():null;
     }).then(function(m){
       const ver=remoteVersion(m);
-      if(ver && ver!==window.SB_APP_VERSION) go(ver);
+      paintVersionStatus(ver);
+      if(ver && compareVer(ver, window.SB_APP_VERSION)>0) go(ver);
       else{
         try{ sessionStorage.removeItem("sb_ver_go"); }catch(e){}
       }
-    }).catch(function(){});
+    }).catch(function(){
+      paintVersionStatus("");
+    });
     try{
       if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
         navigator.serviceWorker.getRegistration().then(function(reg){
@@ -69,6 +141,7 @@ window.SB_APP_VERSION="3.87";
       navigator.serviceWorker.register("./sw-v2.js?v="+window.SB_APP_VERSION,{updateViaCache:"none"}).catch(function(){});
       navigator.serviceWorker.addEventListener("controllerchange", function(){
         if(!had) return;
+        if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
         try{
           if(sessionStorage.getItem("sb_sw_reload")) return;
           sessionStorage.setItem("sb_sw_reload","1");
@@ -79,8 +152,85 @@ window.SB_APP_VERSION="3.87";
   }catch(e){}
   window.SB_CHECK_LIVE=checkLive;
   checkLive();
-  document.addEventListener("visibilitychange", function(){ if(!document.hidden) checkLive(); });
-  window.addEventListener("pageshow", function(ev){ if(ev.persisted) checkLive(); });
+  document.addEventListener("visibilitychange", function(){
+    if(document.hidden) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
+  window.addEventListener("pageshow", function(ev){
+    if(!ev.persisted) return;
+    if(typeof window.sbReloadHeld==="function" && window.sbReloadHeld()) return;
+    checkLive();
+  });
+
+  function parseGithubHtmlVersion(html){
+    const m=String(html||"").match(/SB_APP_VERSION\s*=\s*["']([\d.]+)["']/);
+    return m?m[1]:"";
+  }
+  function notesSince(githubVer){
+    const notes=Array.isArray(window.SB_RELEASE_NOTES)?window.SB_RELEASE_NOTES:[];
+    const local=window.SB_APP_VERSION||"";
+    const out=[];
+    notes.forEach(function(block){
+      if(!block||!block.v) return;
+      if(githubVer && compareVer(block.v, githubVer)<=0) return;
+      if(local && compareVer(block.v, local)>0) return;
+      (block.items||[]).forEach(function(t){
+        if(t) out.push({v:block.v, text:String(t)});
+      });
+    });
+    return out;
+  }
+  function closeWhatsNew(){
+    const modal=document.getElementById("whatsNewModal");
+    if(!modal) return;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden","true");
+    try{ localStorage.setItem("sb_whats_new_seen", window.SB_APP_VERSION||""); }catch(e){}
+  }
+  function openWhatsNew(githubVer, items){
+    const modal=document.getElementById("whatsNewModal");
+    const meta=document.getElementById("whatsNewMeta");
+    const list=document.getElementById("whatsNewList");
+    if(!modal||!meta||!list||!items.length) return;
+    const local=window.SB_APP_VERSION||"";
+    meta.textContent=githubVer
+      ? ("Diese Arbeitsversion v"+local+" · auf GitHub (main) aktuell: v"+githubVer)
+      : ("Diese Arbeitsversion v"+local+" · GitHub-Version nicht geladen");
+    list.innerHTML="";
+    items.forEach(function(it){
+      const li=document.createElement("li");
+      li.textContent=it.text;
+      list.appendChild(li);
+    });
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden","false");
+  }
+  function maybeShowWhatsNew(){
+    // Informationsnotiz beim Start absichtlich aus.
+    return;
+  }
+  window.SB_SHOW_WHATS_NEW=maybeShowWhatsNew;
+  function bindWhatsNewUi(){
+    const ok=document.getElementById("whatsNewOk");
+    const modal=document.getElementById("whatsNewModal");
+    if(ok && ok.dataset.bound!=="1"){
+      ok.dataset.bound="1";
+      ok.addEventListener("click", closeWhatsNew);
+    }
+    if(modal && modal.dataset.bound!=="1"){
+      modal.dataset.bound="1";
+      modal.addEventListener("click", function(e){
+        if(e.target===modal) closeWhatsNew();
+      });
+    }
+    maybeShowWhatsNew();
+  }
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded", bindWhatsNewUi, {once:true});
+  }else{
+    bindWhatsNewUi();
+  }
 
   // Warm PDF assets into the SW cache while online so cold start offline can build PDFs.
   function warmPdfCache(){
@@ -101,16 +251,41 @@ window.SB_APP_VERSION="3.87";
 </script>
 <style>
 *{box-sizing:border-box}
-html,body{height:100%;height:100dvh;margin:0;overflow:hidden;overscroll-behavior:none}
-body{display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0}
-header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto}
+html,body{height:100%;height:100dvh;width:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none}
+body{position:fixed;inset:0;display:flex;flex-direction:column;background:#f2f2f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;min-height:0;touch-action:none}
+header{background:#fff;padding:calc(12px + env(safe-area-inset-top)) 18px 14px;border-bottom:1px solid #ddd;position:relative;z-index:4;flex:0 0 auto;touch-action:none}
+main>header{
+  width:100vw;
+  margin-top:-12px;
+  margin-bottom:0;
+  margin-left:calc(50% - 50vw);
+  margin-right:calc(50% - 50vw);
+  box-sizing:border-box;
+}
+main{overflow-x:hidden}
 .header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .header-titles{flex:1;min-width:0}
 .header-top h1{flex:none;min-width:0}
 #appPlaceLine{margin-top:4px;font-size:12px;line-height:1.35}
-.credit{font-size:10px;line-height:1.3;color:#999;font-weight:500;text-align:left;white-space:nowrap;padding-top:2px;flex:0 0 auto}
+.credit{display:flex;align-items:center;gap:6px;font-size:10px;line-height:1.3;color:#999;font-weight:500;text-align:left;white-space:nowrap;padding-top:2px;flex:0 0 auto;cursor:pointer}
+.credit-line{display:inline-flex;align-items:center;gap:4px}
+.app-ver{font-weight:750;color:#999}
+.credit.is-current .app-ver{color:#16a34a}
+.credit.is-stale .app-ver{
+  color:#fff;background:#dc2626;border-radius:4px;padding:1px 6px;font-weight:800;
+}
+.btn-app-reload{
+  flex:0 0 auto;width:32px;min-width:32px;height:32px;padding:0;margin:0;
+  border:0;border-radius:8px;background:#163a5c;color:#fff;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.credit.is-stale .btn-app-reload{background:#dc2626}
+.btn-app-reload svg{width:16px;height:16px;display:block}
+.btn-app-reload:active{background:#0f2840}
+.credit.is-stale .btn-app-reload:active{background:#b91c1c}
 h1{font-size:25px;margin:0;font-weight:750}.muted{color:#777;font-size:13px;margin-top:3px}
-main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 16px}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012}
+main{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;touch-action:pan-y;width:100%;max-width:none;margin:0;padding:12px max(58px, calc((100% - 760px) / 2)) 16px max(14px, calc((100% - 760px) / 2))}.card{background:#fff;border-radius:15px;margin:10px 0;padding:15px;box-shadow:0 1px 3px #00000012;overflow:visible}
 h2{font-size:17px;margin:0 0 12px}label{font-size:12px;font-weight:650;color:#555;display:block;margin:9px 0 5px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid #d0d0d6;border-radius:11px;background:#e8e8ed;color:#111}
 input[type=checkbox],input[type=radio],input[type=file],input[type=hidden],input[type=button],input[type=submit]{background:initial;border:initial;width:auto;padding:initial}
@@ -165,8 +340,28 @@ textarea{min-height:130px;resize:vertical}.grid{display:grid;grid-template-colum
   flex:none;width:auto;min-height:28px;padding:4px 9px;margin:0;
   font-size:12px;font-weight:700;border-radius:7px;background:#163a5c;color:#fff;
 }
+#partsResults .parts-pick-row{
+  display:flex;align-items:stretch;gap:4px;margin:0 0 5px;
+}
+#partsResults .parts-pick-row .combo-pick{
+  flex:1;min-width:0;margin:0;
+}
+#partsResults .parts-pick-edit,#partsResults .parts-pick-del{
+  flex:none;width:28px;min-width:28px;height:auto;min-height:28px;padding:0;margin:0;
+  border:0;border-radius:7px;color:#fff;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+#partsResults .parts-pick-edit{background:#163a5c}
+#partsResults .parts-pick-del{background:#8b1e1e}
+#partsResults .parts-pick-edit svg,#partsResults .parts-pick-del svg{width:14px;height:14px;display:block}
+#partsResults .parts-pick-edit:active{background:#0f2840}
+#partsResults .parts-pick-del:active{background:#6a1515}
+#partsResults .parts-custom-label{
+  margin:2px 0 4px;font-size:11px;font-weight:700;color:#666;
+}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:7px 0}.row input{font-size:14px}
-.bottom{position:sticky;bottom:0;flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible}
+.bottom{flex:0 0 auto;width:100%;background:#fff;border-top:1px solid #ddd;padding:6px 10px calc(6px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:5px;z-index:6;box-shadow:0 -6px 16px #0000000d;overflow:visible;touch-action:none}
 button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:700}.go{background:#111;color:#fff}.clear{background:#e5e5ea}
 .bottom-actions{display:flex;align-items:center;gap:6px;order:1}
 .bottom-actions button{flex:1 1 0;min-width:0;padding:8px 6px;font-size:13px;line-height:1.15;min-height:40px;border-radius:10px}
@@ -260,6 +455,38 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .email-copy-btn.is-copied{background:#14532d}
 .email-copy-btn.is-copied .email-copy-icon{display:none}
 .email-copy-btn.is-copied .email-copy-ok{display:block}
+.addr-copy-wrap{display:flex;align-items:flex-end;gap:8px}
+.addr-copy-wrap .grid{flex:1 1 auto;min-width:0}
+.addr-copy-wrap .email-copy-btn{margin:0 0 1px}
+.addr-copy-wrap .email-copy-btn svg{width:22px;height:22px}
+.firma-nr-row{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(7.2em, 10em);
+  column-gap:10px;align-items:end;margin:0 0 10px;
+}
+.firma-nr-row #customerSearchBox{margin:0}
+.firma-nr-row #kundennummer{min-width:0}
+.kunde-nr-field{position:relative}
+#kundennummerSave{
+  width:100%;margin:6px 0 0;padding:6px 8px;min-height:32px;font-size:12px;line-height:1.2;
+  background:#163a5c;color:#fff;
+}
+#kundennummerSaveOk{
+  display:none;margin:6px 0 0;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;background:#16a34a;color:#fff;
+  font-size:18px;font-weight:800;line-height:1;
+}
+#kundennummerSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+.kunde-align{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 46px;
+  column-gap:10px;align-items:end;
+}
+.kunde-align .kunde-icon-btn{
+  width:46px;min-width:46px;height:46px;margin:0;border-radius:11px;
+}
+.kunde-align .kunde-icon-btn svg{width:22px;height:22px}
+.kunde-align .kunde-icon-slot{width:46px;height:46px}
+.kunde-align #date{width:auto;max-width:11.5em;min-height:40px;height:auto}
+.kunde-align .blatt-row{grid-column:1 / span 2;margin-top:0}
 .email-pdf-btn{
   flex:0 0 auto;width:36px;min-width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
   background:#163a5c;color:#fff;
@@ -269,6 +496,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #pdfEmailModal{
   display:none;position:fixed;inset:0;z-index:96;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #pdfEmailModal.is-open{display:flex}
 #pdfEmailModal .token-sheet{
@@ -282,6 +510,7 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #historySaveModal{
   display:none;position:fixed;inset:0;z-index:97;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #historySaveModal.is-open{display:flex}
 #historySaveModal .token-sheet{
@@ -295,7 +524,47 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 #status{font-size:13px;color:#555;margin:7px 2px}
 #status.is-warn{color:#b42318;font-weight:650}
 @media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
-@media (min-width: 900px){main{max-width:1000px;padding-left:24px;padding-right:24px}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
+@media (min-width: 900px){main{padding-left:max(24px, calc((100% - 1000px) / 2));padding-right:max(58px, calc((100% - 1000px) / 2))}.card{padding:20px}.grid{grid-template-columns:1fr 1fr}.row{grid-template-columns:repeat(6,1fr)}}
+.page-jumps{
+  position:fixed;right:max(6px, env(safe-area-inset-right));top:46%;transform:translateY(-50%);
+  z-index:40;display:flex;flex-direction:column;gap:8px;width:48px;pointer-events:none;
+}
+.page-jumps button{
+  pointer-events:auto;flex:none;width:48px;min-width:48px;height:52px;margin:0;padding:4px 2px;
+  border:0;border-radius:14px;background:#163a5c;color:#fff;box-shadow:0 2px 10px #0000002e;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  font-size:10px;font-weight:750;line-height:1;cursor:pointer;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.page-jumps button svg{width:16px;height:16px;display:block}
+.page-jumps button span{white-space:nowrap}
+.page-jumps button:active{background:#0f2840}
+.page-jumps button.is-missing{background:#dc2626}
+.page-jumps button.is-missing:active{background:#b91c1c}
+@media (orientation:portrait){
+  html.is-iphone .page-jumps{display:none}
+  html.is-iphone main{padding-right:max(14px, calc((100% - 760px) / 2))}
+}
+@media (orientation:landscape){
+  /* iPhone: schmaler am rechten Rand, mehr Platz fürs Formular */
+  html.is-iphone .page-jumps{
+    right:max(2px, env(safe-area-inset-right));
+    width:34px;gap:5px;
+  }
+  html.is-iphone .page-jumps button{
+    width:34px;min-width:34px;height:38px;border-radius:10px;
+    font-size:8px;padding:2px 0;gap:0;
+  }
+  html.is-iphone .page-jumps button svg{width:13px;height:13px}
+  html.is-iphone main{
+    padding-right:max(44px, calc(env(safe-area-inset-right) + 40px));
+  }
+}
+@media (orientation:landscape) and (max-height:500px){
+  .page-jumps{top:calc(50% - 36px)}
+  .page-jumps button{width:44px;min-width:44px;height:44px}
+  html.is-iphone .page-jumps button{width:34px;min-width:34px;height:36px}
+}
 @media (orientation:landscape) and (min-width: 900px){.grid{grid-template-columns:repeat(2,1fr)}}
 .install-note{background:#eef2ff;border-radius:12px;padding:10px 12px;font-size:13px;margin-top:10px;color:#374151}
 </style>
@@ -430,12 +699,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
 .daybox.day-collapsed .day-content{display:none}
 .daybox[data-daybox="1"] .day-remove{display:none}
 </style><style>
-.day-end-actions{display:flex;margin-top:12px}
-.btn-day-collapse{
-  width:100%;padding:12px 14px;border:0;border-radius:11px;cursor:pointer;
-  background:#163a5c;color:#fff;font-size:16px;font-weight:750;min-height:46px
-}
-.daybox.day-collapsed .day-end-actions{display:none}
 .day-collapsed .day-content,
 .day-collapsed .day-body,
 .day-collapsed .day-fields{display:none!important}
@@ -448,7 +711,6 @@ button{flex:1;border:0;border-radius:12px;padding:13px;font-size:16px;font-weigh
   height:28px;min-height:28px;margin:0;line-height:1;white-space:nowrap;
 }
 #historySave.history-file-btn{background:#163a5c;color:#fff}
-#historyFolder.history-file-btn.is-on{background:#163a5c;color:#fff}
 #historyDelete.history-file-btn{background:#f3d6d6;color:#7a1f1f}
 #historyActionOk{
   flex:0 0 auto;display:none;align-items:center;justify-content:center;
@@ -495,6 +757,10 @@ input.to-check,
 select.to-check{
   background:#fff3a3;
   border-color:#e0b400;
+}
+.daybox input.pause-rueck-check{
+  background:#ffe066;
+  border-color:#f0b400;
 }
 #historySection{padding:10px 12px}
 #historySection h2{margin:0 0 8px;font-size:15px}
@@ -574,17 +840,12 @@ select.to-check{
   margin:10px 0 0;padding:10px 12px;border-top:1px solid #b7cde3;border-radius:12px;
 }
 .overnight-end .check{font-size:13px;font-weight:650;margin:0}
-.field-reisezeit-aendern{
-  display:flex;flex-direction:column;gap:6px;
+.daybox .row.row-drive{grid-template-columns:1fr 1fr;align-items:stretch}
+.daybox .row.row-drive .field{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+@media (min-width:700px){
+  .daybox .row.row-drive{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
-.field-reisezeit-aendern .overnight-mark{
-  width:100%;
-  font-size:13px;font-weight:650;height:32px;padding:4px 8px;
-  border:1px solid #c5c5c5;border-radius:8px;background:#fff;
-}
-.field-reisezeit-aendern .overnight-mark-label{
-  font-size:12px;font-weight:650;color:#555;margin:0;
-}
+.daybox .row.row-drive .overnight-mark{font-weight:650}
 .overnight-ask-btns{display:none;align-items:center;gap:8px;margin-left:auto}
 .overnight-end.is-ask .overnight-ask-btns{display:inline-flex}
 .overnight-ask-ok,.overnight-ask-no{
@@ -673,7 +934,8 @@ select.is-nudge,input.is-nudge{
 .sig-thick-btn.is-on{background:#163a5c;color:#fff}
 .sig-modal-clear{background:#fff;border:1px solid #ccc!important;width:100%}
 .machine-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0;overflow:visible}
-.machine-bar button{flex:1 1 auto;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff}
+.machine-bar button{flex:1 1 0;min-width:0;padding:8px 12px;min-height:40px;font-size:13px;background:#163a5c;color:#fff;text-align:center}
+#machineSave.is-listed,#machineSave.is-listed:disabled{background:#16a34a;color:#fff;cursor:default;opacity:1}
 #machineSaveHint{
   margin:8px 0 0;font-size:13px;line-height:1.35;color:#b42318;font-weight:650;
 }
@@ -683,23 +945,23 @@ select.is-nudge,input.is-nudge{
   width:36px;height:36px;border-radius:50%;background:#16a34a;color:#fff;
   font-size:20px;font-weight:800;line-height:1;
 }
-#machineSaveOk.is-on,#emailSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
+#machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{display:inline-flex;animation:saveOkPop .35s ease-out}
 @keyframes saveOkPop{
   0%{transform:scale(.6);opacity:0}
   70%{transform:scale(1.12);opacity:1}
   100%{transform:scale(1);opacity:1}
 }
 @media (prefers-reduced-motion:reduce){
-  #machineSaveOk.is-on,#emailSaveOk.is-on{animation:none}
+  #machineSaveOk.is-on,#emailSaveOk.is-on,#kundennummerSaveOk.is-on{animation:none}
 }
-#companySave[hidden],#emailSave[hidden]{display:none!important}
+#companySave[hidden],#emailSave[hidden],#kundennummerSave[hidden]{display:none!important}
 #companyRouteEdit[hidden]{display:none!important}
 #companyIdentityEdit[hidden]{display:none!important}
 #companyIdentityEdit{
   display:block;width:100%;box-sizing:border-box;margin:12px 0 0;padding:12px 14px;
   min-height:48px;font-size:16px;font-weight:700;background:#163a5c;color:#fff;
 }
-#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse{
+#companySave.is-pulse,#companyRouteEdit.is-pulse,#emailSave.is-pulse,#kundennummerSave.is-pulse,#machineSave.is-pulse{
   animation:companySavePulse 1.5s ease-in-out infinite;
 }
 @keyframes companySavePulse{
@@ -707,7 +969,7 @@ select.is-nudge,input.is-nudge{
   50%{transform:scale(1.045);box-shadow:0 0 0 12px rgba(22,58,92,0)}
 }
 @media (prefers-reduced-motion:reduce){
-  #companySave,#companyRouteEdit,#emailSave{animation:none}
+  #companySave,#companyRouteEdit,#emailSave,#kundennummerSave,#machineSave{animation:none}
 }
 .customer-route-bar{
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;
@@ -722,7 +984,7 @@ select.is-nudge,input.is-nudge{
 .machine-combo .combo-results{z-index:70}
 .machine-combo.is-disabled input{background:#f3f3f6;color:#666;border-color:#d8d8de}
 #customerEmail{padding-right:36px;font-size:15px;min-height:36px;padding-top:8px;padding-bottom:8px}
-#customerEmailBox{flex:1 1 auto;min-width:0;max-width:280px}
+#customerEmailBox{flex:0 1 auto;width:280px;max-width:100%;min-width:0}
 #customerEmailBox.has-more #customerEmail{padding-right:36px}
 #customerEmailBox.has-more.has-value #customerEmail{padding-right:64px}
 #customerEmailBox .combo-results{z-index:70}
@@ -745,19 +1007,18 @@ select.is-nudge,input.is-nudge{
   flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
   background:#163a5c;color:#fff;
 }
-#emailDelete{
-  flex:0 0 auto;width:auto;padding:6px 10px;min-height:36px;font-size:12px;line-height:1.2;
-  background:#e5e5ea;color:#111;
-}
 #tokenModal{
   display:none;position:fixed;inset:0;z-index:120;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #tokenModal.is-open{display:flex}
 #tokenModal .token-sheet{
   width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
   padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 24px rgba(0,0,0,.18);
+  max-height:calc(100dvh - var(--sb-kb, 0px) - 24px);
+  overflow:auto;-webkit-overflow-scrolling:touch;
 }
 #tokenModal h3{margin:0 0 6px;font-size:18px}
 #tokenModal textarea{min-height:88px;width:100%;margin:8px 0}
@@ -766,6 +1027,7 @@ select.is-nudge,input.is-nudge{
 #routeModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #routeModal.is-open{display:flex}
 #routeModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
@@ -775,19 +1037,33 @@ select.is-nudge,input.is-nudge{
 #routeModal .email-actions button{flex:1 1 30%;min-width:90px}
 #routeModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
 #routeModalErr.is-info{color:#163a5c}
-#companySave:disabled,#companyRouteEdit:disabled,#companyIdentityEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled,#companyEditSave:disabled,#companyEditCancel:disabled{opacity:.72}
+#companySave:disabled,#companyRouteEdit:disabled,#companyIdentityEdit:disabled,#routeModalSave:disabled,#routeModalCancel:disabled,#companyEditSave:disabled,#companyEditCancel:disabled,#machineSave:disabled{opacity:.72}
 #companyEditModal{
   display:none;position:fixed;inset:0;z-index:98;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #companyEditModal.is-open{display:flex}
-#companyEditModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
+#companyEditModal .token-sheet{width:100%;max-width:520px;max-height:min(92vh, 760px);overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #companyEditModal h3{margin:0 0 6px;font-size:18px}
 #companyEditModal label{margin:8px 0 4px}
 #companyEditModal .route-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 0}
 #companyEditModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 #companyEditModal .email-actions button{flex:1 1 30%;min-width:90px}
 #companyEditErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:14px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+.company-edit-emails{display:flex;flex-direction:column;gap:8px;margin:10px 0 0;max-height:28vh;overflow-y:auto}
+.company-edit-email-row{display:flex;gap:8px;align-items:center}
+.company-edit-email-row input{flex:1 1 auto;min-width:0;margin:0}
+.company-edit-email-row button{
+  flex:0 0 36px;width:36px;height:36px;min-width:36px;min-height:36px;padding:0;margin:0;
+  border:0;border-radius:8px;background:#163a5c;color:#fff;font-size:20px;line-height:1;cursor:pointer;
+}
+.company-edit-email-add{display:flex;gap:8px;margin-top:8px;align-items:center}
+.company-edit-email-add input{flex:1 1 auto;min-width:0;margin:0}
+.company-edit-email-add button{
+  flex:0 0 auto;padding:8px 12px;min-height:36px;border:0;border-radius:8px;
+  background:#163a5c;color:#fff;font-size:13px;cursor:pointer;
+}
 .company-cloud-status{margin:8px 0 0;font-size:14px;line-height:1.35;font-weight:650;overflow-wrap:anywhere}
 .company-cloud-status[hidden]{display:none!important}
 .company-cloud-status.is-wait{color:#163a5c}
@@ -796,27 +1072,36 @@ select.is-nudge,input.is-nudge{
 #machineSaveModal{
   display:none;position:fixed;inset:0;z-index:99;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
 #machineSaveModal.is-open{display:flex}
 #machineSaveModal .token-sheet{width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px rgba(0,0,0,.18)}
 #machineSaveModal h3{margin:0 0 6px;font-size:18px}
 #machineSaveModalErr{color:#b42318;min-height:18px;margin:4px 0 0;font-size:13px}
-#pdfMissingModal{
+#pdfMissingModal,#whatsNewModal{
   display:none;position:fixed;inset:0;z-index:100;background:rgba(20,20,20,.45);
   align-items:flex-end;justify-content:center;
+  padding-bottom:var(--sb-kb,0px);
 }
-#pdfMissingModal.is-open{display:flex}
-#pdfMissingModal .token-sheet{
+#pdfMissingModal.is-open,#whatsNewModal.is-open{display:flex}
+#pdfMissingModal .token-sheet,#whatsNewModal .token-sheet{
   width:100%;max-width:520px;background:#fff;border-radius:16px 16px 0 0;
   padding:16px 16px calc(16px + env(safe-area-inset-bottom));
   box-shadow:0 -8px 24px rgba(0,0,0,.18);
 }
-#pdfMissingModal h3{margin:0 0 6px;font-size:18px}
-#pdfMissingModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#pdfMissingModal .email-actions button{flex:1}
+#pdfMissingModal h3,#whatsNewModal h3{margin:0 0 6px;font-size:18px}
+#pdfMissingModal .email-actions,#whatsNewModal .email-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#pdfMissingModal .email-actions button,#whatsNewModal .email-actions button{flex:1}
+#whatsNewModal .whats-new-meta{margin:0 0 10px;font-size:13px;line-height:1.4;color:#555}
+#whatsNewModal .whats-new-list{margin:0;padding:0 0 0 1.15em;font-size:14px;line-height:1.45;color:#222}
+#whatsNewModal .whats-new-list li{margin:0 0 8px}
+#whatsNewModal .whats-new-list li:last-child{margin-bottom:0}
 .machine-check-hint{
   grid-column:1/-1;margin:2px 0 8px;font-size:12px;line-height:1.4;color:#6b6b73;
   transform-origin:left center;
+}
+.fault-hours{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px;
 }
 .machine-check-hint.is-alert{color:#b42318;font-weight:650}
 .machine-check-hint.is-pulse{animation:machineCheckPulse 1.05s ease-out 1}
@@ -848,6 +1133,7 @@ select.is-nudge,input.is-nudge{
 </style>
 </head>
 <body>
+<main>
 <header>
   <div class="header-top">
     <div class="header-titles">
@@ -856,9 +1142,16 @@ select.is-nudge,input.is-nudge{
     </div>
     <button type="button" id="tokenStatusBtn" class="token-status is-off" aria-label="Token">offline</button>
   </div>
-  <div class="credit" id="appCredit">Created by S. Pawlina v3.87</div>
+  <div class="credit" id="appCredit" title="Neueste Version laden">
+    <span class="credit-line">
+      <span id="appCreditText">Created by S. Pawlina</span>
+      <span id="appCreditVer" class="app-ver">v4.0</span>
+    </span>
+    <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
+    </button>
+  </div>
 </header>
-<main>
 <section id="historySection" class="card">
   <h2>Historie</h2>
   <div class="history-bar">
@@ -871,7 +1164,6 @@ select.is-nudge,input.is-nudge{
     </div>
     <div class="history-actions">
       <button type="button" id="historySave" class="history-file-btn">Speichern</button>
-      <button type="button" id="historyFolder" class="history-file-btn">Ordner</button>
       <label class="history-file-btn" for="historyFileInput">Öffnen</label>
       <input id="historyFileInput" type="file" accept=".json,.txt,text/plain,application/json,*/*">
       <button type="button" id="historyDelete" class="history-file-btn">Löschen</button>
@@ -880,39 +1172,55 @@ select.is-nudge,input.is-nudge{
   </div>
 </section>
 <section class="card"><h2>Kunde</h2>
-<label for="customerSearch">Firma</label>
-<div id="customerSearchBox" class="combo-box" style="margin:4px 0 10px">
-  <div class="combo-field">
-    <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
-    <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+<div class="firma-nr-row">
+  <div class="combo-box" id="customerSearchBox">
+    <label for="customerSearch">Firma</label>
+    <div class="combo-field">
+      <input id="customerSearch" type="text" placeholder="Suchen oder Kunde wählen" autocomplete="off" style="width:100%">
+      <button type="button" class="combo-clear" id="customerClear" aria-label="Auswahl löschen">×</button>
+    </div>
+    <div id="customerSearchResults" class="combo-results"></div>
   </div>
-  <div id="customerSearchResults" class="combo-results"></div>
+  <div>
+    <label for="kundennummer">Kundennummer</label>
+    <div class="kunde-nr-field" id="kundennummerField">
+      <input id="kundennummer" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Nr.">
+    </div>
+    <button type="button" id="kundennummerSave" hidden>Merken</button>
+    <span id="kundennummerSaveOk" title="Gespeichert" aria-hidden="true">✓</span>
+  </div>
 </div>
 <select id="company" class="sr-only" tabindex="-1" autocomplete="off" aria-hidden="true"><option value="">— Firma auswählen —</option></select>
 <div id="customerRouteBar" class="customer-route-bar" hidden>
   <p id="customerRouteLabel">In der Liste: noch ohne km / Reisezeit</p>
   <button type="button" id="companyRouteEdit">km / Reisezeit ändern</button>
 </div>
-<div class="grid">
-<div><label>Straße</label><input id="street"></div><div><label>PLZ, Ort</label><input id="city"></div>
-<div><label>Ansprechpartner</label><input id="contact"></div><div><label>Einsatzdatum</label><input id="date" type="date"></div>
-<div class="blatt-row">
-  <div>
-    <label for="blattNr">Blatt</label>
-    <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+<div class="kunde-align">
+  <div><label>Straße</label><input id="street"></div>
+  <div><label>PLZ, Ort</label><input id="city"></div>
+  <button type="button" id="addressMapsBtn" class="email-copy-btn kunde-icon-btn" disabled aria-label="Adresse an Google Maps übergeben" title="Adresse an Google Maps übergeben">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+  </button>
+  <div><label>Ansprechpartner</label><input id="contact"></div>
+  <div><label>Einsatzdatum</label><input id="date" type="date"></div>
+  <span class="kunde-icon-slot" aria-hidden="true"></span>
+  <div class="blatt-row">
+    <div>
+      <label for="blattNr">Blatt</label>
+      <input id="blattNr" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+    </div>
+    <span class="blatt-von-word">von</span>
+    <div>
+      <label for="blattVon">Blättern</label>
+      <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
+    </div>
   </div>
-  <span class="blatt-von-word">von</span>
-  <div>
-    <label for="blattVon">Blättern</label>
-    <input id="blattVon" inputmode="numeric" pattern="[0-9]*" placeholder="1" value="1" autocomplete="off">
-  </div>
-</div>
 </div>
 <div class="email-save-row">
   <div class="combo-box" id="customerEmailBox">
     <label for="customerEmail">E-Mail</label>
     <div class="combo-field">
-      <input id="customerEmail" type="email" inputmode="email" autocomplete="off" placeholder="E-Mail">
+      <input id="customerEmail" type="text" inputmode="email" autocomplete="off" placeholder="E-Mail">
       <button type="button" class="combo-more" id="customerEmailMore" hidden aria-label="E-Mails anzeigen" title="Weitere E-Mails">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -922,13 +1230,12 @@ select.is-nudge,input.is-nudge{
   </div>
   <button type="button" id="emailSave" hidden>E-Mail merken</button>
   <span id="emailSaveOk" title="Gespeichert" aria-label="Gespeichert">✓</span>
-  <button type="button" id="emailDelete">Löschen</button>
 </div>
 <div class="machine-bar">
   <button type="button" id="companySave" hidden>Zur Kundenliste hinzufügen</button>
 </div>
 <p id="companyCloudStatus" class="company-cloud-status" role="status" hidden></p>
-<button type="button" id="companyIdentityEdit" hidden>Firma / Adresse ändern</button>
+<button type="button" id="companyIdentityEdit" hidden>Kundendaten ändern</button>
 </section>
 
 <section class="card"><h2>Maschine</h2>
@@ -936,7 +1243,7 @@ select.is-nudge,input.is-nudge{
 <div class="machine-combo combo-box" id="manufacturerBox">
   <label for="manufacturer">Hersteller</label>
   <div class="combo-field">
-    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG, DMG MORI, Mori Seiki, Gildemeister">
+    <input id="manufacturer" autocomplete="off" placeholder="z. B. DMG">
     <button type="button" class="combo-clear" id="manufacturerClear" aria-label="Hersteller löschen">×</button>
   </div>
   <div id="manufacturerResults" class="combo-results"></div>
@@ -961,8 +1268,10 @@ select.is-nudge,input.is-nudge{
 <div><label>NC-Nr.</label><input id="nc"></div>
 <div><label>PLC-Nr.</label><input id="plc"></div>
 <p class="machine-check-hint">NC-Nr. und PLC-Nr. an der Maschine prüfen – sie können sich gegenüber der letzten Speicherung geändert haben.</p>
-<div class="full"><label>Maschinenstörung</label><input id="fault"></div>
-<div class="full"><label>Betriebsstunden</label><input id="hours"></div>
+<div class="full fault-hours">
+  <div><label>Maschinenstörung</label><input id="fault"></div>
+  <div><label>Betriebsstunden</label><input id="hours"></div>
+</div>
 </div>
 <div class="machine-bar">
   <button type="button" id="machineSave">Zur Maschinenliste des Kunden hinzufügen</button>
@@ -972,7 +1281,7 @@ select.is-nudge,input.is-nudge{
 <p id="machineSaveHint" hidden>Ohne Nr. nicht möglich. Zuerst die Maschinennummer eintragen.</p>
 </section>
 
-<section class="card"><h2>Bemerkungen</h2>
+<section class="card" id="remarksCard"><h2>Bemerkungen</h2>
 <textarea id="remarks" placeholder="- Software-Update durchgeführt.&#10;- ..." autocomplete="off" autocorrect="on" autocapitalize="sentences" spellcheck="true"></textarea>
 </section>
 <section class="card"><h2>Ersatzteile</h2>
@@ -1088,6 +1397,163 @@ select.is-nudge,input.is-nudge{
     <div class="email-copy-list" id="emailCopyList"></div>
   </div>
 </div>
+<nav class="page-jumps" aria-label="Seitenanfang, Bemerkungen, Tag 1 und Seitenende">
+  <button type="button" id="jumpPageTop" aria-label="Zum Anfang">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Anfang</span>
+  </button>
+  <button type="button" id="jumpPageText" aria-label="Zu den Bemerkungen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <span>Text</span>
+  </button>
+  <button type="button" id="jumpPageEnd" aria-label="Zum Ende">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Ende</span>
+  </button>
+</nav>
+<script>
+(function(){
+  const main=document.querySelector("main");
+  const nav=document.querySelector(".page-jumps");
+  if(!main||!nav) return;
+  let lockId="";
+  let lockAt=0;
+  let raf=0;
+  function targetY(id){
+    if(id==="jumpPageEnd") return main.scrollHeight;
+    let card=null;
+    const day=String(id||"").match(/^jumpPageDay(\d+)$/);
+    if(day) card=document.querySelector(`[data-daybox="${day[1]}"]`);
+    else if(id==="jumpPageText") card=document.getElementById("remarksCard")||document.getElementById("remarks");
+    if(!card) return 0;
+    const y=card.getBoundingClientRect().top-main.getBoundingClientRect().top+main.scrollTop;
+    return Math.max(0, y-8);
+  }
+  function syncDayJumps(){
+    const end=document.getElementById("jumpPageEnd");
+    if(!end) return;
+    const icon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M17 4v3M5 9h14M6 5h12a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const days=[...document.querySelectorAll("[data-daybox]")]
+      .map(b=>parseInt(b.getAttribute("data-daybox"),10))
+      .filter(Boolean)
+      .sort((a,b)=>a-b);
+    const want=new Set(days.map(String));
+    nav.querySelectorAll("[data-jump-day]").forEach(btn=>{
+      if(!want.has(btn.getAttribute("data-jump-day"))) btn.remove();
+    });
+    days.forEach(d=>{
+      let btn=nav.querySelector(`[data-jump-day="${d}"]`);
+      if(!btn){
+        btn=document.createElement("button");
+        btn.type="button";
+        btn.id="jumpPageDay"+d;
+        btn.setAttribute("data-jump-day", String(d));
+        btn.setAttribute("aria-label", "Zu Tag "+d);
+        btn.innerHTML=icon+"<span>Tag "+d+"</span>";
+      }
+      end.before(btn);
+    });
+    paintDayJumps();
+  }
+  function clockFilled(v){ return /^\d{1,2}:\d{2}$/.test(String(v||"").trim()); }
+  function clockMinutes(a,b){
+    const p=function(s){ const m=String(s||"").split(":"); return (parseInt(m[0],10)||0)*60+(parseInt(m[1],10)||0); };
+    let n=p(b)-p(a);
+    if(n<0) n+=1440;
+    return n;
+  }
+  function dayJumpMissing(box){
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    if(!d) return false;
+    if(d>1 && box.getAttribute("data-day-active")!=="1") return false;
+    function drive(dir){
+      const row=dir==="out" ? d*2-1 : d*2;
+      const ov=box.querySelector(`[data-route-override="${dir}"]`);
+      if(ov && String(ov.value||"").trim()!=="") return Math.max(0, parseInt(ov.value,10)||0);
+      const a=box.querySelector(`[data-k="RZstart${row}"]`);
+      const b=box.querySelector(`[data-k="RZende${row}"]`);
+      if(!clockFilled(a&&a.value) || !clockFilled(b&&b.value)) return 0;
+      const pause=(box.querySelector(`[data-k="PauseRZ${row}"]`)||{}).value;
+      return Math.max(0, clockMinutes(a.value, b.value) - (parseInt(pause,10)||0));
+    }
+    const kmOut=box.querySelector(`[data-k="Kilometer${d*2-1}"]`);
+    if(!String((kmOut&&kmOut.value)||"").trim() || drive("out")<=0) return true;
+    const kmBack=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+    const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+    if(!String((kmBack&&kmBack.value)||"").trim() || !clockFilled(end&&end.value) || drive("back")<=0) return true;
+    return false;
+  }
+  function paintDayJumps(){
+    nav.querySelectorAll("[data-jump-day]").forEach(btn=>{
+      const box=document.querySelector(`[data-daybox="${btn.getAttribute("data-jump-day")}"]`);
+      btn.classList.toggle("is-missing", !!(box && dayJumpMissing(box)));
+    });
+  }
+  window.syncDayJumps=syncDayJumps;
+  function jump(id){
+    const now=Date.now();
+    if(id===lockId && now-lockAt<400) return;
+    lockId=id;
+    lockAt=now;
+    const max=Math.max(0, main.scrollHeight-main.clientHeight);
+    const dest=Math.max(0, Math.min(max, targetY(id)));
+    const from=main.scrollTop;
+    const prev=main.style.overflowY;
+    main.style.overflowY="hidden";
+    main.scrollTop=from;
+    main.style.overflowY=prev;
+    if(raf) cancelAnimationFrame(raf);
+    if(Math.abs(dest-from)<2){
+      main.scrollTop=dest;
+      raf=0;
+      return;
+    }
+    const start=performance.now();
+    const dur=280;
+    function frame(t){
+      const p=Math.min(1, (t-start)/dur);
+      const e=1-Math.pow(1-p, 3);
+      main.scrollTop=from+(dest-from)*e;
+      if(p<1) raf=requestAnimationFrame(frame);
+      else { main.scrollTop=dest; raf=0; }
+    }
+    raf=requestAnimationFrame(frame);
+  }
+  main.addEventListener("touchstart", function(){
+    if(!raf) return;
+    cancelAnimationFrame(raf);
+    raf=0;
+  }, {passive:true});
+  function buttonFrom(ev){
+    const el=ev.target&&ev.target.closest?ev.target.closest(".page-jumps button"):null;
+    return el&&nav.contains(el)?el:null;
+  }
+  syncDayJumps();
+  const times=document.getElementById("times");
+  if(times){
+    times.addEventListener("input", paintDayJumps);
+    times.addEventListener("change", paintDayJumps);
+    if(window.MutationObserver) new MutationObserver(syncDayJumps).observe(times,{childList:true});
+  }
+  function fromEvent(ev){
+    const el=buttonFrom(ev);
+    if(!el) return;
+    if(ev.cancelable) ev.preventDefault();
+    jump(el.id);
+  }
+  window.addEventListener("touchstart", fromEvent, {capture:true, passive:false});
+  window.addEventListener("pointerdown", function(ev){
+    if(ev.pointerType==="touch") return;
+    fromEvent(ev);
+  }, true);
+  nav.addEventListener("click", function(ev){
+    const el=buttonFrom(ev);
+    if(!el) return;
+    ev.preventDefault();
+    jump(el.id);
+  });
+})();
+</script>
 <div id="pdfEmailModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>PDF per E-Mail</h3>
@@ -1101,9 +1567,9 @@ select.is-nudge,input.is-nudge{
 <div id="historySaveModal" aria-hidden="true">
   <div class="token-sheet">
     <h3>Historie speichern?</h3>
-    <p class="muted" id="historySaveHint">Zuerst in der Historie speichern, dann die E-Mail senden.</p>
+    <p class="muted" id="historySaveHint">Als Bericht (.json) speichern – später in der App über Öffnen weiterbearbeiten. Danach E-Mail mit PDF.</p>
     <div class="email-actions">
-      <button type="button" class="clear" id="historySaveLater">Später</button>
+      <button type="button" class="clear" id="historySaveLater">Abbrechen</button>
       <button type="button" class="go" id="historySaveNow">Speichern</button>
     </div>
   </div>
@@ -1125,11 +1591,21 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="pdfMissingModal" aria-hidden="true">
   <div class="token-sheet">
-    <h3>Auswahl fehlt</h3>
+    <h3 id="pdfMissingTitle">Auswahl fehlt</h3>
     <p class="muted" id="pdfMissingHint">Betriebsbereitschaft und Techniker sind nicht gewählt. Trotzdem PDF erstellen?</p>
     <div class="email-actions">
       <button type="button" class="clear" id="pdfMissingNo">Nein</button>
       <button type="button" class="go" id="pdfMissingYes">Ja</button>
+    </div>
+  </div>
+</div>
+<div id="whatsNewModal" aria-hidden="true">
+  <div class="token-sheet" role="dialog" aria-labelledby="whatsNewTitle" aria-describedby="whatsNewMeta">
+    <h3 id="whatsNewTitle">Neue Optionen</h3>
+    <p class="whats-new-meta" id="whatsNewMeta"></p>
+    <ul class="whats-new-list" id="whatsNewList"></ul>
+    <div class="email-actions">
+      <button type="button" class="go" id="whatsNewOk">OK</button>
     </div>
   </div>
 </div>
@@ -1180,10 +1656,18 @@ select.is-nudge,input.is-nudge{
 </div>
 <div id="companyEditModal" aria-hidden="true">
   <div class="token-sheet">
-    <h3 id="companyEditTitle">Firma und Adresse</h3>
-    <p class="muted" id="companyEditHint">Name und Adresse in der Kundenliste ändern.</p>
-    <label for="companyEditName">Firma</label>
-    <input id="companyEditName" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <h3 id="companyEditTitle">Kundendaten</h3>
+    <p class="muted" id="companyEditHint">Alle Daten der Kundenliste ändern, auch Kilometer und Reisezeit. Neue Firma, Nr. und E-Mail weiter im Formular merken.</p>
+    <div class="route-grid">
+      <div>
+        <label for="companyEditName">Firma</label>
+        <input id="companyEditName" autocomplete="off" autocapitalize="words" spellcheck="false">
+      </div>
+      <div>
+        <label for="companyEditNr">Kundennummer</label>
+        <input id="companyEditNr" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+    </div>
     <div class="route-grid">
       <div>
         <label for="companyEditStreet">Straße</label>
@@ -1193,6 +1677,22 @@ select.is-nudge,input.is-nudge{
         <label for="companyEditCity">PLZ, Ort</label>
         <input id="companyEditCity" autocomplete="off" autocapitalize="words" spellcheck="false">
       </div>
+    </div>
+    <div class="route-grid">
+      <div>
+        <label for="companyEditKm">Kilometer</label>
+        <input id="companyEditKm" inputmode="decimal" placeholder="z. B. 0 oder 85" autocomplete="off">
+      </div>
+      <div>
+        <label for="companyEditTime">Reisezeit</label>
+        <input id="companyEditTime" inputmode="decimal" placeholder="90 Min / 1:15 / 1,25 Std" autocomplete="off">
+      </div>
+    </div>
+    <label>E-Mail</label>
+    <div id="companyEditEmails" class="company-edit-emails"></div>
+    <div class="company-edit-email-add">
+      <input id="companyEditEmailAdd" type="email" inputmode="email" autocomplete="off" placeholder="Weitere E-Mail">
+      <button type="button" id="companyEditEmailAddBtn">Hinzufügen</button>
     </div>
     <p id="companyEditErr"></p>
     <div class="email-actions">
@@ -1269,43 +1769,74 @@ window.sbCachedFile=async function(name, timeoutMs){
   finally{ clearTimeout(to); }
   return fromCache();
 };
+function visFrame(){
+  const vv=window.visualViewport;
+  if(vv && vv.height){
+    return {top:vv.offsetTop, bottom:vv.offsetTop+vv.height, height:vv.height};
+  }
+  return {top:0, bottom:window.innerHeight, height:window.innerHeight};
+}
 function layoutComboResults(results, box){
   if(!results||!box) return;
   const parts=results.id==="partsResults";
   const boxEl=parts?($("partsBox")||box):box;
   const plusEl=parts?$("partsPlus"):null;
-  const r=boxEl.getBoundingClientRect();
-  const v=(plusEl||boxEl).getBoundingClientRect();
+  const anchor=plusEl||boxEl;
+  const br=boxEl.getBoundingClientRect();
+  const ar=anchor.getBoundingClientRect();
+  const vis=visFrame();
+  const header=document.querySelector("header");
+  const mainEl=document.querySelector("main");
+  const safeTop=Math.max(
+    vis.top+8,
+    header?header.getBoundingClientRect().bottom+4:0,
+    mainEl?mainEl.getBoundingClientRect().top+4:0
+  );
+  const safeBottom=vis.bottom-12;
   const gap=parts?2:4;
-  const spaceBelow=window.innerHeight-v.bottom-gap;
-  const spaceAbove=v.top-gap;
   const maxH=parts?190:260;
-  results.style.position="fixed";
-  if(parts){
-    const w=Math.min(r.width, 268);
-    results.style.width=w+"px";
-    results.style.left=Math.max(8, r.right-w)+"px";
-  }else{
-    results.style.left=Math.max(8, r.left)+"px";
-    results.style.width=Math.max(80, r.width)+"px";
-  }
-  results.style.right="auto";
+  const minH=parts?72:96;
+  const spaceBelow=safeBottom-(ar.bottom+gap);
+  const spaceAbove=ar.top-gap-safeTop;
+  results.style.position="absolute";
   results.style.zIndex="80";
-  if(spaceBelow>=140 || spaceBelow>=spaceAbove){
-    results.style.top=(v.bottom+gap)+"px";
-    results.style.bottom="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceBelow))+"px";
+  results.style.right=parts?"0":"auto";
+  if(parts){
+    results.style.width=Math.min(br.width, 268)+"px";
+    results.style.left="auto";
   }else{
-    results.style.bottom=(window.innerHeight-v.top+gap)+"px";
+    results.style.left="0";
+    results.style.width="100%";
+  }
+  results.scrollTop=0;
+  const locked=results.dataset.place;
+  let below;
+  if(locked==="below" && spaceBelow>=minH) below=true;
+  else if(locked==="above" && spaceAbove>=minH) below=false;
+  else below=(spaceBelow>=96 || spaceBelow>=spaceAbove);
+  results.dataset.place=below?"below":"above";
+  if(below){
+    results.style.top="100%";
+    results.style.bottom="auto";
+    results.style.marginTop=gap+"px";
+    results.style.marginBottom="0";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceBelow))+"px";
+  }else{
     results.style.top="auto";
-    results.style.maxHeight=Math.min(maxH, Math.max(parts?72:96, spaceAbove))+"px";
+    results.style.bottom="100%";
+    results.style.marginTop="0";
+    results.style.marginBottom=gap+"px";
+    results.style.maxHeight=Math.min(maxH, Math.max(minH, spaceAbove))+"px";
   }
 }
 function openComboResults(results, box){
   if(!results) return;
+  const closed=results.hidden || (results.style.display||"")==="none";
+  if(closed) delete results.dataset.place;
   results.hidden=false;
   results.style.display="block";
   layoutComboResults(results, box);
+  if(typeof window.sbKeepKbInView==="function") window.sbKeepKbInView();
 }
 
 // V27.6.65 — PDF return state
@@ -1348,11 +1879,59 @@ function isoAddDays(iso,n){
   return isoDateLocal(d);
 }
 function dayBoxEl(d){return document.querySelector(`[data-daybox="${d}"]`);}
+function overnightOn(d){
+  const cb=document.querySelector(`[data-daybox="${d}"] [data-overnight-day]`);
+  return !!(cb && cb.checked);
+}
+function dayDropsListRoute(d){
+  return Number(d)>1 && overnightOn(Number(d)-1);
+}
+function clearListRouteForOvernight(d){
+  const box=dayBoxEl(d);
+  if(!box || Number(d)<2) return;
+  [`Kilometer${d*2-1}`,`Kilometer${d*2}`,`RZstart${d*2-1}`,`RZende${d*2-1}`,`RZstart${d*2}`,`RZende${d*2}`].forEach(k=>{
+    const el=box.querySelector(`[data-k="${k}"]`);
+    if(!el) return;
+    if(el.tagName==="SELECT") setClock(el,"");
+    else el.value="";
+    el.dataset.overnightCleared="1";
+    el.dataset.linked="0";
+    if(k.startsWith("Kilometer")) el.dataset.kmManual="1";
+    el.classList.add(el.tagName==="SELECT" ? "to-check" : "km-check");
+  });
+  box.querySelectorAll("[data-route-override]").forEach(el=>{
+    el.value="";
+    el.dataset.overnightCleared="1";
+    el.dataset.manual="0";
+    el.classList.add("km-check");
+  });
+  if(typeof recalcTimes==="function") recalcTimes();
+  if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
+  if(typeof updateRouteInfo==="function") updateRouteInfo(d);
+}
+function restoreListRouteAfterOvernight(d){
+  const box=dayBoxEl(d);
+  if(!box || Number(d)<2) return;
+  box.querySelectorAll("[data-overnight-cleared='1']").forEach(el=>{
+    if(String(el.dataset.k||"").startsWith("Kilometer")) el.dataset.kmManual="0";
+    el.classList.remove("km-check");
+    el.classList.remove("to-check");
+    delete el.dataset.overnightCleared;
+  });
+  if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d,{forceKm:true});
+}
+function syncNextDayRoute(d){
+  const next=Number(d)+1;
+  if(!dayBoxEl(next)) return;
+  if(overnightOn(d)) clearListRouteForOvernight(next);
+  else restoreListRouteAfterOvernight(next);
+}
 function travelMinutesForDay(d,dir){
   const box=dayBoxEl(d);
-  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   const ov=box?.querySelector(`[data-route-override="${dir}"]`);
   if(ov && String(ov.value).trim()!=="") return Math.max(0,parseInt(ov.value,10)||0);
+  if(dayDropsListRoute(d)) return 0;
+  const r=typeof customerRoute==="function" ? customerRoute() : {minutes:0};
   return r.minutes||0;
 }
 function rueckfahrtPauseMin(d){
@@ -1364,11 +1943,14 @@ function anfahrtPauseMin(d){
   return pauseMinutes(box?.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value||"0");
 }
 function anfahrtClockSpan(d){
-  // Netto-Fahrt + Pause während Fahrt, same as Rückfahrt.
-  return travelMinutesForDay(d,"out")+anfahrtPauseMin(d);
+  const drive=travelMinutesForDay(d,"out");
+  if(!drive) return 0;
+  return drive+anfahrtPauseMin(d);
 }
 function rueckfahrtClockSpan(d){
-  return travelMinutesForDay(d,"back")+rueckfahrtPauseMin(d);
+  const drive=travelMinutesForDay(d,"back");
+  if(!drive) return 0;
+  return drive+rueckfahrtPauseMin(d);
 }
 function setClock(el,t){
   if(!el) return;
@@ -1429,15 +2011,16 @@ function syncKmFieldsForDay(d, opts){
   const r=typeof customerRoute==="function"?customerRoute():{km:0,minutes:0};
   const km1=box.querySelector(`[data-k="Kilometer${2*d-1}"]`);
   const km2=box.querySelector(`[data-k="Kilometer${2*d}"]`);
+  const keepListKm=Number(d)>1 && !dayDropsListRoute(d);
   if(km1 && document.activeElement!==km1){
-    if(hasAnfahrtAnkunft(box,d)) applyListKmIfNeeded(km1, r.km, opts);
+    if(hasAnfahrtAnkunft(box,d) || keepListKm) applyListKmIfNeeded(km1, r.km, opts);
     else if(!kmFieldManual(km1)){
       km1.value="";
       km1.classList.remove("km-check");
     }
   }
   if(km2 && document.activeElement!==km2){
-    if(hasRueckfahrtClock(box,d)) applyListKmIfNeeded(km2, r.km, opts);
+    if(hasRueckfahrtClock(box,d) || keepListKm) applyListKmIfNeeded(km2, r.km, opts);
     else if(!kmFieldManual(km2)){
       km2.value="";
       km2.classList.remove("km-check");
@@ -1506,6 +2089,8 @@ function clearRueckfahrtKeepRest(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "back");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function restoreRueckfahrtAuto(box){
   if(!box) return;
@@ -1539,6 +2124,8 @@ function refillRueckfahrtAuto(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "back");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function restoreAnfahrtAuto(box){
   if(!box) return;
@@ -1579,6 +2166,22 @@ function clearAnfahrtKeepRest(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "out");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
+}
+function markEmptyTripYellow(box, dir){
+  if(!box) return;
+  const d=parseInt(box.getAttribute("data-daybox"),10);
+  if(!d) return;
+  const row=dir==="out" ? d*2-1 : d*2;
+  ["RZstart","RZende"].forEach(name=>{
+    const el=box.querySelector(`[data-k="${name}${row}"]`);
+    if(el && !filledTime(el.value)) el.classList.add("to-check");
+  });
+  const km=box.querySelector(`[data-k="Kilometer${row}"]`);
+  if(km && !String(km.value||"").trim()) km.classList.add("km-check");
+  const ov=box.querySelector(`[data-route-override="${dir}"]`);
+  if(ov && !String(ov.value||"").trim()) ov.classList.add("km-check");
 }
 function refillAnfahrtAuto(d){
   const box=dayBoxEl(d);
@@ -1619,22 +2222,37 @@ function refillAnfahrtAuto(d){
   if(typeof updateRouteInfo==="function") updateRouteInfo(d);
   if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
   if(typeof recalcTimes==="function") recalcTimes();
+  markEmptyTripYellow(box, "out");
+  if(typeof window.syncDayJumps==="function") window.syncDayJumps();
 }
 function syncReturnArrivalFromDeparture(d){
   const box=dayBoxEl(d);
   if(!box || rueckfahrtOff(box)) return;
+  if(Number(d)>1 && !travelMinutesForDay(d,"back")) return;
   const backRow=d*2;
   const b1=box.querySelector(`[data-k="RZstart${backRow}"]`);
   const b2=box.querySelector(`[data-k="RZende${backRow}"]`);
   if(!b1||!b2) return;
   if(!b1.value && !b2.value) return;
   const span=rueckfahrtClockSpan(d);
-  if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
-  else setClock(b1,addMinutesToTime(b2.value,-span));
+  if(!span) return;
+  if(Number(d)===1){
+    if(b1.value) setClock(b2,addMinutesToTime(b1.value,span));
+    else setClock(b1,addMinutesToTime(b2.value,-span));
+    return;
+  }
+  if(b1.value && (!filledTime(b2.value) || b2.dataset.linked==="1")){
+    setClock(b2,addMinutesToTime(b1.value,span));
+    b2.dataset.linked="1";
+  }else if(b2.value && (!filledTime(b1.value) || b1.dataset.linked==="1")){
+    setClock(b1,addMinutesToTime(b2.value,-span));
+    b1.dataset.linked="1";
+  }
 }
 function syncAnfahrtStartFromArrival(d){
   const box=dayBoxEl(d);
   if(!box || anfahrtOff(box)) return;
+  if(Number(d)>1 && !travelMinutesForDay(d,"out")) return;
   const outRow=d*2-1;
   const a1=box.querySelector(`[data-k="RZstart${outRow}"]`);
   const a2=box.querySelector(`[data-k="RZende${outRow}"]`);
@@ -1655,7 +2273,11 @@ function syncWorkEndToReturnStart(d){
   setClock(abreise,t);
   abreise.dataset.manual="0";
   abreise.removeAttribute("data-manual");
-  setClock(ankunft,addMinutesToTime(t,rueckfahrtClockSpan(d)));
+  const span=rueckfahrtClockSpan(d);
+  if(ankunft && span && (Number(d)===1 || !filledTime(ankunft.value) || ankunft.dataset.linked==="1")){
+    setClock(ankunft,addMinutesToTime(t,span));
+    if(Number(d)>1) ankunft.dataset.linked="1";
+  }
 }
 function quarterTimeOptions(){
   let o='<option value="">--:--</option>';
@@ -1675,10 +2297,8 @@ function initQuarterTimeSelects(root=document){
 }
 function markKmToCheck(box){
   if(!box) return;
-  box.querySelectorAll('input[data-k^="Kilometer"]').forEach(el=>{
-    el.classList.add("km-check");
-  });
-  box.querySelectorAll("input[data-route-override]").forEach(el=>{
+  box.querySelectorAll('input[data-k^="Kilometer"], input[data-route-override]').forEach(el=>{
+    if(String(el.value||"").trim()!=="") return;
     el.classList.add("km-check");
   });
 }
@@ -1688,14 +2308,29 @@ function markExtraDaysKmToCheck(){
     if(d>1) markKmToCheck(box);
   });
 }
+function dayHasRueckfahrtTimes(box){
+  const d=parseInt(box && box.getAttribute("data-daybox"),10);
+  if(!d) return false;
+  if(typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(box,d)) return true;
+  const ov=box.querySelector('[data-route-override="back"]');
+  return !!(ov && String(ov.value||"").trim()!=="");
+}
 function markReturnPauseToCheck(box){
   if(!box) return;
   const d=parseInt(box.getAttribute("data-daybox"),10);
   if(!d) return;
   const el=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
   if(!el) return;
+  if(!dayHasRueckfahrtTimes(box)){
+    if(el.dataset.pauseManual!=="1"){
+      el.value="";
+      el.classList.remove("to-check");
+      el.classList.remove("pause-rueck-check");
+    }
+    return;
+  }
   if(String(el.value||"").trim()==="") el.value="45";
-  el.classList.add("to-check");
+  el.classList.add("pause-rueck-check");
   syncReturnPauseFromDay(box);
 }
 function markArrivalWorkEndToCheck(box, onlyEmpty){
@@ -1751,6 +2386,7 @@ function answerOvernightAsk(d, yes){
   if(!wrap || !wrap.classList.contains("is-ask")) return;
   wrap.classList.remove("is-ask");
   if(cb) cb.checked=!!yes;
+  syncNextDayRoute(d);
   if(yes) nudgeAfternoonReisezeit(d);
 }
 const RETURN_PAUSE_DEFAULT=45;
@@ -1759,14 +2395,26 @@ function syncReturnPauseFromDay(box){
   const d=parseInt(box.getAttribute("data-daybox"),10);
   if(!d) return;
   const back=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
-  if(!back || back.dataset.pauseManual==="1") return;
+  if(!back) return;
   const out=pauseMinutes(box.querySelector(`[data-k="PauseRZ${d*2-1}"]`)?.value);
   const work=pauseMinutes(box.querySelector(`[data-k="PauseAZ${d*2-1}"]`)?.value);
   const next=Math.max(0, RETURN_PAUSE_DEFAULT - out - work);
+  const cur=String(back.value||"").trim();
+  const lastAuto=String(back.dataset.autoPause||"");
+  if(back.dataset.pauseManual==="1" && cur!==lastAuto) return;
+  if(!dayHasRueckfahrtTimes(box)){
+    back.dataset.syncing="1";
+    back.dataset.autoPause="";
+    back.value="";
+    back.dataset.syncing="";
+    return;
+  }
   back.dataset.syncing="1";
+  back.dataset.autoPause=String(next);
   back.value=String(next);
+  back.dataset.pauseManual="0";
   back.dataset.syncing="";
-  syncReturnArrivalFromDeparture(d);
+  if(Number(d)===1 || travelMinutesForDay(d,"back")>0) syncReturnArrivalFromDeparture(d);
 }
 function clearCheckHighlight(el){
   if(!el || !el.classList) return;
@@ -1836,15 +2484,11 @@ function dayTemplate(d){
       <div class="field"><label>Anfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${(d*2)-1}" aria-label="Anfahrt von"></select></div>
       <div class="field"><label>Anfahrt bis – Ankunft</label><select class="quarter-time" data-k="RZende${(d*2)-1}" aria-label="Anfahrt bis"></select></div>
     </div>
-    <div class="row">
+    <div class="row row-drive">
       <div class="field"><label>Pause während Fahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${(d*2)-1}" placeholder="Minuten"></div>
+      <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90"></div>
+      <div class="field"><label for="overnightMarkOut${d}">Stau</label><input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="out" value="" placeholder="Stau" maxlength="12" aria-label="Stau Tag ${d} Anfahrt" autocomplete="off" inputmode="text"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rt${d}" readonly></div>
-      <div class="field field-reisezeit-aendern">
-        <label>Reisezeit ändern (Minuten)</label>
-        <input type="number" min="0" step="1" inputmode="numeric" data-route-override="out" placeholder="z. B. 90">
-        <label class="overnight-mark-label" for="overnightMarkOut${d}">PDF z. B. Stau</label>
-        <input id="overnightMarkOut${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="out" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Anfahrt" autocomplete="off" inputmode="text">
-      </div>
     </div>
     <div class="row">
       <div class="field"><label>KM Anfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${(d*2)-1}" placeholder="KM Anfahrt"></div>
@@ -1873,21 +2517,16 @@ function dayTemplate(d){
       <div class="field"><label>Rückfahrt von – Abfahrt</label><select class="quarter-time" data-k="RZstart${d*2}"></select></div>
       <div class="field"><label>Rückfahrt bis – Ankunft zuhause</label><select class="quarter-time" data-k="RZende${d*2}"></select></div>
     </div>
-    <div class="row">
-      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" value="45" placeholder="Minuten"></div>
+    <div class="row row-drive">
+      <div class="field"><label>Pause während Rückfahrt (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-k="PauseRZ${d*2}" placeholder="Minuten"></div>
+      <div class="field"><label>Reisezeit ändern (Minuten)</label><input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90"></div>
+      <div class="field"><label for="overnightMarkBack${d}">Stau</label><input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="back" value="" placeholder="Stau" maxlength="12" aria-label="Stau Tag ${d} Rückfahrt" autocomplete="off" inputmode="text"></div>
       <div class="field"><label>Reisezeit netto</label><input type="text" data-calc="rr${d}" readonly></div>
-      <div class="field field-reisezeit-aendern">
-        <label>Reisezeit ändern (Minuten)</label>
-        <input type="number" min="0" step="1" inputmode="numeric" data-route-override="back" placeholder="z. B. 90">
-        <label class="overnight-mark-label" for="overnightMarkBack${d}">PDF z. B. Stau</label>
-        <input id="overnightMarkBack${d}" type="text" class="overnight-mark" data-overnight-mark="${d}" data-overnight-mark-dir="back" value="" placeholder="Stau" maxlength="12" aria-label="PDF-Text statt X Tag ${d} Rückfahrt" autocomplete="off" inputmode="text">
-      </div>
     </div>
     <div class="row">
       <div class="field"><label>KM Rückfahrt</label><input type="number" inputmode="decimal" step="0.1" data-k="Kilometer${d*2}" placeholder="KM Rückfahrt"></div>
       <div class="field"><label>Gesamtzeit</label><input type="text" data-calc="total${d}" readonly></div>
     </div>
-    <div class="muted" id="routeInfo${d}">${d===1?"Nach Auswahl der Firma übernimmt Tag 1 km und Reisezeit aus der Kundenliste.":"km für diesen Tag manuell eintragen. Reise- und Arbeitszeit werden automatisch berechnet."}</div>
     <div class="choice-group overnight-end">
       <label class="check"><input type="checkbox" data-overnight-day="${d}"> Übern.-kosten – Ja</label>
       <div class="overnight-ask-btns">
@@ -1896,9 +2535,6 @@ function dayTemplate(d){
       </div>
     </div>
     </div>
-  <div class="day-end-actions">
-  <button type="button" class="btn-day-collapse" data-collapse-day="${d}">Einklappen</button>
-</div>
 </div>`;
 }
 function syncDayDatesFromMainDate(){
@@ -1968,7 +2604,7 @@ markReturnPauseToCheck(document.querySelector('[data-daybox="1"]'));
 markArrivalWorkEndToCheck(document.querySelector('[data-daybox="1"]'));
 syncDayDatesFromMainDate();
 function resetOpenForm(){
-  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
+  ["tokenModal","machineSaveModal","routeModal","companyEditModal","sigModal","pdfMissingModal","whatsNewModal","pdfEmailModal","historySaveModal","pdfPreviewModal"].forEach(id=>{
     const m=$(id);
     if(!m) return;
     m.classList.remove("is-open");
@@ -2033,6 +2669,7 @@ function resetOpenForm(){
   if(typeof syncDayChrome==="function") syncDayChrome();
   if(typeof recalcTimes==="function") recalcTimes();
   if(typeof syncCompanySaveButton==="function") syncCompanySaveButton();
+  if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
   if(typeof window.finishFormReset==="function") window.finishFormReset();
   const s=$("status");
   if(s) s.textContent="Formular zurückgesetzt. Historie bleibt.";
@@ -2044,6 +2681,20 @@ $("resetForm")?.addEventListener("click",()=>{
   if(!confirm("Formular wirklich zurücksetzen?\nHistorie bleibt erhalten.")) return;
   resetOpenForm();
 });
+["street","city","customerSearch"].forEach(function(id){
+  const el=$(id);
+  if(!el) return;
+  el.addEventListener("input", syncAddressMapsBtn);
+  el.addEventListener("change", syncAddressMapsBtn);
+});
+$("kundennummer")?.addEventListener("input", syncKundennummerSaveButton);
+$("kundennummer")?.addEventListener("change", syncKundennummerSaveButton);
+$("kundennummer")?.addEventListener("pointerdown",function(e){
+  if(this.readOnly) e.preventDefault();
+});
+$("kundennummerSave")?.addEventListener("click",()=>{ saveKundennummerForListedFirm(); });
+$("addressMapsBtn")?.addEventListener("click", openAddressInGoogleMaps);
+syncAddressMapsBtn();
 $("times").addEventListener("change",e=>{
   if(!e.target.classList.contains("daydate")) return;
   const day=Number(e.target.getAttribute("data-day")||0);
@@ -2088,18 +2739,25 @@ function updateDayRouteNetto(d){
   const rt=calc(`rt${d}`)||document.querySelector(`[data-calc="rt${d}"]`), rr=calc(`rr${d}`)||document.querySelector(`[data-calc="rr${d}"]`);
   const outOverride=box.querySelector('[data-route-override="out"]');
   const backOverride=box.querySelector('[data-route-override="back"]');
-  if(rt){
-    const v=outOverride && outOverride.value!==""
+    const rtMin=outOverride && outOverride.value!==""
       ? Math.max(0,parseInt(outOverride.value,10)||0)
-      : Math.max(0,minutesBetween(a1?.value||"",a2?.value||"")-pauseMinutes(pa?.value||"0"));
-    rt.value=fmtMin(v);
-  }
-  if(rr){
-    const v=backOverride && backOverride.value!==""
+      : driveNettoFromClocks(a1?.value, a2?.value, pa?.value);
+    const rrMin=backOverride && backOverride.value!==""
       ? Math.max(0,parseInt(backOverride.value,10)||0)
-      : Math.max(0,minutesBetween(b1?.value||"",b2?.value||"")-pauseMinutes(pb?.value||"0"));
-    rr.value=fmtMin(v);
-  }
+      : driveNettoFromClocks(b1?.value, b2?.value, pb?.value);
+    if(rt) rt.value=fmtMin(rtMin);
+    if(rr) rr.value=fmtMin(rrMin);
+    clearCalculatedTripHighlight(a1, a2, outOverride, rtMin);
+    clearCalculatedTripHighlight(b1, b2, backOverride, rrMin);
+}
+function clearCalculatedTripHighlight(start, end, override, minutes){
+  if(!(minutes>0) || !filledTime(start?.value) || !filledTime(end?.value)) return;
+  [start, end, override].forEach(el=>{
+    if(!el) return;
+    el.classList.remove("to-check");
+    el.classList.remove("km-check");
+    delete el.dataset.overnightCleared;
+  });
 }
 
 document.getElementById("times").addEventListener("input",function(e){
@@ -2110,7 +2768,7 @@ document.getElementById("times").addEventListener("input",function(e){
   const d=parseInt(box.getAttribute("data-daybox"),10);
   const key=el.dataset.k||"";
   if(key===`PauseRZ${d*2}` && el.dataset.syncing!=="1"){
-    el.dataset.pauseManual="1";
+    if(String(el.value||"").trim()!==String(el.dataset.autoPause||"")) el.dataset.pauseManual="1";
   }
   if(key===`PauseRZ${d*2-1}` || key===`PauseAZ${d*2-1}`){
     syncReturnPauseFromDay(box);
@@ -2125,7 +2783,7 @@ document.getElementById("times").addEventListener("change",function(e){
     const d=parseInt(box.getAttribute("data-daybox"),10);
     const pauseKey=el.dataset.k||"";
     if(pauseKey===`PauseRZ${d*2}` && el.dataset.syncing!=="1"){
-      el.dataset.pauseManual="1";
+      if(String(el.value||"").trim()!==String(el.dataset.autoPause||"")) el.dataset.pauseManual="1";
     }
     if(pauseKey===`PauseRZ${d*2-1}` || pauseKey===`PauseAZ${d*2-1}`){
       syncReturnPauseFromDay(box);
@@ -2141,6 +2799,7 @@ document.getElementById("times").addEventListener("change",function(e){
   const row=parseInt(m[2],10);
   const d=Math.ceil(row/2);
   const dayBox=dayBoxEl(d);
+  if(el.value && dayBox) markReturnPauseToCheck(dayBox);
   const outRow=d*2-1, backRow=d*2;
   const field=(name,n)=>dayBox?.querySelector(`[data-k="${name}${n}"]`);
   const outMin=anfahrtClockSpan(d);
@@ -2150,21 +2809,19 @@ document.getElementById("times").addEventListener("change",function(e){
   const a1=field("RZstart",outRow), a2=field("RZende",outRow);
   const b1=field("RZstart",backRow), b2=field("RZende",backRow);
   const backSpan=rueckfahrtClockSpan(d);
+  const free=dayDropsListRoute(d);
 
   if(el.value===""){
     el.dataset.manual="0";
     el.removeAttribute("data-manual");
-
-    if(row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
+    if(!free && row===outRow && a1 && a2 && outMin && !anfahrtOff(dayBox)){
       if(el===a2 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
       else if(el===a1 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
     }
-
-    if(row===backRow && b1 && b2 && backMin && !rueckfahrtOff(dayBox)){
+    if(!free && row===backRow && b1 && b2 && backMin && !rueckfahrtOff(dayBox)){
       if(el===b2 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
       else if(el===b1 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
     }
-
     recalcTimes(); updateDayRouteNetto(d);
     return;
   }
@@ -2172,11 +2829,11 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===outRow && el.value) restoreAnfahrtAuto(dayBox);
 
   if(row===outRow && outMin && !anfahrtOff(dayBox)){
-    if(el===a1 && a1.value) setClock(a2,addMinutesToTime(a1.value,outMin));
-    else if(el===a2 && a2.value) setClock(a1,addMinutesToTime(a2.value,-outMin));
+    if(el===a1 && a1.value && a2 && (!free || !filledTime(a2.value))) setClock(a2,addMinutesToTime(a1.value,outMin));
+    else if(el===a2 && a2.value && a1 && (!free || !filledTime(a1.value))) setClock(a1,addMinutesToTime(a2.value,-outMin));
 
     const az=field("AZstart",outRow);
-    if(az && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
+    if(az && a2 && a2.value && az.dataset.manual!=="1") setClock(az,a2.value);
   }
 
   if(m[1]==="AZende"){
@@ -2186,8 +2843,8 @@ document.getElementById("times").addEventListener("change",function(e){
   if(row===backRow && el.value) restoreRueckfahrtAuto(dayBox);
 
   if(row===backRow && backMin && !rueckfahrtOff(dayBox)){
-    if(el===b1 && b1.value) setClock(b2,addMinutesToTime(b1.value,backSpan));
-    else if(el===b2 && b2.value) setClock(b1,addMinutesToTime(b2.value,-backSpan));
+    if(el===b1 && b1.value && b2 && (!free || !filledTime(b2.value))) setClock(b2,addMinutesToTime(b1.value,backSpan));
+    else if(el===b2 && b2.value && b1 && (!free || !filledTime(b1.value))) setClock(b1,addMinutesToTime(b2.value,-backSpan));
 
     const azEnd=field("AZende",outRow);
     if(azEnd && b1.value && azEnd.dataset.manual!=="1") setClock(azEnd,b1.value);
@@ -2232,20 +2889,18 @@ document.getElementById("times").addEventListener("click",function(e){
     if(d) answerOvernightAsk(d, ask.getAttribute("data-overnight-ask")==="yes");
     return;
   }
-  const btn=e.target.closest(".btn-day-collapse");
-  if(!btn) return;
-  const d=btn.getAttribute("data-collapse-day");
-  const box=document.querySelector(`[data-daybox="${d}"]`);
-  if(!box) return;
-  setDayCollapsed(box, !box.classList.contains("day-collapsed"));
 });
 document.getElementById("times").addEventListener("change",function(e){
   const cb=e.target.closest("[data-overnight-day]");
   if(!cb || cb!==e.target) return;
-  const wrap=cb.closest(".overnight-end");
-  if(!wrap || !wrap.classList.contains("is-ask") || !cb.checked) return;
   const d=parseInt(cb.getAttribute("data-overnight-day"),10);
-  if(d) answerOvernightAsk(d, true);
+  if(!d) return;
+  const wrap=cb.closest(".overnight-end");
+  if(wrap && wrap.classList.contains("is-ask")){
+    if(cb.checked) answerOvernightAsk(d, true);
+    return;
+  }
+  syncNextDayRoute(d);
 });
 document.getElementById("times").addEventListener("focusin",function(e){
   const mark=e.target.closest("[data-overnight-mark]");
@@ -2379,6 +3034,11 @@ function addMinutesToTime(t,mins){
 function companyNameKey(c){
   return String((c&&(c.firma||c.name))||"").trim().toLowerCase();
 }
+function companyKundennummer(c){
+  if(!c) return "";
+  return String(c.kundennummer||c.kundenummer||c.kdnr||c.customerNo||"").trim();
+}
+window.companyKundennummer=companyKundennummer;
 const COMPANIES_CACHE_KEY="servicebericht_companies_cache_v1";
 const COMPANIES_PENDING_KEY="servicebericht_companies_pending_v1";
 const COMPANIES_REMOVED_KEY="servicebericht_companies_removed_v1";
@@ -2524,6 +3184,7 @@ function mergePendingCompanies(remote, localList, pendingKeys){
       if(idx>=0){
         arr[idx].adres=String(rec.adres||"");
         if(rec.firma) arr[idx].firma=String(rec.firma).trim();
+        if(rec.kundennummer!=null) arr[idx].kundennummer=String(rec.kundennummer||"");
       }
     }
   });
@@ -2551,6 +3212,10 @@ function bindCompanySelect(){
     const a=address(c.adres||c.address||"");
     if($("street")) $("street").value=a[0]||"";
     if($("city")) $("city").value=a[1]||"";
+    if($("kundennummer")){
+      $("kundennummer").value=companyKundennummer(c);
+      delete $("kundennummer").dataset.unlocked;
+    }
     // Force KM from the new customer (unless the user marked KM as manual).
     applyCustomerRouteDay1({forceKm:true});
     for(let d=2;d<=visibleDays;d++) applyCustomerRouteDay(d, {forceKm:true});
@@ -2564,6 +3229,7 @@ function bindCompanySelect(){
       if(typeof window.pullCustomerEmails==="function")
         window.pullCustomerEmails().then(()=>window.refreshCustomerEmails()).catch(()=>{});
     }
+    syncAddressMapsBtn();
   };
 }
 function selectCompanyByName(name){
@@ -2644,11 +3310,14 @@ function unionCompaniesPreferLocal(remoteList, localList){
     const locEmail=String(c.email||"").trim();
     const remEmail=String(rem.email||"").trim();
     const localFirma=String(c.firma||c.name||"").trim();
+    const locNr=companyKundennummer(c);
+    const remNr=companyKundennummer(rem);
     map.set(k, Object.assign({}, rem, {
       firma:(pending.has(k) && localFirma) ? localFirma : (rem.firma||c.firma||c.name||""),
       // Prefer a real address — local "" must not wipe a remote email.
       email:locEmail || remEmail || rem.email || c.email || "",
       adres:force.has(k) ? String(c.adres||"") : (rem.adres||c.adres||""),
+      kundennummer:(pending.has(k) || force.has(k)) ? String(c.kundennummer||c.kundenummer||locNr||"") : (locNr || remNr || ""),
       tel:rem.tel||c.tel||"",
       notatki:useLocalNote ? (locNote||remNote) : (remNote||locNote)
     }));
@@ -2693,7 +3362,6 @@ function syncCompanySaveButton(){
   const label=$("customerRouteLabel");
   const name=String($("customerSearch")?.value||"").trim();
   const existing=name ? companyRecordByName(name) : null;
-  const incomplete=!!existing && companyRouteIncomplete(existing);
   // "Zur Kundenliste hinzufügen" only when the firm is not on the list at all.
   // E-Mail add/delete must not bring it back (firm may already exist as stub).
   if(btn){
@@ -2713,10 +3381,9 @@ function syncCompanySaveButton(){
       bar.hidden=false;
       if(label) label.textContent=formatListedRoute(existing);
       if(edit){
-        edit.hidden=false;
+        edit.hidden=true;
         edit.disabled=false;
-        edit.textContent=incomplete ? "km / Reisezeit speichern" : "km / Reisezeit ändern";
-        edit.classList.toggle("is-pulse", incomplete);
+        edit.classList.remove("is-pulse");
       }
     }else{
       bar.hidden=true;
@@ -2733,6 +3400,7 @@ function syncCompanySaveButton(){
     ident.hidden=!existing;
     ident.disabled=false;
   }
+  syncKundennummerSaveButton();
   const cloud=$("companyCloudStatus");
   if(cloud){
     cloud.hidden=true;
@@ -2743,6 +3411,60 @@ function syncCompanySaveButton(){
   }
 }
 window.syncCompanySaveButton=syncCompanySaveButton;
+function syncKundennummerSaveButton(){
+  const el=$("kundennummer");
+  const btn=$("kundennummerSave");
+  const wrap=$("kundennummerField") || el?.closest(".kunde-nr-field");
+  const ok=$("kundennummerSaveOk");
+  if(!el) return;
+  const name=String($("customerSearch")?.value||"").trim();
+  const existing=name ? companyRecordByName(name) : null;
+  const typed=String(el.value||"").trim();
+  const saved=existing ? companyKundennummer(existing) : "";
+  const hasSaved=!!(existing && saved);
+  // Nur neu hinzufügen (Merken). Ändern nur über „Kundendaten ändern“.
+  delete el.dataset.unlocked;
+  el.readOnly=hasSaved;
+  if(wrap) wrap.classList.remove("has-edit");
+  const canAdd=!!existing && !hasSaved && !!typed;
+  if(btn){
+    btn.hidden=!canAdd;
+    btn.classList.toggle("is-pulse", canAdd);
+  }
+  if(!canAdd && ok && !ok.classList.contains("is-on")) ok.classList.remove("is-on");
+}
+window.syncKundennummerSaveButton=syncKundennummerSaveButton;
+function saveKundennummerForListedFirm(){
+  const name=typeof firmaName==="function" ? firmaName() : String($("customerSearch")?.value||"").trim();
+  const existing=name ? companyRecordByName(name) : null;
+  const nr=String($("kundennummer")?.value||"").trim();
+  const s=$("status");
+  if(!existing || !name){
+    if(s) s.textContent="Zuerst eine Firma aus der Liste wählen.";
+    return false;
+  }
+  if(!nr){
+    if(s) s.textContent="Kundennummer eintragen, dann Merken.";
+    return false;
+  }
+  const local=mergeCompanyRecord(Array.isArray(companies)?companies:[], {firma:existing.firma||existing.name||name, kundennummer:nr});
+  if(typeof applyCompanies==="function") applyCompanies(local, existing.firma||name);
+  if(typeof markCompanyPending==="function") markCompanyPending(existing.firma||name);
+  if(typeof flushPendingCompanies==="function") flushPendingCompanies();
+  syncKundennummerSaveButton();
+  const ok=$("kundennummerSaveOk");
+  if(ok){
+    ok.classList.remove("is-on");
+    void ok.offsetWidth;
+    ok.classList.add("is-on");
+    ok.setAttribute("aria-hidden","false");
+    clearTimeout(ok._t);
+    ok._t=setTimeout(()=>ok.classList.remove("is-on"), 2500);
+  }
+  if(s) s.textContent="Kundennummer gespeichert.";
+  return true;
+}
+window.saveKundennummerForListedFirm=saveKundennummerForListedFirm;
 function asCompanyList(data){
   if(Array.isArray(data)) return data;
   if(data && Array.isArray(data.companies)) return data.companies;
@@ -2763,6 +3485,7 @@ function mergeCompanyRecord(remote, rec){
       tel:String((rec&&rec.tel)||""),
       email:String((rec&&rec.email)||""),
       adres:String((rec&&rec.adres)||""),
+      kundennummer:String((rec&&rec.kundennummer)||"").trim(),
       notatki:String((rec&&rec.notatki)||"")
     });
   }else{
@@ -2772,6 +3495,8 @@ function mergeCompanyRecord(remote, rec){
     else if(c.tel==null) c.tel="";
     if(rec.email) c.email=rec.email;
     if(rec.adres) c.adres=rec.adres;
+    if(rec.kundennummer!=null && String(rec.kundennummer).trim()!=="")
+      c.kundennummer=String(rec.kundennummer).trim();
     // Never wipe km/Reisezeit with "" (E-Mail merken used to blank notatki).
     if(rec.notatki!=null && String(rec.notatki).trim()!=="") c.notatki=String(rec.notatki);
   }
@@ -2807,6 +3532,7 @@ function companyRecordFromForm(route){
   const city=String($("city")?.value||"").trim();
   const adres=[street, city].filter(Boolean).join(", ");
   const email=String($("customerEmail")?.value||window.selectedCustomerEmail||"").trim();
+  const kundennummer=String($("kundennummer")?.value||"").trim();
   let km=parseFloat(String(document.querySelector('[data-k="Kilometer1"]')?.value||"").replace(",","."))||0;
   const rtTxt=String(document.querySelector('[data-calc="rt1"]')?.value||"").trim();
   const clock=rtTxt.match(/^(\d+):(\d+)$/);
@@ -2815,7 +3541,120 @@ function companyRecordFromForm(route){
     if(route.km!=null) km=Number(route.km)||0;
     if(route.minutes!=null) minutes=Number(route.minutes)||0;
   }
-  return {firma, tel:"", email, adres, notatki:formatRouteNote(km, minutes)};
+  return {firma, tel:"", email, adres, kundennummer, notatki:formatRouteNote(km, minutes)};
+}
+function currentAddressQuery(){
+  const firma=typeof firmaName==="function" ? String(firmaName()||"").trim() : String($("customerSearch")?.value||"").trim();
+  const street=String($("street")?.value||"").trim();
+  const city=String($("city")?.value||"").trim();
+  const loc=[street, city].filter(Boolean).join(", ");
+  if(loc && firma) return firma+", "+loc;
+  return loc || firma;
+}
+function googleMapsSearchUrl(q){
+  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q||"");
+}
+function isIosPadApp(){
+  const ua=navigator.userAgent||"";
+  if(/iPad|iPhone|iPod/.test(ua)) return true;
+  if(navigator.standalone===true) return true;
+  return (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+}
+function syncAddressMapsBtn(){
+  const btn=$("addressMapsBtn");
+  if(!btn) return;
+  btn.disabled=!currentAddressQuery();
+}
+function openUrlSafe(href){
+  if(!href) return false;
+  try{
+    const a=document.createElement("a");
+    a.href=href;
+    a.target="_blank";
+    a.rel="noopener noreferrer";
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }catch(e){}
+  try{
+    const w=window.open(href, "_blank", "noopener,noreferrer");
+    if(w) return true;
+  }catch(e){}
+  return false;
+}
+function openAppScheme(href){
+  if(!href) return false;
+  try{
+    const a=document.createElement("a");
+    a.href=href;
+    a.rel="noopener";
+    a.style.display="none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+async function shareAddressToMaps(q, webUrl){
+  if(!navigator.share) return false;
+  if(typeof window.sbHoldReload==="function") window.sbHoldReload(120000);
+  const payloads=[
+    {url:webUrl},
+    {text:q, url:webUrl},
+    {text:q}
+  ];
+  for(let i=0;i<payloads.length;i++){
+    const data=payloads[i];
+    try{
+      if(typeof navigator.canShare==="function"){
+        let ok=true;
+        try{ ok=navigator.canShare(data); }catch(e){ ok=false; }
+        if(!ok) continue;
+      }
+      await navigator.share(data);
+      return true;
+    }catch(e){
+      if(e && e.name==="AbortError") throw e;
+    }
+  }
+  return false;
+}
+async function openAddressInGoogleMaps(){
+  const q=currentAddressQuery();
+  if(!q) return;
+  const webUrl=googleMapsSearchUrl(q);
+  const encoded=encodeURIComponent(q);
+  const s=$("status");
+  if(isIosPadApp()){
+    try{
+      if(await shareAddressToMaps(q, webUrl)){
+        if(s) s.textContent="Google Maps im Teilen-Blatt wählen.";
+        return;
+      }
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+    }
+    if(openAppScheme("comgooglemaps://?q="+encoded)){
+      if(s) s.textContent="Google Maps geöffnet.";
+      return;
+    }
+    if(openAppScheme("maps://?q="+encoded)){
+      if(s) s.textContent="Karten geöffnet.";
+      return;
+    }
+    if(s) s.textContent="Google Maps nicht gefunden. Noch einmal tippen.";
+    return;
+  }
+  const ok=openUrlSafe(webUrl);
+  if(ok){
+    if(s) s.textContent="Google Maps geöffnet.";
+  }else if(s){
+    s.textContent="Google Maps konnte nicht geöffnet werden.";
+  }
 }
 window.applyCompanies=applyCompanies;
 function replaceCompanyIdentity(list, oldKey, rec){
@@ -2828,8 +3667,11 @@ function replaceCompanyIdentity(list, oldKey, rec){
   const base=oldIdx>=0?arr[oldIdx]:{};
   const next=Object.assign({}, base, {
     firma:name,
-    adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||"")
+    adres:rec&&rec.adres!=null ? String(rec.adres) : String(base.adres||""),
+    kundennummer:rec&&rec.kundennummer!=null ? String(rec.kundennummer) : companyKundennummer(base),
+    email:rec&&rec.email!=null ? String(rec.email) : String(base.email||"")
   });
+  if(rec && rec.notatki!=null) next.notatki=String(rec.notatki);
   if(oldIdx>=0 && oldK!==newK) arr.splice(oldIdx, 1);
   const exist=arr.findIndex(c=>companyNameKey(c)===newK);
   if(exist>=0) arr[exist]=Object.assign({}, arr[exist], next);
@@ -2895,6 +3737,10 @@ function applyCustomerRouteDay1(opts){
   applyCustomerRouteDay(1, opts);
 }
 function applyCustomerRouteDay(d, opts){
+  if(dayDropsListRoute(d)){
+    clearListRouteForOvernight(d);
+    return;
+  }
   const r=customerRoute();
   const box=document.querySelector(`[data-daybox="${d}"]`);
   if(!box) return;
@@ -3051,6 +3897,8 @@ window.addEventListener("sb-token-change", function(){
   }
   if(s) s.textContent="Token gespeichert. Kundenliste wird mit GitHub abgeglichen…";
   window.loadCompaniesFromCloud({cloud:true, skipDraft:true, noPush:true});
+  if(typeof window.pullCustomParts==="function")
+    window.pullCustomParts({allowPush:true}).catch(function(){});
 });
 
 function fieldRectOf(form,n){
@@ -3170,7 +4018,7 @@ function fitSizeForField(n){
   if(/^Kilometer\d+$/.test(name)) return 7.5;
   if(/^(RZ|AZ)\d+$/.test(name)) return 8;
   if(/gesamt|Gesamtzeit/i.test(name)) return 9;
-  if(/^(Firma|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 9;
+  if(/^(Firma|Kundennummer|Kunden-Nr|Straße|PLZ|Ansprechpartner|Hersteller|Typ|Maschinennummer|Steuerung|NC Version|PLC Version|Störung|Betriebsstunden|Name Servicetechniker|Name Unterschrift Kunde)/.test(name)) return 9;
   if(/^Bemerkung\d+$/.test(name) || /^Ersatzteile/.test(name)) return 9;
   return 9;
 }
@@ -3232,6 +4080,10 @@ function pauseMinutes(v){
   const x=parseFloat(raw.replace(",","."));
   return Number.isFinite(x)?Math.max(0,Math.round(x)):0;
 }
+/** Netto-Reisezeit: Uhrspanne minus Pause – gleich für Tag 1 und Folgetage. */
+function driveNettoFromClocks(startVal, endVal, pauseVal){
+  return Math.max(0, minutesBetween(startVal||"", endVal||"") - pauseMinutes(pauseVal||"0"));
+}
 function fmtMin(m){m=Math.max(0,Math.round(m));return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
 function fmtMinPdf(m){
   m=Math.max(0,Math.round(m));
@@ -3275,14 +4127,14 @@ function recalcTimes(opts){
     if(outOverride && String(outOverride.value).trim()!==""){
       rt=Math.max(0,parseInt(outOverride.value,10)||0);
     }else{
-      rt=Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
+      rt=driveNettoFromClocks(q(`RZstart${a}`).value, q(`RZende${a}`).value, pauseOut);
     }
 
     let rr;
     if(backOverride && String(backOverride.value).trim()!==""){
       rr=Math.max(0,parseInt(backOverride.value,10)||0);
     }else{
-      rr=Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack);
+      rr=driveNettoFromClocks(q(`RZstart${b}`).value, q(`RZende${b}`).value, pauseBack);
     }
 
     const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
@@ -3356,14 +4208,16 @@ function bindTimeInputs(){
     if(el.dataset.bound==="1") return;
     el.dataset.bound="1";
 
-    const handleTimeChange=()=>{
+    const handleTimeChange=(ev)=>{
       if(el.dataset.syncing==="1") return;
+      if(ev && ev.isTrusted && el.classList && el.classList.contains("quarter-time")) el.dataset.linked="0";
       const key=el.dataset.k||"";
       const box=el.closest("[data-daybox]");
       const boxDay=box ? parseInt(box.getAttribute("data-daybox"),10) : 1;
       const m=key.match(/^(RZstart|RZende|AZstart|AZende)(\d+)$/);
       const row=m?parseInt(m[2],10):0;
       const d=row?Math.ceil(row/2):(Number.isFinite(boxDay)?boxDay:1);
+      if(m && el.value && box) markReturnPauseToCheck(box);
       const outRow=d*2-1,backRow=d*2;
       const field=(name,n)=>box?.querySelector(`[data-k="${name}${n}"]`);
       const outMin=anfahrtClockSpan(d);
@@ -3387,7 +4241,12 @@ function bindTimeInputs(){
 
       if(el.dataset.routeOverride==="out" || el.dataset.routeOverride==="back"){
         const isEmpty=String(el.value??"").trim()==="";
-        const val=isEmpty ? (el.dataset.routeOverride==="out"?outDrive:backMin) : Math.max(0,parseInt(el.value,10)||0);
+        const typed=isEmpty ? 0 : Math.max(0,parseInt(el.value,10)||0);
+        // Liste (ohne Override) – Override-Feld ist beim Leeren schon leer.
+        const listMin=el.dataset.routeOverride==="out" ? outDrive : backMin;
+        const prevKeep=Math.max(0,parseInt(el.dataset.prevOverride||"0",10)||0);
+        // Leeren: Liste zurück, sonst letzte Override-Minuten (Uhrspanne inkl. Pause).
+        const val=isEmpty ? (listMin>0 ? listMin : prevKeep) : typed;
 
         if(el.dataset.routeOverride==="out"){
           if(!isEmpty) restoreAnfahrtAuto(box);
@@ -3396,6 +4255,7 @@ function bindTimeInputs(){
               el.dataset.manual="0";
               el.removeAttribute("data-manual");
               el.value="";
+              delete el.dataset.prevOverride;
             }
             recalcTimes();
             if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
@@ -3411,8 +4271,10 @@ function bindTimeInputs(){
             el.dataset.manual="0";
             el.removeAttribute("data-manual");
             el.value="";
+            delete el.dataset.prevOverride;
           }else{
             el.dataset.manual="1";
+            el.dataset.prevOverride=String(typed);
           }
         }else{
           if(!isEmpty) restoreRueckfahrtAuto(box);
@@ -3421,11 +4283,13 @@ function bindTimeInputs(){
               el.dataset.manual="0";
               el.removeAttribute("data-manual");
               el.value="";
+              delete el.dataset.prevOverride;
             }
             recalcTimes();
             if(typeof updateDayRouteNetto==="function") updateDayRouteNetto(d);
             return;
           }
+          markReturnPauseToCheck(box);
           const b1=field("RZstart",backRow), b2=field("RZende",backRow);
           const elapsed=val+rueckfahrtPauseMin(d);
           if(b1&&b2&&val>0){
@@ -3436,8 +4300,10 @@ function bindTimeInputs(){
             el.dataset.manual="0";
             el.removeAttribute("data-manual");
             el.value="";
+            delete el.dataset.prevOverride;
           }else{
             el.dataset.manual="1";
+            el.dataset.prevOverride=String(typed);
           }
         }
 
@@ -3463,15 +4329,22 @@ function bindTimeInputs(){
         const a1=field("RZstart",outRow),a2=field("RZende",outRow);
         const b1=field("RZstart",backRow),b2=field("RZende",backRow);
         if(row===outRow && a1&&a2&&el.value){
-          if(el===a1) setClock(a2,addMinutesToTime(el.value,outMin));
-          else setClock(a1,addMinutesToTime(el.value,-outMin));
+          const free=dayDropsListRoute(d);
+          if(el===a1 && (!free || !filledTime(a2.value))) setClock(a2,addMinutesToTime(el.value,outMin));
+          else if(el===a2 && (!free || !filledTime(a1.value))) setClock(a1,addMinutesToTime(el.value,-outMin));
           const az=field("AZstart",outRow);
           if(az&&a2.value&&az.dataset.manual!=="1") setClock(az,a2.value);
         }
         if(row===backRow && b1&&b2&&el.value){
           const duration=rueckfahrtClockSpan(d);
-          if(el===b1) setClock(b2,addMinutesToTime(el.value,duration));
-          else setClock(b1,addMinutesToTime(el.value,-duration));
+          const free=dayDropsListRoute(d);
+          if(duration && el===b1 && (!free || !filledTime(b2.value) || b2.dataset.linked==="1")){
+            setClock(b2,addMinutesToTime(el.value,duration));
+            if(free) b2.dataset.linked="1";
+          }else if(duration && el===b2 && (!free || !filledTime(b1.value) || b1.dataset.linked==="1")){
+            setClock(b1,addMinutesToTime(el.value,-duration));
+            if(free) b1.dataset.linked="1";
+          }
         }
       }
 
@@ -3487,8 +4360,9 @@ function bindTimeInputs(){
         syncWorkEndToReturnStart(d);
       }
       if(key===`RZstart${backRow}`&&el.value){
+        const span=rueckfahrtClockSpan(d);
         const ankunft=field("RZende",backRow);
-        setClock(ankunft,addMinutesToTime(el.value,rueckfahrtClockSpan(d)));
+        if(span>0 && ankunft && (Number(d)===1 || !filledTime(ankunft.value))) setClock(ankunft,addMinutesToTime(el.value,span));
       }
 
       if(key===`AZstart${outRow}`||key===`AZende${outRow}`)el.dataset.manual="1";
@@ -4141,6 +5015,44 @@ function openPdfKindSheet(){
   go.click();
 }
 
+function dayRouteGaps(){
+  if(typeof syncVisibleDaysFromDOM==="function") syncVisibleDaysFromDOM();
+  const gaps=[];
+  const boxes=[...document.querySelectorAll("[data-daybox]")];
+  boxes.forEach(box=>{
+    const d=parseInt(box.getAttribute("data-daybox"),10);
+    if(!d) return;
+    if(d>1 && box.getAttribute("data-day-active")!=="1") return;
+    const bits=[];
+    const driveMin=(dir)=>{
+      const row=dir==="out" ? d*2-1 : d*2;
+      const ov=box.querySelector(`[data-route-override="${dir}"]`);
+      if(ov && String(ov.value||"").trim()!=="") return Math.max(0, parseInt(ov.value,10)||0);
+      const a=box.querySelector(`[data-k="RZstart${row}"]`);
+      const b=box.querySelector(`[data-k="RZende${row}"]`);
+      const pause=box.querySelector(`[data-k="PauseRZ${row}"]`);
+      if(typeof filledTime!=="function" || !filledTime(a?.value) || !filledTime(b?.value)) return 0;
+      return driveNettoFromClocks(a.value, b.value, pause?.value);
+    };
+    const need=(off, kmName, dir, kmLabel, timeLabel)=>{
+      if(off) return;
+      const km=box.querySelector(`[data-k="${kmName}"]`);
+      if(!String(km?.value??"").trim()) bits.push(kmLabel);
+      if(driveMin(dir)<=0) bits.push(timeLabel);
+    };
+    need(typeof anfahrtOff==="function" && anfahrtOff(box), "Kilometer"+(d*2-1), "out", "km Anfahrt", "Reisezeit Anfahrt");
+    const backOff=typeof rueckfahrtOff==="function" && rueckfahrtOff(box);
+    if(!backOff){
+      const km=box.querySelector(`[data-k="Kilometer${d*2}"]`);
+      const end=box.querySelector(`[data-k="RZende${d*2}"]`);
+      if(!String(km?.value??"").trim()) bits.push("km Rückfahrt");
+      // Day 1 clocks already include the pause, so the drive is what remains. Day 2 clocks are the drive; the pause stays in its own field.
+      if(!filledTime(end?.value) || driveMin("back")<=0) bits.push("Reisezeit Rückfahrt");
+    }
+    if(bits.length) gaps.push("Tag "+d+": "+bits.join(", "));
+  });
+  return gaps;
+}
 function pdfMissingChoices(){
   const miss=[];
   if(!document.querySelector('#choices input[name="betriebs"]:checked'))
@@ -4171,6 +5083,8 @@ function confirmPdfMissingChoices(){
   const miss=pdfMissingChoices();
   if(!miss.length) return Promise.resolve(true);
   const hint=$("pdfMissingHint");
+  const title=$("pdfMissingTitle");
+  if(title) title.textContent="Auswahl fehlt";
   if(hint) hint.textContent=pdfMissingConfirmText(miss);
   const modal=$("pdfMissingModal");
   if(!modal){
@@ -4183,6 +5097,23 @@ function confirmPdfMissingChoices(){
   return new Promise(resolve=>{ pdfMissingWait=resolve; });
 }
 window.confirmPdfMissingChoices=confirmPdfMissingChoices;
+function confirmEmailRouteGaps(){
+  const gaps=dayRouteGaps();
+  if(!gaps.length) return Promise.resolve(true);
+  const hint=$("pdfMissingHint");
+  const title=$("pdfMissingTitle");
+  if(title) title.textContent="km / Reisezeit fehlt";
+  const text=gaps.join(". ")+". Trotzdem E-Mail senden?";
+  if(hint) hint.textContent=text;
+  const modal=$("pdfMissingModal");
+  if(!modal) return Promise.resolve(window.confirm(text));
+  if(pdfMissingWait)
+    return new Promise(r=>{ const p=pdfMissingWait; pdfMissingWait=ok=>{ p(ok); r(ok); }; });
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden","false");
+  return new Promise(resolve=>{ pdfMissingWait=resolve; });
+}
+window.confirmEmailRouteGaps=confirmEmailRouteGaps;
 $("pdfMissingNo")?.addEventListener("click",()=>closePdfMissingSheet(false));
 $("pdfMissingYes")?.addEventListener("click",()=>closePdfMissingSheet(true));
 $("pdfMissingModal")?.addEventListener("click",e=>{
@@ -4296,6 +5227,8 @@ function pdfDateFromDay(dayNo){
   return el?.value || isoAddDays($("date")?.value||"", Number(dayNo)-1);
 }
 setFit(form,"Firma",firmaName(),9);
+setIf(form,"Kundennummer",$("kundennummer")?.value||"");
+setIf(form,"Kunden-Nr",$("kundennummer")?.value||"");
 setIf(form,"Straße",$("street").value);setIf(form,"PLZ, Ort",$("city").value);
 setIf(form,"Ansprechpartner",$("contact").value);
 setFit(form,"Text2", String($("blattNr")?.value||"").trim()||"1", 8);
@@ -4325,32 +5258,34 @@ for(let d=1;d<=dayBoxes.length;d++){
   const pauseOut=pauseMinutes(q(`PauseRZ${a}`).value||"");
   const pauseWork=pauseMinutes(q(`PauseAZ${a}`).value||"");
   const pauseBack=pauseMinutes(q(`PauseRZ${b}`).value||"");
-  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),7);
-  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
-  if(pauseBack) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
   const kmA=q(`Kilometer${a}`).value, kmB=q(`Kilometer${b}`).value;
   const countOut=hasAnfahrtAnkunft(box,d);
   const countBack=hasRueckfahrtClock(box,d);
-  if(countOut && String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
-  if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const outOv=box.querySelector('[data-route-override="out"]');
   const backOv=box.querySelector('[data-route-override="back"]');
+  const pauseBackEl=box.querySelector(`[data-k="PauseRZ${b}"]`);
+  const pauseBackUse=!!(pauseBack && (countBack || (backOv && String(backOv.value).trim()!=="") || pauseBackEl?.dataset?.pauseManual==="1"));
+  if(pauseOut) setFit(form,`PauseRZ${a}`,fmtMinPdf(pauseOut),7);
+  if(pauseWork) setFit(form,`PauseAZ${a}`,fmtMinPdf(pauseWork),7);
+  if(pauseBackUse) setFit(form,`PauseRZ${b}`,fmtMinPdf(pauseBack),7);
+  if(countOut && String(kmA).trim()!=="") setFit(form,`Kilometer${a}`,kmA,7.5);
+  if(countBack && String(kmB).trim()!=="") setFit(form,`Kilometer${b}`,kmB,7.5);
   const rt=outOv && String(outOv.value).trim()!==""
     ? Math.max(0,parseInt(outOv.value,10)||0)
-    : Math.max(0,minutesBetween(q(`RZstart${a}`).value,q(`RZende${a}`).value)-pauseOut);
+    : driveNettoFromClocks(q(`RZstart${a}`).value, q(`RZende${a}`).value, pauseOut);
   const wt=Math.max(0,minutesBetween(q(`AZstart${a}`).value,q(`AZende${a}`).value)-pauseWork);
   const rr=backOv && String(backOv.value).trim()!==""
     ? Math.max(0,parseInt(backOv.value,10)||0)
-    : Math.max(0,minutesBetween(q(`RZstart${b}`).value,q(`RZende${b}`).value)-pauseBack);
+    : driveNettoFromClocks(q(`RZstart${b}`).value, q(`RZende${b}`).value, pauseBack);
   if(rt) setFit(form,`RZ${a}`,fmtMinPdf(rt),8);
   if(wt) setFit(form,`AZ${a}`,fmtMinPdf(wt),8);
   if(rr) setFit(form,`RZ${b}`,fmtMinPdf(rr),8);
   km+=countOut ? (parseFloat((kmA||"").replace(",","."))||0) : 0;
   km+=countBack ? (parseFloat((kmB||"").replace(",","."))||0) : 0;
   travel+=rt+rr;work+=wt;
-  pauseRzSum+=pauseOut+pauseBack;
+  pauseRzSum+=pauseOut+(pauseBackUse?pauseBack:0);
   pauseAzSum+=pauseWork;
-  all+=rt+pauseOut+wt+pauseWork+rr+pauseBack;
+  all+=rt+pauseOut+wt+pauseWork+rr+(pauseBackUse?pauseBack:0);
 }
 if(km) setFit(form,"Kilometer gesamt",String(Math.round(km*10)/10).replace(".",","),9);
 if(travel) setFit(form,"Reisezeit gesamt",fmtMinPdf(travel),9);
@@ -4360,7 +5295,7 @@ if(all) setFit(form,"Gesamtzeit",fmtMinPdf(all),9);
 const pdfHasContent=!!(
   c || firmaName() || String($("remarks").value||"").trim() || String($("parts").value||"").trim() || km || travel || work || bet || ein || art ||
   document.getElementById("maschine_ok")?.checked ||
-  ["street","city","contact","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
+  ["street","city","contact","kundennummer","manufacturer","type","machineNo","control","nc","plc","fault","hours","tech","customersign"]
     .some(id=>String($(id)?.value||"").trim())
 );
 if(pdfHasContent){
@@ -4699,8 +5634,11 @@ finally{ window.__pdfBuilding=false; }
       if(d){
         const pause=box.querySelector(`[data-k="PauseRZ${d*2}"]`);
         if(pause){
-          if(String(pause.value||"").trim()==="") pause.value="45";
-          pause.classList.add("to-check");
+          const hasTimes=typeof dayHasRueckfahrtTimes==="function"
+            ? dayHasRueckfahrtTimes(box)
+            : (typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(box,d));
+          if(String(pause.value||"").trim()==="" && hasTimes) pause.value="45";
+          if(String(pause.value||"").trim()!=="") pause.classList.add("pause-rueck-check");
         }
       }
       if(typeof markArrivalWorkEndToCheck==="function") markArrivalWorkEndToCheck(box, true);
@@ -4715,6 +5653,7 @@ finally{ window.__pdfBuilding=false; }
     if(typeof window.syncCompanySaveButton==="function") window.syncCompanySaveButton();
     if(typeof window.syncLoadedMachineFromForm==="function") window.syncLoadedMachineFromForm();
     if(typeof window.syncEmailCopyRow==="function") window.syncEmailCopyRow();
+    if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
     if(typeof window.invalidateStashedPdf==="function") window.invalidateStashedPdf();
     if(!$("signdate")?.value && typeof stampSignDateToday==="function") stampSignDateToday();
   }
@@ -4825,6 +5764,8 @@ finally{ window.__pdfBuilding=false; }
     }
     applyForm(data);
     setSelectedHistory(index, item);
+    if(typeof window.currentPdfFingerprint==="function")
+      window.sbHistorySavedFingerprint=window.currentPdfFingerprint();
     if(typeof window.saveLiveDraft==="function") window.saveLiveDraft();
     $("status").textContent="Bericht wurde geöffnet.";
   }
@@ -4848,6 +5789,8 @@ finally{ window.__pdfBuilding=false; }
     refresh(imported ? "0" : "");
     if(imported){
       applyForm(historyItemData(imported));
+      if(typeof window.currentPdfFingerprint==="function")
+        window.sbHistorySavedFingerprint=window.currentPdfFingerprint();
       $("status").textContent="Bericht wurde geöffnet.";
     }else{
       $("status").textContent="Historie wurde importiert.";
@@ -5041,7 +5984,8 @@ finally{ window.__pdfBuilding=false; }
       return false;
     }
   }
-  async function exportReportFile(item){
+  async function exportReportFile(item, opts){
+    opts=opts||{};
     const {filename, json}=reportPayload(item);
     const jsonFile=reportFileFromItem(item,"application/json");
     const textFile=reportFileFromItem(item,"text/plain");
@@ -5054,7 +5998,7 @@ finally{ window.__pdfBuilding=false; }
         $("status").textContent="In der App gespeichert. In Dateien den Ordner wählen.";
         return;
       }
-    }else if(window.showDirectoryPicker){
+    }else if(!opts.downloadOnly && window.showDirectoryPicker){
       let handle=await loadHistoryDirHandle();
       if(handle && !(await historyDirPermission(handle, true))) handle=null;
       if(!handle) handle=await pickHistoryDir();
@@ -5066,7 +6010,7 @@ finally{ window.__pdfBuilding=false; }
       }
     }
 
-    if(window.showSaveFilePicker){
+    if(!opts.downloadOnly && window.showSaveFilePicker){
       const fh=await window.showSaveFilePicker({
         suggestedName:jsonFile.filename,
         types:[{description:"Servicebericht",accept:{"application/json":[".json"]}}]
@@ -5217,15 +6161,21 @@ finally{ window.__pdfBuilding=false; }
         setSelectedHistory(0, item);
       }
       const shareNow=isIosDevice() && !opts.skipFile;
-      const inApp=await saveHistory(list, {deferIdb:shareNow});
+      const deferIdb=!!opts.deferIdb || shareNow;
+      const inApp=await saveHistory(list, {deferIdb});
+      if(inApp && typeof window.currentPdfFingerprint==="function")
+        window.sbHistorySavedFingerprint=window.currentPdfFingerprint();
       showHistoryActionOk("ok");
-      if(opts.skipFile) return inApp;
+      if(opts.skipFile){
+        if(deferIdb) persistHistoryIdb(historyMem).catch(function(){});
+        return inApp;
+      }
       let fileOk=false;
       try{
-        await exportReportFile(item);
+        await exportReportFile(item, {downloadOnly: !!opts.requireFile && !isIosDevice()});
         fileOk=true;
       }catch(e){
-        if(e?.name==="AbortError"){
+        if(e?.name==="AbortError" && !opts.requireFile){
           if(shareNow) await persistHistoryIdb(historyMem);
           $("status").textContent="In der App gespeichert. Datei wurde nicht gespeichert.";
           return inApp;
@@ -5247,14 +6197,6 @@ finally{ window.__pdfBuilding=false; }
     save?.addEventListener("click", saveCurrentHistory);
     saveBottom?.addEventListener("click", saveCurrentHistory);
     window.saveCurrentHistory=saveCurrentHistory;
-    $("historyFolder")?.addEventListener("click", async ()=>{
-      try{
-        const handle=await pickHistoryDir();
-        if(handle) $("status").textContent="Ordner "+(handle.name||"")+" merkt sich die App. Speichern legt die Datei dort ab.";
-      }catch(e){
-        if(e?.name!=="AbortError") $("status").textContent="Ordner konnte nicht gewählt werden.";
-      }
-    });
     syncHistoryFolderBtn();
     loadHistoryDirHandle().then(syncHistoryFolderBtn).catch(function(){});
 
@@ -5418,8 +6360,10 @@ finally{ window.__pdfBuilding=false; }
     function clearCustomerContactFields(){
       const street=document.getElementById("street");
       const city=document.getElementById("city");
+      const nr=document.getElementById("kundennummer");
       if(street) street.value="";
       if(city) city.value="";
+      if(nr){ nr.value=""; delete nr.dataset.unlocked; }
       const email=document.getElementById("customerEmail");
       if(email) email.value="";
       const emailBox=document.getElementById("customerEmailBox");
@@ -5443,9 +6387,21 @@ finally{ window.__pdfBuilding=false; }
       const all=getOptions();
       let options=all;
       if(q){
-        const starts=all.filter(o=>o.textContent.trim().toLocaleLowerCase("de-DE").startsWith(q));
+        function hay(o){
+          const name=o.textContent.trim().toLocaleLowerCase("de-DE");
+          const rec=Array.isArray(companies)?companies[Number(o.value)]:null;
+          const nr=(typeof companyKundennummer==="function"?companyKundennummer(rec):"").toLocaleLowerCase("de-DE");
+          return {name, nr};
+        }
+        const starts=all.filter(o=>{
+          const h=hay(o);
+          return h.name.startsWith(q) || (h.nr && h.nr.startsWith(q));
+        });
         // "t" means names that begin with t. A name that only contains t stays out of that list.
-        options=starts.length ? starts : all.filter(o=>o.textContent.trim().toLocaleLowerCase("de-DE").includes(q));
+        options=starts.length ? starts : all.filter(o=>{
+          const h=hay(o);
+          return h.name.includes(q) || (h.nr && h.nr.includes(q));
+        });
       }
       options.sort((a,b)=>a.textContent.trim().localeCompare(b.textContent.trim(),"de",{numeric:true,sensitivity:"base"}));
       if(!options.length){
@@ -5529,6 +6485,8 @@ finally{ window.__pdfBuilding=false; }
     function close(){
       results.style.display="none";
       results.innerHTML="";
+      delete results.dataset.place;
+      if(box) box.classList.remove("is-open");
     }
     function show(forceAll){
       const q=norm(input.value);
@@ -5540,6 +6498,7 @@ finally{ window.__pdfBuilding=false; }
         close();
         return;
       }
+      if(box) box.classList.add("is-open");
       options.forEach(n=>{
         const pick=document.createElement("div");
         pick.className="combo-pick";
@@ -5585,8 +6544,8 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"3.87";
-  const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json"};
+  const APP_VERSION=window.SB_APP_VERSION||"4.0";
+  const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
     try{
@@ -5641,14 +6600,30 @@ finally{ window.__pdfBuilding=false; }
   }
   function syncTokenUi(){
     const credit=$("appCredit");
-    if(credit){
+    const creditText=$("appCreditText");
+    const verEl=$("appCreditVer");
+    if(creditText) creditText.textContent="Created by S. Pawlina";
+    if(verEl) verEl.textContent="v"+APP_VERSION;
+    else if(credit && !credit.querySelector(".btn-app-reload")){
       credit.textContent="Created by S. Pawlina v"+APP_VERSION;
-      credit.style.cursor="pointer";
-      credit.title="App neu laden";
+    }
+    if(credit){
       if(credit.dataset.reloadBound!=="1"){
         credit.dataset.reloadBound="1";
-        credit.addEventListener("click", function(){
-          location.replace("v2.html?v="+APP_VERSION+"&t="+Date.now());
+        function reloadApp(){
+          try{ sessionStorage.removeItem("sb_ver_go"); }catch(e){}
+          const ver=window.SB_LIVE_VERSION||APP_VERSION;
+          try{
+            if(typeof window.SB_CHECK_LIVE==="function") window.SB_CHECK_LIVE();
+          }catch(e){}
+          location.replace("v2.html?v="+ver+"&t="+Date.now());
+        }
+        credit.addEventListener("click", reloadApp);
+        credit.addEventListener("keydown", function(e){
+          if(e.key==="Enter" || e.key===" "){
+            e.preventDefault();
+            reloadApp();
+          }
         });
       }
     }
@@ -5708,9 +6683,12 @@ finally{ window.__pdfBuilding=false; }
       if(hint) hint.textContent="Token für privates Repo "+dataRepo().repo+" (Contents: Read and write). App bleibt auf github.io, Listen nicht.";
       if(skip) skip.textContent="Später";
     }
+    try{
+      const a=document.activeElement;
+      if(a && a.blur && a!==input) a.blur();
+    }catch(e){}
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
-    setTimeout(()=>{ try{ input.focus(); }catch(e){} }, 150);
     return new Promise(resolve=>{ tokenModalWait=resolve; });
   }
   function ensureToken(){
@@ -5747,7 +6725,18 @@ finally{ window.__pdfBuilding=false; }
       setToken("");
       closeTokenModal(false);
     });
-    $("tokenStatusBtn")?.addEventListener("click",()=>{ openTokenModal(); });
+    const tokenBtn=$("tokenStatusBtn");
+    if(tokenBtn){
+      let tokenTapAt=0;
+      const openFromBtn=function(e){
+        if(e) e.preventDefault();
+        if(Date.now()-tokenTapAt<500) return;
+        tokenTapAt=Date.now();
+        openTokenModal();
+      };
+      tokenBtn.addEventListener("pointerdown", openFromBtn);
+      tokenBtn.addEventListener("click", openFromBtn);
+    }
   }
   function captureToken(){
     try{
@@ -6309,6 +7298,69 @@ finally{ window.__pdfBuilding=false; }
   $("companyRouteEdit")?.addEventListener("click",()=>{ saveCompanyRoute(); });
   let companyEditWait=null;
   let companyEditOldKey="";
+  let companyEditEmails=[];
+  function splitEditEmails(s){
+    return String(s||"").split(/[;,]/).map(function(x){ return x.trim(); }).filter(function(x){ return x && x.indexOf("@")>0; });
+  }
+  function uniqueEditEmails(list){
+    const out=[];
+    const seen={};
+    (list||[]).forEach(function(e){
+      const v=String(e||"").trim();
+      const k=v.toLowerCase();
+      if(!v || seen[k]) return;
+      seen[k]=1;
+      out.push(v);
+    });
+    return out;
+  }
+  function renderCompanyEditEmails(){
+    const wrap=$("companyEditEmails");
+    if(!wrap) return;
+    wrap.innerHTML="";
+    companyEditEmails.forEach(function(e, i){
+      const row=document.createElement("div");
+      row.className="company-edit-email-row";
+      const inp=document.createElement("input");
+      inp.type="email";
+      inp.inputMode="email";
+      inp.autocomplete="off";
+      inp.value=e;
+      inp.addEventListener("input", function(){ companyEditEmails[i]=String(inp.value||"").trim(); });
+      const del=document.createElement("button");
+      del.type="button";
+      del.setAttribute("aria-label","E-Mail löschen");
+      del.textContent="×";
+      del.addEventListener("click", function(){
+        companyEditEmails.splice(i, 1);
+        renderCompanyEditEmails();
+      });
+      row.appendChild(inp);
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+  function addCompanyEditEmail(){
+    const el=$("companyEditEmailAdd");
+    const err=$("companyEditErr");
+    const v=String(el&&el.value||"").trim();
+    if(!v){
+      if(err) err.textContent="E-Mail eintragen, dann Hinzufügen.";
+      return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){
+      if(err) err.textContent="Bitte eine gültige E-Mail eintragen.";
+      return;
+    }
+    if(companyEditEmails.some(function(e){ return String(e||"").toLowerCase()===v.toLowerCase(); })){
+      if(err) err.textContent="Diese E-Mail steht schon in der Liste.";
+      return;
+    }
+    if(err) err.textContent="";
+    companyEditEmails.push(v);
+    if(el) el.value="";
+    renderCompanyEditEmails();
+  }
   function closeCompanyEdit(value){
     const modal=$("companyEditModal");
     if(modal){
@@ -6326,15 +7378,29 @@ finally{ window.__pdfBuilding=false; }
   function askCompanyEdit(rec){
     const modal=$("companyEditModal");
     const nameEl=$("companyEditName");
+    const nrEl=$("companyEditNr");
     const streetEl=$("companyEditStreet");
     const cityEl=$("companyEditCity");
     if(!modal||!nameEl||!streetEl||!cityEl) return Promise.resolve(null);
     const parsed=typeof address==="function" ? address(rec.adres||rec.address||"") : [rec.adres||"",""];
     nameEl.value=String(rec.firma||rec.name||"");
+    const formNr=String($("kundennummer")?.value||"").trim();
+    if(nrEl) nrEl.value=formNr || (typeof companyKundennummer==="function"?companyKundennummer(rec):"") || "";
     const formStreet=String($("street")?.value||"").trim();
     const formCity=String($("city")?.value||"").trim();
     streetEl.value=formStreet||parsed[0]||"";
     cityEl.value=formCity||parsed[1]||"";
+    const listR=typeof parseRoute==="function" ? parseRoute(rec) : {km:0, minutes:0};
+    const hasRoute=typeof companyHasListedRoute==="function" && companyHasListedRoute(rec);
+    const kmEdit=$("companyEditKm");
+    const timeEdit=$("companyEditTime");
+    if(kmEdit) kmEdit.value=hasRoute ? String(listR.km).replace(".",",") : "";
+    if(timeEdit) timeEdit.value=hasRoute ? String(Math.max(0, Math.round(Number(listR.minutes)||0))) : "";
+    const fromFn=typeof window.getCustomerEmailList==="function" ? window.getCustomerEmailList() : [];
+    companyEditEmails=uniqueEditEmails([].concat(fromFn, splitEditEmails(rec.email)));
+    const addEl=$("companyEditEmailAdd");
+    if(addEl) addEl.value="";
+    renderCompanyEditEmails();
     const err=$("companyEditErr");
     if(err) err.textContent="";
     const saveBtn=$("companyEditSave");
@@ -6349,6 +7415,7 @@ finally{ window.__pdfBuilding=false; }
   function readCompanyEdit(){
     const err=$("companyEditErr");
     const name=String($("companyEditName")?.value||"").trim();
+    const kundennummer=String($("companyEditNr")?.value||"").trim();
     const street=String($("companyEditStreet")?.value||"").trim();
     const city=String($("companyEditCity")?.value||"").trim();
     if(!name){
@@ -6361,7 +7428,49 @@ finally{ window.__pdfBuilding=false; }
       return null;
     }
     if(err) err.textContent="";
-    return {firma:name, street:street, city:city, adres:[street, city].filter(Boolean).join(", ")};
+    const fromRows=[];
+    document.querySelectorAll("#companyEditEmails input").forEach(function(inp){
+      fromRows.push(String(inp.value||"").trim());
+    });
+    const extra=String($("companyEditEmailAdd")?.value||"").trim();
+    if(extra) fromRows.push(extra);
+    const bad=fromRows.filter(function(v){ return v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); });
+    if(bad.length){
+      if(err) err.textContent="Bitte gültige E-Mails eintragen.";
+      return null;
+    }
+    const emails=uniqueEditEmails(fromRows);
+    const kmRaw=String($("companyEditKm")?.value||"").trim();
+    const timeRaw=String($("companyEditTime")?.value||"").trim();
+    let route=null;
+    if(kmRaw || timeRaw){
+      if(!kmRaw || !timeRaw){
+        if(err) err.textContent="Kilometer und Reisezeit eintragen (auch 0 km möglich).";
+        return null;
+      }
+      const km=parseFloat(kmRaw.replace(",","."));
+      const validTime=/^\d{1,2}:\d{2}$/.test(timeRaw) || Number.isFinite(parseFloat(timeRaw.replace(",",".")));
+      const minutes=typeof parseTravelToMinutes==="function" ? parseTravelToMinutes(timeRaw) : 0;
+      if(!Number.isFinite(km) || km<0){
+        if(err) err.textContent="Kilometer prüfen (0 km ist erlaubt).";
+        return null;
+      }
+      if(!validTime || minutes<0){
+        if(err) err.textContent="Reisezeit: 90 (Minuten), 1:15 oder 1,25 Stunden.";
+        return null;
+      }
+      route={km, minutes};
+    }
+    return {
+      firma:name,
+      kundennummer:kundennummer,
+      street:street,
+      city:city,
+      adres:[street, city].filter(Boolean).join(", "),
+      emails:emails,
+      email:emails.join("; "),
+      route:route
+    };
   }
   async function saveCompanyIdentity(){
     const prev=saveLock;
@@ -6385,21 +7494,52 @@ finally{ window.__pdfBuilding=false; }
       const oldKey=companyEditOldKey;
       const newKey=edited.firma.toLowerCase();
       if(typeof replaceCompanyIdentity==="function"){
-        const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, {
+        const patch={
           firma:edited.firma,
-          adres:edited.adres
-        });
+          adres:edited.adres,
+          kundennummer:edited.kundennummer,
+          email:edited.email
+        };
+        if(edited.route && typeof formatRouteNote==="function")
+          patch.notatki=formatRouteNote(edited.route.km, edited.route.minutes);
+        const local=replaceCompanyIdentity(Array.isArray(companies)?companies:[], oldKey, patch);
         if(typeof applyCompanies==="function") applyCompanies(local, edited.firma);
+      }
+      if(edited.route){
+        const day1=document.querySelector('[data-daybox="1"]');
+        const km1=document.querySelector('[data-k="Kilometer1"]');
+        const km2=document.querySelector('[data-k="Kilometer2"]');
+        if(km1 && day1 && typeof hasAnfahrtAnkunft==="function" && hasAnfahrtAnkunft(day1,1)){
+          km1.value=edited.route.km; km1.dataset.kmManual="0";
+        }
+        if(km2 && day1 && typeof hasRueckfahrtClock==="function" && hasRueckfahrtClock(day1,1)){
+          km2.value=edited.route.km; km2.dataset.kmManual="0";
+        }
+        if(typeof applyCustomerRouteDay1==="function") applyCustomerRouteDay1();
+        for(let d=2;d<=(typeof visibleDays==="number"?visibleDays:1);d++){
+          if(typeof applyCustomerRouteDay==="function") applyCustomerRouteDay(d);
+        }
       }
       if($("street")) $("street").value=edited.street;
       if($("city")) $("city").value=edited.city;
+      if($("kundennummer")){
+        $("kundennummer").value=edited.kundennummer||"";
+        delete $("kundennummer").dataset.unlocked;
+      }
       if(typeof selectCompanyByName==="function") selectCompanyByName(edited.firma);
+      if(typeof syncAddressMapsBtn==="function") syncAddressMapsBtn();
       if(oldKey!==newKey){
         if(typeof unmarkCompanyPending==="function") unmarkCompanyPending(oldKey);
         if(typeof markCompanyRemoved==="function") markCompanyRemoved(oldKey);
         if(typeof window.renameCustomerEmailKey==="function")
           window.renameCustomerEmailKey(oldKey, edited.firma);
+        if(typeof window.renameCustomerMachines==="function")
+          window.renameCustomerMachines(oldKey, edited.firma);
       }
+      if(typeof window.replaceCustomerEmailList==="function")
+        window.replaceCustomerEmailList(edited.firma, edited.emails);
+      if(typeof window.refreshCustomerEmails==="function")
+        window.refreshCustomerEmails("replace");
       if(typeof unmarkCompanyRemoved==="function") unmarkCompanyRemoved(edited.firma);
       if(typeof markCompanyPending==="function") markCompanyPending(edited.firma);
       if(typeof markAddressForce==="function") markAddressForce(edited.firma);
@@ -6421,7 +7561,7 @@ finally{ window.__pdfBuilding=false; }
     if(!edited) return;
     closeCompanyEdit(edited);
   });
-  ["companyEditName","companyEditStreet","companyEditCity"].forEach(function(id){
+  ["companyEditName","companyEditNr","companyEditStreet","companyEditCity","companyEditKm","companyEditTime"].forEach(function(id){
     $(id)?.addEventListener("keydown",function(e){
       if(e.key!=="Enter") return;
       e.preventDefault();
@@ -6430,6 +7570,12 @@ finally{ window.__pdfBuilding=false; }
     });
   });
   $("companyIdentityEdit")?.addEventListener("click",()=>{ saveCompanyIdentity(); });
+  $("companyEditEmailAddBtn")?.addEventListener("click",()=>{ addCompanyEditEmail(); });
+  $("companyEditEmailAdd")?.addEventListener("keydown",function(e){
+    if(e.key!=="Enter") return;
+    e.preventDefault();
+    addCompanyEditEmail();
+  });
 })();
 </script>
 <script>
@@ -6690,6 +7836,7 @@ finally{ window.__pdfBuilding=false; }
         tel:"",
         email:e,
         adres:adres,
+        kundennummer:String($("kundennummer")?.value||"").trim(),
         notatki:""
       });
     }
@@ -6741,6 +7888,7 @@ finally{ window.__pdfBuilding=false; }
         firma:displayName,
         email:String(email||"").trim(),
         adres:[street, city].filter(Boolean).join(", "),
+        kundennummer:String($("kundennummer")?.value||"").trim(),
         tel:""
       };
       companyPush=await window.sbLists.pushMerged(
@@ -6950,16 +8098,23 @@ finally{ window.__pdfBuilding=false; }
   function currentEmail(){
     return String($("customerEmail")?.value||"").trim();
   }
-  function setEmail(v){
+  function setEmail(v, opts){
     const el=$("customerEmail");
-    if(el) el.value=v||"";
+    if(el){
+      el.value=v||"";
+      if(opts && opts.lock){
+        delete el.dataset.unlocked;
+        delete el.dataset.savedEmail;
+        delete el.dataset.emailMode;
+      }
+    }
     window.selectedCustomerEmail=String(v||"").trim();
     const box=$("customerEmailBox");
     if(box) box.classList.toggle("has-value", String(el?.value||"").trim()!=="");
     syncEmailCopyRow();
   }
   function syncEmailListToggle(){
-    const more=emailsForCustomer().length>1;
+    const more=emailsForCustomer().length>0;
     const topMore=$("customerEmailMore");
     const footMore=$("emailCopyMore");
     const box=$("customerEmailBox");
@@ -6995,7 +8150,7 @@ finally{ window.__pdfBuilding=false; }
       pick.addEventListener("click",ev=>{
         ev.preventDefault();
         ev.stopPropagation();
-        setEmail(e);
+        setEmail(e, {lock:true});
         closeEmailCopyList();
       });
       list.appendChild(pick);
@@ -7021,7 +8176,48 @@ finally{ window.__pdfBuilding=false; }
     }
     syncEmailListToggle();
     syncEmailSaveButton();
+    syncEmailFieldSize();
   }
+  function syncEmailFieldSize(){
+    const el=$("customerEmail");
+    const box=$("customerEmailBox");
+    if(!el||!box) return;
+    const MIN=280;
+    const row=box.closest(".email-save-row");
+    let cap=MIN;
+    if(row){
+      let used=0;
+      Array.from(row.children).forEach(function(ch){
+        if(ch===box) return;
+        if(ch.hidden) return;
+        const st=getComputedStyle(ch);
+        if(st.display==="none") return;
+        used+=ch.getBoundingClientRect().width+8;
+      });
+      cap=Math.max(MIN, row.clientWidth-used);
+    }
+    const text=String(el.value||"");
+    if(!text){
+      box.style.width=Math.min(MIN, cap)+"px";
+      return;
+    }
+    let probe=syncEmailFieldSize._probe;
+    if(!probe){
+      probe=document.createElement("span");
+      probe.setAttribute("aria-hidden","true");
+      probe.style.cssText="position:absolute;left:-9999px;top:0;white-space:pre;visibility:hidden;pointer-events:none";
+      document.body.appendChild(probe);
+      syncEmailFieldSize._probe=probe;
+    }
+    const cs=getComputedStyle(el);
+    probe.style.font=cs.font;
+    probe.style.letterSpacing=cs.letterSpacing;
+    probe.textContent=text;
+    const pad=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+    const need=Math.ceil(probe.getBoundingClientRect().width+pad+12);
+    box.style.width=Math.min(Math.max(MIN, need), cap)+"px";
+  }
+  window.syncEmailFieldSize=syncEmailFieldSize;
   function emailAlreadySaved(e){
     const n=String(e||"").trim().toLowerCase();
     if(!n) return false;
@@ -7029,12 +8225,55 @@ finally{ window.__pdfBuilding=false; }
   }
   function syncEmailSaveButton(){
     const btn=$("emailSave");
+    const el=$("customerEmail");
+    const box=$("customerEmailBox");
+    if(el){
+      el.readOnly=false;
+      delete el.dataset.unlocked;
+      delete el.dataset.savedEmail;
+      delete el.dataset.emailMode;
+    }
+    if(box) box.classList.remove("has-edit");
     if(!btn) return;
     const e=currentEmail();
     const show=!!customerKey() && validEmail(e) && !emailAlreadySaved(e);
     btn.hidden=!show;
+    btn.textContent="E-Mail merken";
     btn.classList.toggle("is-pulse", show);
   }
+  window.getCustomerEmailList=function(){ return emailsForCustomer(); };
+  window.replaceCustomerEmailList=function(firma, emails){
+    const display=String(firma||"").trim();
+    const k=display.toLowerCase();
+    if(!k) return;
+    const list=dedupeEmailList((emails||[]).map(function(x){ return String(x||"").trim(); }).filter(validEmail));
+    const map=loadMap();
+    if(list.length) map[k]=list;
+    else delete map[k];
+    saveMap(map);
+    list.forEach(function(e){ markEmailPending(display, e); });
+    if(window.sbLists){
+      window.sbLists.pushMerged(
+        "emails",
+        loadMap(),
+        "E-Mails: "+display,
+        function(remote, local){
+          const merged=applyPendingEmails(window.sbLists.asMap(remote), local||{});
+          if(list.length) merged[k]=list.slice();
+          else delete merged[k];
+          return merged;
+        },
+        {forcePut:true, quiet:true, attempts:2}
+      ).then(function(out){
+        if(out && out.result && out.result.ok && out.merged){
+          const saved=normalizeEmailMap(out.merged);
+          saveMap(saved);
+          clearPendingFoundIn(saved);
+        }
+      }).catch(function(){});
+    }
+    syncEmailCopyRow();
+  };
   window.syncEmailCopyRow=syncEmailCopyRow;
   async function copyCurrentEmail(){
     const email=currentEmail();
@@ -7087,6 +8326,7 @@ finally{ window.__pdfBuilding=false; }
     function close(){
       results.style.display="none";
       results.innerHTML="";
+      delete results.dataset.place;
       if(box) box.classList.remove("is-open");
     }
     function show(opts){
@@ -7122,7 +8362,7 @@ finally{ window.__pdfBuilding=false; }
         pick.textContent=e;
         if(e.toLowerCase()===q) pick.classList.add("is-on");
         pick.addEventListener("click",()=>{
-          setEmail(e);
+          setEmail(e, {lock:true});
           close();
         });
         results.appendChild(pick);
@@ -7137,6 +8377,12 @@ finally{ window.__pdfBuilding=false; }
       setEmail(input.value);
       show();
     });
+    if(window.syncEmailFieldSizeBound!=="1"){
+      window.syncEmailFieldSizeBound="1";
+      window.addEventListener("resize",()=>{
+        if(typeof window.syncEmailFieldSize==="function") window.syncEmailFieldSize();
+      });
+    }
     // E-Mail nur über „E-Mail merken“ speichern — nicht bei blur/change
     // (sonst landet eine neue Firma oft nur in customer-emails.json).
     clearBtn?.addEventListener("click",e=>{
@@ -7165,27 +8411,6 @@ finally{ window.__pdfBuilding=false; }
       }else{
         setEmail(e);
       }
-    });
-    $("emailDelete")?.addEventListener("click", async ()=>{
-      const e=currentEmail();
-      const s=$("status");
-      if(!customerKey()){
-        if(s) s.textContent="Zuerst den Kunden wählen.";
-        return;
-      }
-      if(!validEmail(e)){
-        if(s) s.textContent="Bitte die E-Mail wählen, die gelöscht werden soll.";
-        return;
-      }
-      if(!confirm("Diese E-Mail beim Kunden löschen?")){
-        return;
-      }
-      if(!await deleteEmail(e)){
-        if(s) s.textContent="E-Mail konnte nicht gelöscht werden.";
-        return;
-      }
-      const rest=emailsForCustomer().filter(x=>x.toLowerCase()!==e.toLowerCase());
-      setEmail(rest[0]||"");
     });
     bindEmailCopy();
   }
@@ -7233,8 +8458,8 @@ finally{ window.__pdfBuilding=false; }
     bindEmailUi();
     const emails=emailsForCustomer();
     const cur=currentEmail();
-    if(mode==="replace") setEmail(emails[0]||"");
-    else if(mode==="fill" && !cur && emails[0]) setEmail(emails[0]);
+    if(mode==="replace") setEmail(emails[0]||"", {lock:true});
+    else if(mode==="fill" && !cur && emails[0]) setEmail(emails[0], {lock:true});
     else setEmail(cur);
   };
   window.pickCustomerEmail=function(){
@@ -7490,7 +8715,16 @@ finally{ window.__pdfBuilding=false; }
     modal.setAttribute("aria-hidden","true");
   }
   let historySaveThenEmail=false;
+  function historyAlreadySaved(){
+    const now=typeof window.currentPdfFingerprint==="function" ? window.currentPdfFingerprint() : "";
+    return !!(now && window.sbHistorySavedFingerprint && now===window.sbHistorySavedFingerprint);
+  }
   function offerHistorySaveBeforeEmail(){
+    if(historyAlreadySaved()){
+      setStatus("Historie ist schon gespeichert. E-Mail mit PDF.");
+      window.openPdfEmailSheet();
+      return;
+    }
     historySaveThenEmail=true;
     closePdfEmailSheet();
     const modal=$("historySaveModal");
@@ -7501,14 +8735,20 @@ finally{ window.__pdfBuilding=false; }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden","false");
   }
-  function finishHistorySaveThenEmail(doSave){
+  async function finishHistorySaveThenEmail(doSave){
     const go=historySaveThenEmail;
     historySaveThenEmail=false;
     closeHistorySaveSheet();
-    if(doSave && typeof window.saveCurrentHistory==="function"){
-      try{ window.saveCurrentHistory({skipFile:true}); }catch(e){}
+    if(!go) return;
+    if(!doSave){
+      setStatus("E-Mail abgebrochen. Zuerst Historie speichern.");
+      return;
     }
-    if(go) window.sendPdfByEmail();
+    if(typeof window.saveCurrentHistory==="function"){
+      try{ await window.saveCurrentHistory({requireFile:true}); }catch(e){}
+    }
+    setStatus("Bericht als .json gespeichert. Jetzt E-Mail mit PDF senden.");
+    window.openPdfEmailSheet();
   }
   window.openPdfEmailSheet=function(){
     if(!lastPdfBlob){
@@ -7564,9 +8804,32 @@ finally{ window.__pdfBuilding=false; }
     }catch(e){}
     return false;
   }
+  function copyTextNow(text){
+    const t=String(text||"").trim();
+    if(!t) return false;
+    let ok=false;
+    try{
+      const ta=document.createElement("textarea");
+      ta.value=t;
+      ta.setAttribute("readonly","");
+      ta.style.cssText="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, t.length);
+      ok=document.execCommand("copy");
+      document.body.removeChild(ta);
+    }catch(e){ ok=false; }
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(t).then(function(){ ok=true; }, function(){});
+    }catch(e){}
+    return ok;
+  }
   async function copyTextQuiet(text){
     const t=String(text||"").trim();
     if(!t) return false;
+    if(copyTextNow(t)) return true;
     try{
       if(navigator.clipboard && navigator.clipboard.writeText){
         await navigator.clipboard.writeText(t);
@@ -7622,7 +8885,8 @@ finally{ window.__pdfBuilding=false; }
     }
     return null;
   }
-  window.sendPdfByEmail=async function(){
+  window.sendPdfByEmail=async function(opts){
+    opts=opts||{};
     const email=customerPdfEmail();
     const label=typeof window.pdfEmailLabel==="function"?window.pdfEmailLabel():"Servicebericht";
     const emailName=(typeof window.pdfFileName==="function")
@@ -7635,7 +8899,8 @@ finally{ window.__pdfBuilding=false; }
     closePdfEmailSheet();
 
     const matches=typeof window.pdfMatchesCurrentForm==="function" && window.pdfMatchesCurrentForm();
-    if(!lastPdfBlob || !matches){
+    const keep=opts.keepBlob && lastPdfBlob;
+    if(!keep && (!lastPdfBlob || !matches)){
       setStatus("PDF wird erstellt…");
       const ready=await window.ensurePdfForCurrentForm();
       if(!ready || !lastPdfBlob){
@@ -7649,16 +8914,16 @@ finally{ window.__pdfBuilding=false; }
       const shared=emailFile ? await sharePdfFile(emailFile, label) : null;
       if(shared){
         const usedTitle=!!shared.title;
-        if(!usedTitle) await copyTextQuiet(label);
-        else await copyTextQuiet(email);
-        if(usedTitle){
-          setStatus(email
-            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger: "+email
-            : "Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
+        if(email) await copyTextQuiet(email);
+        else if(!usedTitle) await copyTextQuiet(label);
+        if(email){
+          setStatus(usedTitle
+            ? "Mail: PDF angehängt, Betreff gesetzt. Empfänger in Zwischenablage: "+email
+            : "Mail: PDF angehängt. Empfänger in Zwischenablage – einfügen: "+email);
+        }else if(usedTitle){
+          setStatus("Mail: PDF angehängt, Betreff gesetzt. Empfänger eintragen.");
         }else{
-          setStatus(email
-            ? "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen. Empfänger: "+email
-            : "Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
+          setStatus("Mail: PDF angehängt. Betreff in Zwischenablage – einfügen.");
         }
         return true;
       }
@@ -8029,22 +9294,41 @@ finally{ window.__pdfBuilding=false; }
   }
   function bindPdfEmailUi(){
     $("emailPdfBtn")?.addEventListener("click",()=>{
-      setStatus("PDF wird erstellt…");
-      window.ensurePdfForCurrentForm().then(ok=>{
-        if(!ok){
-          setStatus("PDF konnte nicht erstellt werden.");
-          return;
-        }
-        window.openPdfEmailSheet();
+      const ask=typeof window.confirmEmailRouteGaps==="function"
+        ? window.confirmEmailRouteGaps()
+        : Promise.resolve(true);
+      ask.then(function(ok){
+        if(!ok) return;
+        const email=customerPdfEmail();
+        if(email) copyTextNow(email);
+        setStatus(email
+          ? "E-Mail kopiert: "+email+". PDF wird erstellt…"
+          : "PDF wird erstellt…");
+        window.ensurePdfForCurrentForm().then(ready=>{
+          if(!ready){
+            setStatus("PDF konnte nicht erstellt werden.");
+            return;
+          }
+          if(email) copyTextNow(email);
+          offerHistorySaveBeforeEmail();
+        });
       });
     });
     $("pdfEmailLater")?.addEventListener("click", closePdfEmailSheet);
-    $("pdfEmailSend")?.addEventListener("click",()=>{ offerHistorySaveBeforeEmail(); });
+    $("pdfEmailSend")?.addEventListener("click",()=>{
+      const email=customerPdfEmail();
+      if(email) copyTextNow(email);
+      window.sendPdfByEmail({keepBlob:true});
+    });
     $("pdfEmailModal")?.addEventListener("click",e=>{
       if(e.target===$("pdfEmailModal")) closePdfEmailSheet();
     });
     $("historySaveLater")?.addEventListener("click",()=>finishHistorySaveThenEmail(false));
-    $("historySaveNow")?.addEventListener("click",()=>finishHistorySaveThenEmail(true));
+    $("historySaveNow")?.addEventListener("click",()=>{
+      const email=customerPdfEmail();
+      if(email) copyTextNow(email);
+      finishHistorySaveThenEmail(true);
+    });
     $("historySaveModal")?.addEventListener("click",e=>{
       if(e.target===$("historySaveModal")) finishHistorySaveThenEmail(false);
     });
@@ -8190,7 +9474,8 @@ finally{ window.__pdfBuilding=false; }
     try{
       const o=JSON.parse(localStorage.getItem(KEY)||"{}");
       const map=o&&typeof o==="object"&&!Array.isArray(o)?o:{};
-      machinesCache=collapseMachineMap(applyMachineTombs(map));
+      const renamed=applyMachineRenames(map);
+      machinesCache=collapseMachineMap(applyMachineTombs(renamed));
       try{ localStorage.setItem(KEY, JSON.stringify(machinesCache)); }catch(e){}
       return machinesCache;
     }
@@ -8208,7 +9493,76 @@ finally{ window.__pdfBuilding=false; }
   function customerKey(){
     return String(typeof firmaName==="function"?firmaName():($("customerSearch")?.value||"")).trim().toLowerCase();
   }
+  const MACHINE_RENAME_KEY="servicebericht_customer_machines_renames_v1";
+  function readMachineRenames(){
+    try{
+      const x=JSON.parse(localStorage.getItem(MACHINE_RENAME_KEY)||"[]");
+      if(!Array.isArray(x)) return [];
+      return x.map(r=>({
+        from:String(r&&r.from||"").trim().toLowerCase(),
+        to:String(r&&r.to||"").trim().toLowerCase()
+      })).filter(r=>r.from && r.to && r.from!==r.to);
+    }catch(e){ return []; }
+  }
+  function writeMachineRenames(list){
+    const uniq=[];
+    (list||[]).forEach(r=>{
+      if(!r || !r.from || !r.to || r.from===r.to) return;
+      if(!uniq.some(x=>x.from===r.from)) uniq.push({from:r.from, to:r.to});
+    });
+    try{
+      if(!uniq.length) localStorage.removeItem(MACHINE_RENAME_KEY);
+      else localStorage.setItem(MACHINE_RENAME_KEY, JSON.stringify(uniq));
+    }catch(e){}
+  }
+  function markMachineRename(oldName, newName){
+    const from=String(oldName||"").trim().toLowerCase();
+    const to=String(newName||"").trim().toLowerCase();
+    if(!from || !to || from===to) return;
+    let list=readMachineRenames().filter(r=>r.from!==from);
+    list=list.map(r=>r.to===from ? {from:r.from, to:to} : r).filter(r=>r.from!==r.to);
+    if(!list.some(r=>r.from===from)) list.push({from:from, to:to});
+    writeMachineRenames(list);
+  }
+  function applyMachineRenames(map){
+    const out=Object.assign({}, map||{});
+    readMachineRenames().forEach(r=>{
+      if(!Array.isArray(out[r.from]) || !out[r.from].length) return;
+      out[r.to]=collapseList([].concat(out[r.to]||[], out[r.from]));
+      delete out[r.from];
+    });
+    return out;
+  }
+  function renameCustomerMachines(oldName, newName){
+    const from=String(oldName||"").trim().toLowerCase();
+    const to=String(newName||"").trim().toLowerCase();
+    if(!from || !to || from===to) return false;
+    markMachineRename(from, to);
+    const all=loadAll();
+    const moved=applyMachineRenames(all);
+    const changed=JSON.stringify(moved)!==JSON.stringify(all);
+    if(changed) saveAll(moved);
+    saveTombs(loadTombs().map(t=>t&&t.k===from?Object.assign({}, t, {k:to}):t));
+    if(changed || (Array.isArray(loadAll()[to]) && loadAll()[to].length))
+      pushMachines("Firma umbenannt").catch(function(){});
+    return changed;
+  }
+  function maybeAdoptRenamedMachines(){
+    const to=customerKey();
+    if(!to) return false;
+    const all=loadAll();
+    if(Array.isArray(all[to]) && all[to].length) return false;
+    const removed=typeof readCompaniesRemoved==="function" ? readCompaniesRemoved() : [];
+    const names=new Set(Array.isArray(companies)
+      ? companies.map(c=>typeof companyNameKey==="function"?companyNameKey(c):"")
+      : []);
+    const orphans=removed.filter(k=>k && k!==to && !names.has(k) && Array.isArray(all[k]) && all[k].length);
+    if(orphans.length!==1) return false;
+    return renameCustomerMachines(orphans[0], to);
+  }
+  window.renameCustomerMachines=renameCustomerMachines;
   function listForCustomer(){
+    maybeAdoptRenamedMachines();
     const k=customerKey();
     if(!k) return [];
     const all=loadAll();
@@ -8629,7 +9983,7 @@ finally{ window.__pdfBuilding=false; }
         const got=await window.sbLists.pullFile("machines");
         remote=window.sbLists.asMap(got.data);
       }
-      const merged=applyMachineTombs(mergeMachineMaps(loadAll(), remote));
+      const merged=applyMachineRenames(applyMachineTombs(mergeMachineMaps(loadAll(), remote)));
       saveAll(merged);
       return loadAll();
     }catch(e){
@@ -8640,7 +9994,7 @@ finally{ window.__pdfBuilding=false; }
     if(!window.sbLists) return {ok:false, reason:"no-cloud"};
     const {merged, result}=await window.sbLists.pushMerged("machines", loadAll(), message, function(remote){
       const localNow=loadAll();
-      const next=applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), localNow));
+      const next=applyMachineRenames(applyMachineTombs(mergeMachineMaps(window.sbLists.asMap(remote), localNow)));
       if(removeMatch && removeMatch.k && Array.isArray(next[removeMatch.k])){
         const keep=Array.isArray(localNow[removeMatch.k])?localNow[removeMatch.k]:[];
         next[removeMatch.k]=next[removeMatch.k].filter(function(m){
@@ -8738,9 +10092,23 @@ finally{ window.__pdfBuilding=false; }
   function syncMachineSaveUi(){
     const btn=$("machineSave");
     if(!btn) return;
-    btn.textContent=formDiffersFromLoaded()
-      ? "Geänderte Maschine speichern"
-      : "Zur Maschinenliste des Kunden hinzufügen";
+    const saved=findSaved();
+    const dirty=!!(saved && !recEqual(cleanRec(fromForm()), cleanRec(saved)));
+    const listed=!!saved && !dirty;
+    btn.disabled=listed;
+    btn.classList.toggle("is-listed", listed);
+    btn.classList.toggle("is-pulse", dirty);
+    btn.setAttribute("aria-pressed", listed?"true":"false");
+    if(listed){
+      btn.textContent="Bereits auf der Liste";
+      btn.title="Diese Maschine steht schon auf der Liste des Kunden";
+    }else if(dirty){
+      btn.textContent="Geänderte Maschine speichern?";
+      btn.title="Geänderte Maschine speichern?";
+    }else{
+      btn.textContent="Zur Maschinenliste des Kunden hinzufügen";
+      btn.title="";
+    }
   }
   function closeMachineSaveModal(choice){
     const modal=$("machineSaveModal");
@@ -8853,6 +10221,11 @@ finally{ window.__pdfBuilding=false; }
       showMachineNoRequired();
       return;
     }
+    const already=findSaved();
+    if(!(opts && opts.mode) && already && recEqual(cleanRec(rec), cleanRec(already))){
+      syncMachineSaveUi();
+      return;
+    }
     hideMachineSaveHint();
     if(!norm(rec.manufacturer) || !norm(rec.type)){
       const s=$("status");
@@ -8920,7 +10293,9 @@ finally{ window.__pdfBuilding=false; }
   }
   window.refreshCustomerMachines=async function(){
     await pullMachines();
+    maybeAdoptRenamedMachines();
     syncComboClears();
+    syncMachineSaveUi();
   };
   function bind(){
     setupCombo(
@@ -9064,6 +10439,8 @@ finally{ window.__pdfBuilding=false; }
         if(typeof window.refreshCustomerEmails==="function") window.refreshCustomerEmails();
       }).catch(function(){});
     }
+    if(typeof window.pullCustomParts==="function")
+      window.pullCustomParts({allowPush:true}).catch(function(){});
   }
   function armCompanySync(){
     clearInterval(companySyncTimer);
@@ -9107,13 +10484,238 @@ finally{ window.__pdfBuilding=false; }
     "Montagepaste Art. Nr.: 4143",
     "Flächendicht grün Art. Nr.: 9501"
   ];
+  const CUSTOM_KEY="servicebericht_parts_custom_v1";
+  const TOMB_KEY="servicebericht_parts_tomb_v1";
+  const PEN_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.3V20h2.7L18 8.7 15.3 6 4 17.3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14.2 6.1l2.7 2.7 1.5-1.5a1.9 1.9 0 0 0 0-2.7l-.1-.1a1.9 1.9 0 0 0-2.7 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  const DEL_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M10 7V5h4v2m-6 3v8m4-8v8M8 7l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function asPartsList(data){
+    if(Array.isArray(data)) return data.map(x=>String(x||"").trim()).filter(Boolean);
+    if(data && Array.isArray(data.items)) return data.items.map(x=>String(x||"").trim()).filter(Boolean);
+    return [];
+  }
+  function asPartsDeleted(data){
+    if(data && Array.isArray(data.deleted)) return data.deleted.map(x=>String(x||"").trim()).filter(Boolean);
+    return [];
+  }
+  function asPartsDoc(data){
+    if(Array.isArray(data)) return {items:asPartsList(data), deleted:[]};
+    if(data && typeof data==="object")
+      return {items:asPartsList(data), deleted:asPartsDeleted(data)};
+    return {items:[], deleted:[]};
+  }
+  function loadCustomParts(){
+    try{
+      const raw=localStorage.getItem(CUSTOM_KEY);
+      const list=JSON.parse(raw||"[]");
+      return asPartsList(list).slice(0,80);
+    }catch(e){ return []; }
+  }
+  function saveCustomParts(list){
+    try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(asPartsList(list).slice(0,80))); }catch(e){}
+  }
+  function loadPartTombs(){
+    try{
+      const raw=localStorage.getItem(TOMB_KEY);
+      const list=JSON.parse(raw||"[]");
+      return asPartsList(list).map(x=>x.toLowerCase()).filter(Boolean).slice(0,120);
+    }catch(e){ return []; }
+  }
+  function savePartTombs(list){
+    try{
+      const out=[];
+      const seen=new Set();
+      asPartsList(list).forEach(function(x){
+        const k=String(x||"").trim().toLowerCase();
+        if(!k || seen.has(k)) return;
+        seen.add(k);
+        out.push(k);
+      });
+      localStorage.setItem(TOMB_KEY, JSON.stringify(out.slice(0,120)));
+    }catch(e){}
+  }
+  function applyPartsDoc(doc){
+    const d=asPartsDoc(doc);
+    saveCustomParts(d.items);
+    savePartTombs(d.deleted);
+    return d.items;
+  }
+  function mergePartsLists(remote, local, dropNames){
+    const r=asPartsDoc(remote);
+    const l=asPartsDoc(local);
+    const drop=new Set();
+    function markDrop(v){
+      const k=String(v||"").trim().toLowerCase();
+      if(k) drop.add(k);
+    }
+    r.deleted.forEach(markDrop);
+    l.deleted.forEach(markDrop);
+    loadPartTombs().forEach(markDrop);
+    (dropNames||[]).forEach(markDrop);
+    // Neu eingetragen = wieder aus der Löschliste nehmen.
+    asPartsList(l.items).forEach(function(v){
+      const k=String(v||"").trim().toLowerCase();
+      if(k && !(dropNames||[]).some(x=>String(x||"").trim().toLowerCase()===k))
+        drop.delete(k);
+    });
+    const out=[];
+    const seen=new Set();
+    function add(v){
+      const s=String(v||"").trim();
+      if(!s) return;
+      const k=s.toLowerCase();
+      if(drop.has(k) || seen.has(k)) return;
+      if(PRESETS.some(p=>p.toLowerCase()===k)) return;
+      seen.add(k);
+      out.push(s);
+    }
+    r.items.forEach(add);
+    l.items.forEach(add);
+    return {items:out.slice(0,80), deleted:Array.from(drop).slice(0,120)};
+  }
+  function partsStatus(msg){
+    const s=document.getElementById("status");
+    if(s) s.textContent=msg;
+  }
+  function notifyPartsChanged(){
+    try{ window.dispatchEvent(new Event("sb-parts-changed")); }catch(e){}
+  }
+  let partsPullFlight=null;
+  async function pullCustomParts(opts){
+    opts=opts||{};
+    if(partsPullFlight && !opts.force) return partsPullFlight;
+    const run=(async function(){
+      if(!window.sbLists || typeof window.sbLists.pullFile!=="function") return loadCustomParts();
+      if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()) return loadCustomParts();
+      try{
+        const got=await window.sbLists.pullFile("parts");
+        const localBefore=loadCustomParts();
+        const localDoc={items:localBefore, deleted:loadPartTombs()};
+        if(got && got.status===404){
+          if(localBefore.length && opts.allowPush!==false)
+            await pushCustomParts("Ersatzteile erstmalig gespeichert", null, {quiet:true});
+          return loadCustomParts();
+        }
+        if(!got || got.data==null) return localBefore;
+        const remoteDoc=asPartsDoc(got.data);
+        const merged=mergePartsLists(remoteDoc, localDoc);
+        applyPartsDoc(merged);
+        if(opts.allowPush!==false){
+          const remoteSet=new Set(remoteDoc.items.map(x=>x.toLowerCase()));
+          const remoteDel=new Set(remoteDoc.deleted.map(x=>x.toLowerCase()));
+          const missingItem=localBefore.some(x=>!remoteSet.has(String(x).toLowerCase()));
+          const missingTomb=loadPartTombs().some(x=>!remoteDel.has(x));
+          if(missingItem || missingTomb)
+            await pushCustomParts("Ersatzteile abgeglichen", null, {quiet:true});
+        }
+        return loadCustomParts();
+      }catch(e){
+        return loadCustomParts();
+      }
+    })();
+    partsPullFlight=run.finally(function(){ partsPullFlight=null; });
+    return partsPullFlight;
+  }
+  window.pullCustomParts=pullCustomParts;
+  async function pushCustomParts(message, dropNames, opts){
+    opts=opts||{};
+    const localDoc={items:loadCustomParts(), deleted:loadPartTombs()};
+    if(!window.sbLists || typeof window.sbLists.pushMerged!=="function") return {ok:false, reason:"no-cloud"};
+    try{
+      if(typeof window.sbLists.hasToken==="function" && !window.sbLists.hasToken()){
+        if(opts.quiet) return {ok:false, reason:"no-token"};
+        if(typeof window.sbLists.ensureToken==="function"){
+          const ok=await window.sbLists.ensureToken();
+          if(!ok) return {ok:false, reason:"no-token"};
+        }else return {ok:false, reason:"no-token"};
+      }
+      const {merged, result}=await window.sbLists.pushMerged(
+        "parts",
+        localDoc,
+        message||"Ersatzteile aktualisiert",
+        function(remote, loc){ return mergePartsLists(remote, loc, dropNames); },
+        {attempts:4, quiet:!!opts.quiet, forcePut:!!opts.forcePut}
+      );
+      if(merged) applyPartsDoc(merged);
+      if(result && result.ok) notifyPartsChanged();
+      return result||{ok:false};
+    }catch(e){
+      return {ok:false, reason:"error"};
+    }
+  }
+  window.pushCustomParts=pushCustomParts;
+  function rememberCustomPart(name){
+    const v=String(name||"").trim();
+    if(!v) return Promise.resolve({ok:false});
+    const low=v.toLowerCase();
+    if(PRESETS.some(p=>p.toLowerCase()===low)) return Promise.resolve({ok:true, skipped:true});
+    const cur=loadCustomParts().filter(x=>x.toLowerCase()!==low);
+    cur.unshift(v);
+    saveCustomParts(cur);
+    savePartTombs(loadPartTombs().filter(x=>x!==low));
+    notifyPartsChanged();
+    return pushCustomParts("Ersatzteil hinzugefügt: "+v, null, {forcePut:true}).then(function(res){
+      if(res && res.ok){
+        const n=loadCustomParts().length;
+        partsStatus("Artikel für alle gespeichert ("+n+" gemeinsam).");
+      }else if(res && res.reason==="no-token")
+        partsStatus("Artikel nur hier. Oben „offline“ → Token, sonst sehen andere ihn nicht.");
+      else partsStatus("Artikel lokal. GitHub-Sync fehlgeschlagen – online prüfen, erneut tippen.");
+      return res||{ok:false};
+    }).catch(function(){
+      partsStatus("Artikel lokal. GitHub-Sync fehlgeschlagen.");
+      return {ok:false};
+    });
+  }
+  function updateCustomPart(oldName, newName){
+    const prev=String(oldName||"").trim();
+    const next=String(newName||"").trim();
+    if(!prev || !next) return Promise.resolve(false);
+    const lowPrev=prev.toLowerCase();
+    const lowNext=next.toLowerCase();
+    let list=loadCustomParts();
+    const idx=list.findIndex(x=>x.toLowerCase()===lowPrev);
+    if(idx<0) return rememberCustomPart(next).then(function(){ return true; });
+    list=list.filter((x,i)=>i===idx || x.toLowerCase()!==lowNext);
+    list[idx]=next;
+    saveCustomParts(list);
+    let tombs=loadPartTombs().filter(x=>x!==lowNext);
+    if(lowPrev!==lowNext) tombs=tombs.concat([lowPrev]);
+    savePartTombs(tombs);
+    notifyPartsChanged();
+    const drop=lowPrev===lowNext ? [] : [prev];
+    return pushCustomParts("Ersatzteil geändert: "+next, drop, {forcePut:true}).then(function(res){
+      if(res && res.ok) partsStatus("Artikel für alle geändert.");
+      else if(res && res.reason==="no-token")
+        partsStatus("Änderung nur hier. Token nötig (oben offline).");
+      else partsStatus("Änderung lokal. GitHub-Sync fehlgeschlagen.");
+      return true;
+    }).catch(function(){ return true; });
+  }
+  function removeCustomPart(name){
+    const v=String(name||"").trim();
+    if(!v) return Promise.resolve(false);
+    const low=v.toLowerCase();
+    saveCustomParts(loadCustomParts().filter(x=>x.toLowerCase()!==low));
+    savePartTombs(loadPartTombs().concat([low]));
+    notifyPartsChanged();
+    return pushCustomParts("Ersatzteil gelöscht: "+v, [v], {forcePut:true}).then(function(res){
+      if(res && res.ok) partsStatus("Artikel für alle gelöscht.");
+      else if(res && res.reason==="no-token")
+        partsStatus("Nur hier gelöscht. Token nötig, sonst bleibt er bei anderen.");
+      else partsStatus("Lokal gelöscht. GitHub-Sync fehlgeschlagen – später erneut öffnen.");
+      return true;
+    }).catch(function(){ return true; });
+  }
+  window.removeCustomPart=removeCustomPart;
   function closePartsList(){
     const results=$("partsResults");
     if(!results) return;
     results.style.display="none";
     results.innerHTML="";
     results.hidden=true;
+    delete results.dataset.place;
   }
+  window.closePartsList=closePartsList;
   function partsTrailingQty(line){
     const s=String(line||"");
     const m=s.match(/^(.*?)(\d+[ \t]*[x×])[ \t]*$/i);
@@ -9168,12 +10770,14 @@ finally{ window.__pdfBuilding=false; }
       el.setSelectionRange(caretAt, caretAt);
     }catch(e){}
   }
-  function showNewInput(bar, results){
+  function bindPartsInput(bar, results, opts){
+    opts=opts||{};
     bar.innerHTML="";
     const input=document.createElement("input");
     input.className="parts-new-input";
     input.placeholder="Artikel, Art. Nr. …";
     input.setAttribute("autocomplete","off");
+    if(opts.value) input.value=opts.value;
     const ok=document.createElement("button");
     ok.type="button";
     ok.className="parts-new-ok";
@@ -9181,8 +10785,15 @@ finally{ window.__pdfBuilding=false; }
     function commit(){
       const v=String(input.value||"").trim();
       if(!v){ input.focus(); return; }
+      if(opts.editFrom){
+        Promise.resolve(updateCustomPart(opts.editFrom, v)).finally(function(){
+          showPartsList({forceOpen:true});
+        });
+        return;
+      }
       appendPart(v);
       closePartsList();
+      Promise.resolve(rememberCustomPart(v)).catch(function(){});
     }
     ok.addEventListener("click",e=>{
       e.preventDefault();
@@ -9191,21 +10802,80 @@ finally{ window.__pdfBuilding=false; }
     });
     input.addEventListener("keydown",e=>{
       if(e.key==="Enter"){ e.preventDefault(); commit(); }
+      if(e.key==="Escape"){
+        e.preventDefault();
+        if(opts.editFrom) showPartsList({forceOpen:true});
+        else closePartsList();
+      }
+    });
+    input.addEventListener("blur",()=>{
+      setTimeout(()=>{
+        if(!results.isConnected || results.hidden) return;
+        if(!results.querySelector(".parts-new-input")) return;
+        const a=document.activeElement;
+        if(a && results.contains(a)) return;
+        if(opts.editFrom) showPartsList({forceOpen:true});
+        else closePartsList();
+      }, 180);
     });
     input.addEventListener("click",e=>e.stopPropagation());
     bar.appendChild(input);
     bar.appendChild(ok);
     layoutComboResults(results, $("partsBox"));
-    setTimeout(()=>{ try{ input.focus(); }catch(err){} }, 40);
+    setTimeout(()=>{ try{ input.focus(); if(opts.editFrom) input.select(); }catch(err){} }, 40);
   }
-  function showPartsList(){
-    const results=$("partsResults");
-    const box=$("partsBox");
-    if(!results || !box) return;
-    if(results.style.display==="block" && !results.hidden){
+  function showNewInput(bar, results){
+    bindPartsInput(bar, results, {});
+  }
+  function addPickRow(results, label, canEdit){
+    const row=document.createElement("div");
+    row.className="parts-pick-row";
+    const pick=document.createElement("div");
+    pick.className="combo-pick";
+    pick.setAttribute("role","option");
+    pick.textContent=label;
+    pick.addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      appendPart(label);
       closePartsList();
-      return;
+    });
+    row.appendChild(pick);
+    if(canEdit){
+      const edit=document.createElement("button");
+      edit.type="button";
+      edit.className="parts-pick-edit";
+      edit.setAttribute("aria-label","Artikel ändern");
+      edit.title="Artikel ändern";
+      edit.innerHTML=PEN_SVG;
+      edit.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const bar=results.querySelector(".parts-new-bar");
+        if(!bar) return;
+        bindPartsInput(bar, results, {value:label, editFrom:label});
+      });
+      row.appendChild(edit);
+      const del=document.createElement("button");
+      del.type="button";
+      del.className="parts-pick-del";
+      del.setAttribute("aria-label","Artikel löschen");
+      del.title="Artikel löschen";
+      del.innerHTML=DEL_SVG;
+      del.addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(!window.confirm('Artikel löschen?\n„'+label+'“')) return;
+        del.disabled=true;
+        Promise.resolve(removeCustomPart(label)).finally(function(){
+          showPartsList({forceOpen:true});
+        });
+      });
+      row.appendChild(del);
     }
+    results.appendChild(row);
+  }
+  function renderPartsList(results, box){
     results.innerHTML="";
     const bar=document.createElement("div");
     bar.className="parts-new-bar";
@@ -9220,20 +10890,39 @@ finally{ window.__pdfBuilding=false; }
     });
     bar.appendChild(neu);
     results.appendChild(bar);
-    PRESETS.forEach(v=>{
-      const pick=document.createElement("div");
-      pick.className="combo-pick";
-      pick.setAttribute("role","option");
-      pick.textContent=v;
-      pick.addEventListener("click",e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        appendPart(v);
-        closePartsList();
-      });
-      results.appendChild(pick);
-    });
+    const custom=loadCustomParts();
+    if(custom.length){
+      const lab=document.createElement("div");
+      lab.className="parts-custom-label";
+      lab.textContent="Gespeicherte Artikel (für alle)";
+      results.appendChild(lab);
+      custom.forEach(v=>addPickRow(results, v, true));
+    }
+    PRESETS.forEach(v=>addPickRow(results, v, false));
     openComboResults(results, box);
+  }
+  function showPartsList(opts){
+    const results=$("partsResults");
+    const box=$("partsBox");
+    if(!results || !box) return;
+    const force=opts&&opts.forceOpen;
+    if(!force && results.style.display==="block" && !results.hidden){
+      closePartsList();
+      return;
+    }
+    renderPartsList(results, box);
+    const hasToken=window.sbLists && typeof window.sbLists.hasToken==="function" && window.sbLists.hasToken();
+    if(!hasToken){
+      partsStatus("Gemeinsame Artikel: Token fehlt (oben offline) – nur dieses Gerät.");
+      return;
+    }
+    pullCustomParts({force:true, allowPush:true}).then(function(list){
+      if(!results.isConnected || results.hidden) return;
+      if(results.querySelector(".parts-new-input")) return;
+      renderPartsList(results, box);
+      const n=(list||loadCustomParts()).length;
+      if(n) partsStatus("Gemeinsame Artikel aktualisiert ("+n+").");
+    }).catch(function(){});
   }
   function bindPartsPlus(){
     $("partsPlus")?.addEventListener("click",e=>{
@@ -9245,6 +10934,37 @@ finally{ window.__pdfBuilding=false; }
       const box=$("partsBox");
       if(box && !box.contains(e.target)) closePartsList();
     });
+    function syncPartsCloud(){
+      pullCustomParts({allowPush:true, force:true}).then(function(){
+        const results=$("partsResults");
+        if(!results || results.hidden) return;
+        if(results.querySelector(".parts-new-input")) return;
+        renderPartsList(results, $("partsBox"));
+      }).catch(function(){});
+    }
+    window.addEventListener("sb-lists-ready", syncPartsCloud);
+    window.addEventListener("sb-token-change", syncPartsCloud);
+    window.addEventListener("sb-parts-changed", function(){
+      const results=$("partsResults");
+      if(results && !results.hidden && !results.querySelector(".parts-new-input"))
+        renderPartsList(results, $("partsBox"));
+    });
+    document.addEventListener("visibilitychange", function(){
+      if(!document.hidden) syncPartsCloud();
+    });
+    window.addEventListener("online", syncPartsCloud);
+    // Alle 20s nachziehen, damit andere Geräte neue Artikel sehen.
+    setInterval(function(){
+      if(document.hidden) return;
+      if(!window.sbLists || typeof window.sbLists.hasToken!=="function" || !window.sbLists.hasToken()) return;
+      pullCustomParts({allowPush:true}).then(function(){
+        const results=$("partsResults");
+        if(!results || results.hidden) return;
+        if(results.querySelector(".parts-new-input")) return;
+        renderPartsList(results, $("partsBox"));
+      }).catch(function(){});
+    }, 20000);
+    if(window.sbLists) syncPartsCloud();
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",bindPartsPlus);
   else bindPartsPlus();
@@ -9254,44 +10974,130 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const main=()=>document.querySelector("main");
+  const MODAL_ROOT="#sigModal, #pdfEmailModal, #pdfPreviewModal, #historySaveModal, #pdfMissingModal, #whatsNewModal, #tokenModal, #machineSaveModal, #routeModal, #companyEditModal";
   function closeOpenCombos(){
     document.querySelectorAll(".combo-results").forEach(el=>{
-      if(el.id==="partsResults" && el.querySelector(".parts-new-input")) return;
+      // Neu-Artikel-Eingabe nur offen lassen, solange das Feld aktiv tippt.
+      if(el.id==="partsResults" && el.querySelector(".parts-new-input")){
+        const a=document.activeElement;
+        if(a && a.classList && a.classList.contains("parts-new-input") && el.contains(a)) return;
+      }
       el.style.display="none";
       el.innerHTML="";
       if("hidden" in el) el.hidden=true;
+      delete el.dataset.place;
     });
   }
-  function keepNotesInView(el){
+  function openComboEl(){
+    return Array.from(document.querySelectorAll(".combo-results")).find(el=>{
+      if(el.hidden) return false;
+      if((el.style.display||"")==="none") return false;
+      try{ return window.getComputedStyle(el).display!=="none"; }catch(e){ return true; }
+    })||null;
+  }
+  function vis(){
+    return typeof visFrame==="function" ? visFrame() : {
+      top:0, bottom:window.innerHeight, height:window.innerHeight
+    };
+  }
+  function safeTop(frame, sr){
+    const header=document.querySelector("header");
+    return Math.max(
+      sr.top+8,
+      frame.top+8,
+      header?header.getBoundingClientRect().bottom+8:0
+    );
+  }
+  function syncKbVar(){
+    const frame=vis();
+    const covered=Math.max(0, Math.round(window.innerHeight-frame.bottom));
+    document.documentElement.style.setProperty("--sb-kb", covered+"px");
+    return covered;
+  }
+  function syncKeyboardPad(){
+    syncKbVar();
+    const scroller=main();
+    if(!scroller) return;
+    const frame=vis();
+    const sr=scroller.getBoundingClientRect();
+    const overlap=Math.max(0, Math.round(sr.bottom-frame.bottom));
+    const combo=openComboEl();
+    const extra=combo ? Math.min(220, Math.max(120, combo.scrollHeight||160)) : 0;
+    const pad=overlap+extra;
+    scroller.style.paddingBottom=pad ? pad+"px" : "";
+  }
+  function keepFieldInView(el, extraBelow){
     const scroller=main();
     if(!scroller || !el) return;
-    const vv=window.visualViewport;
-    const viewTop=vv ? vv.offsetTop : 0;
-    const viewBottom=vv ? vv.offsetTop+vv.height : window.innerHeight;
+    const frame=vis();
     const sr=scroller.getBoundingClientRect();
     const er=el.getBoundingClientRect();
-    const topLimit=Math.max(sr.top+8, viewTop+8);
-    const bottomLimit=Math.min(sr.bottom-8, viewBottom-8);
+    const topLimit=safeTop(frame, sr);
+    const extra=Math.max(0, extraBelow||0);
+    const bottomLimit=Math.min(sr.bottom-8, frame.bottom-12)-extra;
+    if(bottomLimit<topLimit+er.height+8){
+      scroller.scrollTop+=er.top-topLimit;
+      return;
+    }
     if(er.bottom>bottomLimit)
       scroller.scrollTop+=er.bottom-bottomLimit;
     else if(er.top<topLimit)
       scroller.scrollTop-=topLimit-er.top;
   }
-  function onNotesFocus(el){
-    closeOpenCombos();
-    const scroller=main();
-    const keep=scroller ? scroller.scrollTop : 0;
-    requestAnimationFrame(()=>{
-      if(scroller && scroller.scrollTop<keep-24) scroller.scrollTop=keep;
-      keepNotesInView(el);
-    });
-    setTimeout(()=>keepNotesInView(el), 280);
+  function keepNotesInView(el){
+    keepFieldInView(el, 0);
   }
+  function keepKbInView(){
+    syncKeyboardPad();
+    const a=document.activeElement;
+    if(!isKbField(a)){
+      relayoutOpenCombo();
+      return;
+    }
+    const combo=a.closest && a.closest(".combo-box, .parts-box");
+    const results=openComboEl();
+    const target=(combo&&results)?combo:a;
+    let extra=12;
+    if(results && results.dataset.place==="above") extra=12;
+    else if(results && target && target.getBoundingClientRect){
+      const frame=vis();
+      const sr=(main()||document.body).getBoundingClientRect();
+      const need=Math.min(180, Math.max(96, results.scrollHeight||140));
+      const avail=Math.max(0, Math.min(sr.bottom, frame.bottom)-12-safeTop(frame, sr)-target.getBoundingClientRect().height);
+      extra=Math.min(need, avail);
+    }
+    if(target && target.getBoundingClientRect) keepFieldInView(target, extra);
+    relayoutOpenCombo();
+  }
+  function relayoutOpenCombo(){
+    const results=openComboEl();
+    if(!results) return;
+    const box=results.closest(".combo-box, .parts-box") || $("partsBox");
+    if(typeof layoutComboResults==="function") layoutComboResults(results, box);
+  }
+  function isKbField(el){
+    if(!el || !el.tagName) return false;
+    const t=el.tagName;
+    if(t!=="INPUT" && t!=="TEXTAREA" && t!=="SELECT") return false;
+    if(el.disabled) return false;
+    const type=(el.type||"").toLowerCase();
+    if(type==="checkbox" || type==="radio" || type==="file" || type==="hidden" || type==="button" || type==="submit") return false;
+    if(el.closest && el.closest(MODAL_ROOT)) return false;
+    return true;
+  }
+  function onFieldFocus(el){
+    requestAnimationFrame(()=>keepKbInView());
+    setTimeout(keepKbInView, 320);
+  }
+  window.sbKeepKbInView=keepKbInView;
   ["remarks","parts"].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
-    el.addEventListener("focus",()=>onNotesFocus(el));
-    el.addEventListener("input",()=>keepNotesInView(el));
+    el.addEventListener("focus",()=>{
+      closeOpenCombos();
+      onFieldFocus(el);
+    });
+    el.addEventListener("input",()=>keepFieldInView(el, 0));
     el.addEventListener("wheel",e=>{
       const scroller=main();
       if(!scroller) return;
@@ -9312,6 +11118,27 @@ finally{ window.__pdfBuilding=false; }
     if(t && t.closest && t.closest(".combo-box")) return;
     closeOpenCombos();
   }, true);
+  document.addEventListener("focusin",e=>{
+    if(e.target && e.target.id==="tokenModalInput"){
+      syncKbVar();
+      setTimeout(syncKbVar, 120);
+      setTimeout(syncKbVar, 320);
+      setTimeout(syncKbVar, 560);
+    }
+    if(isKbField(e.target)) onFieldFocus(e.target);
+  }, true);
+  document.addEventListener("focusout",()=>{
+    setTimeout(()=>{
+      const a=document.activeElement;
+      if(isKbField(a)) return;
+      if(a && a.closest && a.closest("#tokenModal")) return;
+      const frame=vis();
+      if(window.innerHeight-frame.bottom>80) return;
+      const scroller=main();
+      if(scroller) scroller.style.paddingBottom="";
+      document.documentElement.style.setProperty("--sb-kb","0px");
+    }, 220);
+  }, true);
   const scroller=main();
   if(scroller){
     scroller.addEventListener("scroll",()=>{
@@ -9321,14 +11148,44 @@ finally{ window.__pdfBuilding=false; }
     }, {passive:true});
   }
   window.addEventListener("resize",()=>{
+    lockPageScroll();
     const a=document.activeElement;
-    if(a && a.closest && a.closest(".combo-box, .parts-box")) return;
+    if(a && a.closest && a.closest(".combo-box, .parts-box")){
+      keepKbInView();
+      return;
+    }
     closeOpenCombos();
   }, {passive:true});
+  function lockPageScroll(){
+    try{
+      if(window.scrollX || window.scrollY) window.scrollTo(0,0);
+      if(document.documentElement.scrollTop) document.documentElement.scrollTop=0;
+      if(document.body.scrollTop) document.body.scrollTop=0;
+    }catch(e){}
+  }
+  function allowTouchScroll(el){
+    if(!el || !el.closest) return false;
+    if(el.closest("main, .combo-results, .token-sheet, #pdfPreviewModal, #sigModal")) return true;
+    return false;
+  }
+  document.addEventListener("touchmove",function(e){
+    if(e.touches && e.touches.length>1) return;
+    if(allowTouchScroll(e.target)) return;
+    e.preventDefault();
+  }, {passive:false});
   if(window.visualViewport){
+    let lastH=window.visualViewport.height;
+    window.visualViewport.addEventListener("scroll",()=>{
+      lockPageScroll();
+      syncKbVar();
+    });
     window.visualViewport.addEventListener("resize",()=>{
-      const a=document.activeElement;
-      if(a && (a.id==="remarks" || a.id==="parts")) keepNotesInView(a);
+      lockPageScroll();
+      syncKbVar();
+      const h=window.visualViewport.height;
+      if(Math.abs(h-lastH)<24) return;
+      lastH=h;
+      keepKbInView();
     });
   }
 
@@ -9354,7 +11211,7 @@ finally{ window.__pdfBuilding=false; }
       const back=penField;
       penField=null;
       try{ back.focus({preventScroll:true}); }catch(_e){ back.focus(); }
-      keepNotesInView(back);
+      keepKbInView();
       return;
     }
     penField=null;
