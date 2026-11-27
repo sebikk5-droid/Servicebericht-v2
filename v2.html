@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Servicebericht v4.22">
+<meta name="apple-mobile-web-app-title" content="Servicebericht v4.23">
 <meta name="apple-touch-fullscreen" content="yes">
 <meta name="theme-color" content="#ffffff">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,9 +14,9 @@
 <link rel="manifest" href="manifest-v2.webmanifest">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <title>Servicebericht v4.22</title>
+  <title>Servicebericht v4.23</title>
 <script>
-window.SB_APP_VERSION="4.22";
+window.SB_APP_VERSION="4.23";
 /** Start-Hinweis „Neue Optionen“ aus – auf Wunsch wieder befüllen. */
 window.SB_RELEASE_NOTES=[];
 window.SB_GITHUB_MAIN_RAW="https://raw.githubusercontent.com/sebikk5-droid/Servicebericht-v2/main/v2.html";
@@ -1258,7 +1258,7 @@ select.is-nudge,input.is-nudge{
   <div class="credit" id="appCredit" title="Neueste Version laden">
     <span class="credit-line">
       <span id="appCreditText">Created by S. Pawlina</span>
-      <span id="appCreditVer" class="app-ver">v4.22</span>
+      <span id="appCreditVer" class="app-ver">v4.23</span>
     </span>
     <button type="button" id="appReloadBtn" class="btn-app-reload" aria-label="Neueste Version laden" title="Neueste Version laden">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.3-5.6"/><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/></svg>
@@ -7000,7 +7000,7 @@ finally{ window.__pdfBuilding=false; }
 <script>
 (function(){
   const TOKEN_KEY="servicebericht_github_token";
-  const APP_VERSION=window.SB_APP_VERSION||"4.22";
+  const APP_VERSION=window.SB_APP_VERSION||"4.23";
   const FILES={emails:"customer-emails.json", machines:"customer-machines.json", companies:"companies.json", parts:"ersatzteile.json"};
   const DATA_REPO_NAME="Servicebericht-listen";
   function repo(){
@@ -11341,31 +11341,30 @@ finally{ window.__pdfBuilding=false; }
     // Nur die Nummer – „LS“ kommt einmal im PDF-Text, nicht nochmal aus dem Feld.
     return String(v||"").trim().replace(/^LS\s*[-/]?\s*(Nr\.?\s*)?/i,"").trim();
   }
-  function formatPartsRowLine(row){
-    const ls=cleanLsNr(row.ls);
+  function formatPartsArtOnly(row){
     const nr=String(row.nr||"").trim();
     const name=String(row.name||"").trim();
     const menge=String(row.menge||"").trim().replace(/\s*[x×]\s*$/i,"");
-    if(!ls && !nr && !name && !menge) return "";
-    // PDF: „2x Metaflux Art. Nr. 3408“ – Menge × Name Art. Nr. Nummer
+    if(!nr && !name && !menge) return "";
+    // PDF: „2x Metaflux Art. Nr. 3408“
     let art="";
     if(menge) art=menge+"x";
     if(name) art=art ? art+" "+name : name;
     if(nr) art=art ? art+" Art. Nr. "+nr : "Art. Nr. "+nr;
-    if(!art && menge) art=menge+"x";
-    if(ls && art) return "LS "+ls+", "+art;
-    if(ls) return "LS "+ls;
     return art;
   }
-  function splitPartsStoredText(text){
-    const s=String(text||"").trim();
-    if(!s) return [];
-    // Alt: eine Zeile = eine PDF-Zeile.
-    if(/\n/.test(s)) return s.split(/\r?\n/).map(x=>String(x||"").trim()).filter(Boolean);
-    // Neu: Positionen durch Komma, PDF bricht automatisch um.
-    if(/\bLS\b/i.test(s))
-      return s.split(/\s*,\s*(?=LS\b)/i).map(x=>String(x||"").trim()).filter(Boolean);
-    return s.split(/\s*,\s*/).map(x=>String(x||"").trim()).filter(Boolean);
+  function formatPartsPdfText(rows){
+    const list=rows||[];
+    const lsBits=[];
+    const artBits=[];
+    list.forEach(function(row){
+      const ls=cleanLsNr(row.ls);
+      if(ls) lsBits.push("LS "+ls);
+      const art=formatPartsArtOnly(row);
+      if(art) artBits.push(art);
+    });
+    // Immer zuerst alle Lieferscheine, danach Ersatzteile.
+    return lsBits.concat(artBits).join(", ");
   }
   function parsePartsRowLine(line){
     const empty={ls:"", nr:"", name:"", menge:""};
@@ -11373,7 +11372,7 @@ finally{ window.__pdfBuilding=false; }
     if(!raw) return empty;
     let ls="";
     let rest=raw;
-    // „LS 123, Artikel…“ (neu) oder „LS 123 | Artikel…“ (alt)
+    // „LS 123, Artikel…“ / „LS 123 | Artikel…“ (ältere Entwürfe)
     const sep=raw.match(/^LS(?:-?\s*Nr\.?)?\s*([^,|]*)\s*[,|]\s*(.*)$/i);
     if(sep){
       ls=cleanLsNr(sep[1]);
@@ -11381,19 +11380,48 @@ finally{ window.__pdfBuilding=false; }
     }else{
       const lsOnly=raw.match(/^LS(?:-?\s*Nr\.?)?\s+(.+)$/i);
       if(lsOnly){
-        const bits=String(lsOnly[1]||"").trim().split(/\s+/);
-        if(bits.length>=2 && /^\d/.test(bits[1])){
-          ls=cleanLsNr(bits[0]);
-          rest=bits.slice(1).join(" ");
-        }else{
-          ls=cleanLsNr(lsOnly[1]);
-          rest="";
-        }
+        ls=cleanLsNr(lsOnly[1]);
+        rest="";
       }
     }
     const art=parsePartsCatalogLabel(rest);
     if(!ls && !rest) return empty;
     return {ls:ls, nr:art.nr, name:art.name||(!art.nr?rest:""), menge:art.menge};
+  }
+  function parsePartsBlobToRows(text){
+    const s=String(text||"").trim();
+    if(!s) return [];
+    // Alt: eine Zeile = eine Position
+    if(/\n/.test(s))
+      return s.split(/\r?\n/).map(function(line){ return parsePartsRowLine(line); })
+        .filter(function(r){ return r.ls||r.nr||r.name||r.menge; });
+    // Alt verschachtelt: „LS …, Art…, LS …, Art…“
+    if(/Art\.?\s*Nr\.[^,|]*,\s*LS\b/i.test(s) || /\|\s*/.test(s)){
+      return s.split(/\s*,\s*(?=LS\b)/i).map(function(chunk){ return parsePartsRowLine(chunk); })
+        .filter(function(r){ return r.ls||r.nr||r.name||r.menge; });
+    }
+    // Neu: zuerst alle LS, danach alle Artikel – zeilenweise wieder zusammenführen.
+    const lsList=[];
+    let rest=s.replace(/\bLS\s+([^,]+)(?:,\s*)?/gi, function(_m, num){
+      const n=cleanLsNr(num);
+      if(n) lsList.push(n);
+      return "";
+    }).replace(/^[\s,]+|[\s,]+$/g,"").trim();
+    const arts=rest
+      ? rest.split(/\s*,\s*/).map(function(x){ return String(x||"").trim(); }).filter(Boolean)
+      : [];
+    const n=Math.max(lsList.length, arts.length);
+    const rows=[];
+    for(let i=0;i<n;i++){
+      const art=arts[i] ? parsePartsCatalogLabel(arts[i]) : {nr:"", name:"", menge:""};
+      rows.push({
+        ls:lsList[i]||"",
+        nr:art.nr||"",
+        name:art.name||"",
+        menge:art.menge||""
+      });
+    }
+    return rows;
   }
   function readPartsTableRows(){
     const body=$("partsTableBody");
@@ -11412,9 +11440,8 @@ finally{ window.__pdfBuilding=false; }
     if(partsTableLock && !opts.force) return;
     const el=$("parts");
     if(!el) return;
-    const lines=readPartsTableRows().map(formatPartsRowLine).filter(Boolean);
-    // Ein Fließtext mit Kommas → wrapIntoFields füllt Ersatzteile 1–4.
-    const next=lines.join(", ");
+    // PDF-Text: Lieferscheine zuerst, dann Ersatzteile.
+    const next=formatPartsPdfText(readPartsTableRows());
     if(el.value===next) return;
     partsTableLock=true;
     el.value=next;
@@ -11476,7 +11503,7 @@ finally{ window.__pdfBuilding=false; }
     const body=$("partsTableBody");
     if(!el || !body) return;
     partsTableLock=true;
-    const rows=splitPartsStoredText(el.value).map(parsePartsRowLine);
+    const rows=parsePartsBlobToRows(el.value);
     while(rows.length && !rows[rows.length-1].ls && !rows[rows.length-1].nr && !rows[rows.length-1].name && !rows[rows.length-1].menge)
       rows.pop();
     const count=Math.max(2, Math.min(PARTS_MAX_ROWS, rows.length||2));
